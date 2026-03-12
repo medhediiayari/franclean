@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
@@ -16,18 +17,21 @@ import { Link } from 'react-router-dom';
 
 export default function AgentDashboard() {
   const { user } = useAuthStore();
-  const { events } = useEventStore();
-  const { records } = useAttendanceStore();
+  const { events, fetchEvents } = useEventStore();
+  const { records, fetchRecords } = useAttendanceStore();
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   if (!user) return null;
 
-  const myEvents = events.filter((e) => e.assignedAgentId === user.id);
+  const myEvents = events.filter((e) => e.assignedAgentIds.includes(user.id));
   const myRecords = records.filter((r) => r.agentId === user.id);
 
   const activeEvents = myEvents.filter(
     (e) => e.status === 'en_cours' || e.status === 'planifie',
   );
-  const pendingEvents = myEvents.filter((e) => e.agentResponse === 'pending');
+  const pendingEvents = myEvents.filter((e) => e.agentResponses?.[user.id] === 'pending');
   const totalValidatedHours = myRecords
     .filter((r) => r.status === 'valide')
     .reduce((sum, r) => sum + (r.hoursWorked || 0), 0);

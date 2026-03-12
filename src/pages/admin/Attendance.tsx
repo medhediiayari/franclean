@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
@@ -27,9 +27,13 @@ import {
 type ViewMode = 'table' | 'par-agent';
 
 export default function AdminAttendance() {
-  const { records, validateRecord } = useAttendanceStore();
-  const { events } = useEventStore();
-  const { users, user: currentUser } = useAuthStore();
+  const { records, validateRecord, fetchRecords } = useAttendanceStore();
+  const { events, fetchEvents } = useEventStore();
+  const { users, user: currentUser, fetchUsers } = useAuthStore();
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const [selectedRecord, setSelectedRecord] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -73,14 +77,18 @@ export default function AdminAttendance() {
 
   const record = records.find((r) => r.id === selectedRecord);
 
-  const handleValidate = (status: AttendanceStatus) => {
+  const handleValidate = async (status: AttendanceStatus) => {
     if (!selectedRecord || !currentUser) return;
-    validateRecord(
-      selectedRecord,
-      status,
-      currentUser.id,
-      status === 'refuse' ? refusalReason : undefined,
-    );
+    try {
+      await validateRecord(
+        selectedRecord,
+        status,
+        currentUser.id,
+        status === 'refuse' ? refusalReason : undefined,
+      );
+    } catch (err) {
+      console.error('Failed to validate record', err);
+    }
     setShowDetail(false);
     setRefusalReason('');
   };

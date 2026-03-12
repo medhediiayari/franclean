@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import Modal from '../../components/common/Modal';
-import { generateId, getInitials } from '../../utils/helpers';
+import { getInitials } from '../../utils/helpers';
 import type { User, Role } from '../../types';
 import {
   Plus,
@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 
 export default function Users() {
-  const { users, addUser, updateUser, deleteUser } = useAuthStore();
+  const { users, addUser, updateUser, deleteUser, fetchUsers } = useAuthStore();
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
@@ -29,6 +31,7 @@ export default function Users() {
     lastName: '',
     email: '',
     phone: '',
+    password: '',
     role: 'agent' as Role,
     isActive: true,
   });
@@ -52,6 +55,7 @@ export default function Users() {
       lastName: '',
       email: '',
       phone: '',
+      password: '',
       role: 'agent',
       isActive: true,
     });
@@ -62,6 +66,7 @@ export default function Users() {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
+      password: '',
       role: user.role,
       isActive: user.isActive,
     });
@@ -70,25 +75,34 @@ export default function Users() {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formMode === 'create') {
-      const newUser: User = {
-        id: generateId('user'),
-        ...form,
-        createdAt: new Date().toISOString(),
-      };
-      addUser(newUser);
-    } else if (selectedUserId) {
-      updateUser(selectedUserId, form);
+    try {
+      if (formMode === 'create') {
+        await addUser({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          password: form.password,
+          role: form.role,
+          isActive: form.isActive,
+        });
+      } else if (selectedUserId) {
+        const data: Record<string, unknown> = { ...form };
+        if (!form.password) delete data.password;
+        await updateUser(selectedUserId, data as Partial<User> & { password?: string });
+      }
+      setShowForm(false);
+      resetForm();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur');
     }
-    setShowForm(false);
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Supprimer cet utilisateur ?')) {
-      deleteUser(id);
+      try { await deleteUser(id); } catch (err) { alert(err instanceof Error ? err.message : 'Erreur'); }
     }
   };
 
@@ -317,6 +331,18 @@ export default function Users() {
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               required
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Mot de passe {formMode === 'create' ? '*' : '(laisser vide pour ne pas changer)'}
+            </label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              required={formMode === 'create'}
               className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             />
           </div>

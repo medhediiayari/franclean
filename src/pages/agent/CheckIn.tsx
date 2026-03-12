@@ -1,11 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { generateId, formatTime } from '../../utils/helpers';
+import { formatTime } from '../../utils/helpers';
 import { getCurrentPosition, isWithinRadius, formatDistance } from '../../utils/geolocation';
-import type { Attendance } from '../../types';
 import {
   Camera,
   MapPin,
@@ -18,8 +17,11 @@ import {
 
 export default function CheckIn() {
   const { user } = useAuthStore();
-  const { events } = useEventStore();
-  const { records, addRecord, updateRecord } = useAttendanceStore();
+  const { events, fetchEvents } = useEventStore();
+  const { records, addRecord, updateRecord, fetchRecords } = useAttendanceStore();
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +40,7 @@ export default function CheckIn() {
   const today = new Date().toISOString().slice(0, 10);
   const myEvents = events.filter(
     (e) =>
-      e.assignedAgentId === user.id &&
+      e.assignedAgentIds.includes(user.id) &&
       (e.status === 'en_cours' || e.status === 'planifie') &&
       e.startDate.slice(0, 10) <= today &&
       e.endDate.slice(0, 10) >= today,
@@ -136,8 +138,7 @@ export default function CheckIn() {
       const now = new Date();
 
       if (mode === 'check-in') {
-        const newRecord: Attendance = {
-          id: generateId('att'),
+        await addRecord({
           eventId: selectedEvent.id,
           agentId: user.id,
           date: today,
@@ -149,10 +150,7 @@ export default function CheckIn() {
           status: suspectReasons.length > 0 ? 'suspect' : 'en_attente',
           isSuspect: suspectReasons.length > 0,
           suspectReasons,
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        };
-        addRecord(newRecord);
+        });
         setSuccess('Pointage d\'entrée enregistré avec succès !');
       } else if (existingRecord) {
         // Calculate hours
@@ -164,7 +162,7 @@ export default function CheckIn() {
           suspectReasons.push('Durée supérieure à 12h');
         }
 
-        updateRecord(existingRecord.id, {
+        await updateRecord(existingRecord.id, {
           checkOutTime: now.toISOString(),
           checkOutPhotoUrl: capturedPhoto,
           checkOutLatitude: latitude,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
@@ -15,8 +15,11 @@ import {
 
 export default function MyHours() {
   const { user } = useAuthStore();
-  const { records } = useAttendanceStore();
-  const { events } = useEventStore();
+  const { records, fetchRecords } = useAttendanceStore();
+  const { events, fetchEvents } = useEventStore();
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
   if (!user) return null;

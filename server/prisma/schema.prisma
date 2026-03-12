@@ -1,0 +1,170 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi"]
+}
+
+// ── Users ───────────────────────────────────────────────
+enum Role {
+  admin
+  agent
+}
+
+model User {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String   @unique
+  password  String
+  phone     String   @default("")
+  role      Role     @default(agent)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Relations
+  assignedEvents EventAgent[]
+  attendances    Attendance[]
+  historyEntries EventHistory[]
+
+  @@map("users")
+}
+
+// ── Events ──────────────────────────────────────────────
+enum EventStatus {
+  planifie
+  en_cours
+  termine
+  a_reattribuer
+  annule
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  description String      @default("")
+  client      String?
+  color       String      @default("#6366F1")
+  startDate   DateTime    @db.Date
+  endDate     DateTime    @db.Date
+  address     String      @default("")
+  latitude    Float?
+  longitude   Float?
+  geoRadius   Int         @default(200)
+  status      EventStatus @default(planifie)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  shifts      EventShift[]
+  agents      EventAgent[]
+  history     EventHistory[]
+  attendances Attendance[]
+
+  @@map("events")
+}
+
+// ── Event ↔ Agent (many-to-many with response) ─────────
+enum AgentResponse {
+  pending
+  accepted
+  refused
+}
+
+model EventAgent {
+  id       String        @id @default(cuid())
+  eventId  String
+  agentId  String
+  response AgentResponse @default(pending)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  agent User  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, agentId])
+  @@map("event_agents")
+}
+
+// ── Event Shifts ────────────────────────────────────────
+model EventShift {
+  id        String   @id @default(cuid())
+  eventId   String
+  date      DateTime @db.Date
+  startTime String   // HH:mm
+  endTime   String   // HH:mm
+
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+
+  @@map("event_shifts")
+}
+
+// ── Event History ───────────────────────────────────────
+model EventHistory {
+  id        String   @id @default(cuid())
+  eventId   String
+  action    String
+  userId    String
+  details   String?
+  timestamp DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("event_history")
+}
+
+// ── Attendance ──────────────────────────────────────────
+enum AttendanceStatus {
+  en_attente
+  valide
+  refuse
+  suspect
+}
+
+model Attendance {
+  id      String @id @default(cuid())
+  eventId String
+  shiftId String?
+  agentId String
+  date    DateTime @db.Date
+
+  // Check-in
+  checkInTime          DateTime?
+  checkInPhotoUrl      String?
+  checkInLatitude      Float?
+  checkInLongitude     Float?
+  checkInLocationValid Boolean?
+
+  // Check-out
+  checkOutTime          DateTime?
+  checkOutPhotoUrl      String?
+  checkOutLatitude      Float?
+  checkOutLongitude     Float?
+  checkOutLocationValid Boolean?
+
+  // Calculated
+  hoursWorked Float?
+
+  // Validation
+  status        AttendanceStatus @default(en_attente)
+  validatedBy   String?
+  validatedAt   DateTime?
+  refusalReason String?
+
+  // Flags
+  isSuspect      Boolean  @default(false)
+  suspectReasons String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  shift EventShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  agent User       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("attendances")
+}

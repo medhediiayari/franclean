@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
@@ -16,9 +17,13 @@ import {
 import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
-  const { users } = useAuthStore();
-  const { events } = useEventStore();
-  const { records } = useAttendanceStore();
+  const { users, fetchUsers } = useAuthStore();
+  const { events, fetchEvents } = useEventStore();
+  const { records, fetchRecords } = useAttendanceStore();
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   const agents = users.filter((u) => u.role === 'agent');
   const activeAgents = agents.filter((u) => u.isActive);
@@ -173,7 +178,7 @@ export default function AdminDashboard() {
                     <p className="text-sm font-medium text-slate-900 truncate">{event.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-slate-500">
-                        {getAgentName(event.assignedAgentId)}
+                        {event.assignedAgentIds.map((id) => getAgentName(id)).join(', ')}
                       </span>
                       <span className="text-slate-300">•</span>
                       <span className="text-xs text-slate-400 flex items-center gap-1">

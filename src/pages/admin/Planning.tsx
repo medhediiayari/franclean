@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -9,8 +9,8 @@ import { useAuthStore } from '../../store/authStore';
 import Modal from '../../components/common/Modal';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../../utils/helpers';
-import { generateId } from '../../utils/helpers';
 import type { PlanningEvent, EventStatus, EventShift } from '../../types';
+import LocationPicker from '../../components/common/LocationPicker';
 import {
   Plus,
   MapPin,
@@ -26,7 +26,17 @@ import {
   ChevronRight,
   CalendarDays,
   Briefcase,
+  Flame,
+  Copy,
+  Check,
 } from 'lucide-react';
+
+const EVENT_PALETTE = [
+  '#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6',
+  '#8B5CF6', '#EF4444', '#14B8A6', '#F97316', '#84CC16',
+  '#0EA5E9', '#D946EF', '#F43F5E', '#A855F7', '#EA580C',
+  '#64748B', '#059669', '#DC2626', '#7C3AED', '#DB2777',
+];
 
 const statusColors: Record<EventStatus, string> = {
   planifie: '#6366F1',
@@ -37,15 +47,19 @@ const statusColors: Record<EventStatus, string> = {
 };
 
 export default function Planning() {
-  const { events, addEvent, updateEvent, deleteEvent } = useEventStore();
-  const { users } = useAuthStore();
+  const { events, addEvent, updateEvent, deleteEvent, fetchEvents } = useEventStore();
+  const { users, fetchUsers } = useAuthStore();
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<PlanningEvent | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
-  const [showYearView, setShowYearView] = useState(false);
+  const [calendarView, setCalendarView] = useState<'calendar' | 'year' | 'heatmap'>('calendar');
   const [yearViewYear, setYearViewYear] = useState(new Date().getFullYear());
+  const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
   const calendarRef = useRef<FullCalendar>(null);
 
   const agents = users.filter((u) => u.role === 'agent' && u.isActive);
@@ -55,13 +69,14 @@ export default function Planning() {
     title: '',
     description: '',
     client: '',
+    color: EVENT_PALETTE[0],
     startDate: '',
     endDate: '',
     address: '',
     latitude: '',
     longitude: '',
     geoRadius: '200',
-    assignedAgentId: '',
+    assignedAgentIds: [] as string[],
     status: 'planifie' as EventStatus,
   });
 
@@ -86,8 +101,8 @@ export default function Planning() {
             title: evt.title,
             start: `${shift.date}T${shift.startTime}:00`,
             end: `${shift.date}T${shift.endTime}:00`,
-            backgroundColor: statusColors[evt.status],
-            borderColor: statusColors[evt.status],
+            backgroundColor: evt.color || statusColors[evt.status],
+            borderColor: evt.color || statusColors[evt.status],
           });
         }
       } else {
@@ -97,8 +112,8 @@ export default function Planning() {
           start: evt.startDate,
           end: evt.endDate,
           allDay: true,
-          backgroundColor: statusColors[evt.status],
-          borderColor: statusColors[evt.status],
+          backgroundColor: evt.color || statusColors[evt.status],
+          borderColor: evt.color || statusColors[evt.status],
         });
       }
     }
@@ -110,13 +125,14 @@ export default function Planning() {
       title: '',
       description: '',
       client: '',
+      color: EVENT_PALETTE[Math.floor(Math.random() * EVENT_PALETTE.length)],
       startDate: '',
       endDate: '',
       address: '',
       latitude: '',
       longitude: '',
       geoRadius: '200',
-      assignedAgentId: '',
+      assignedAgentIds: [] as string[],
       status: 'planifie',
     });
     setFormShifts([]);
@@ -153,13 +169,14 @@ export default function Planning() {
       title: selectedEvent.title,
       description: selectedEvent.description,
       client: selectedEvent.client || '',
+      color: selectedEvent.color || EVENT_PALETTE[0],
       startDate: selectedEvent.startDate,
       endDate: selectedEvent.endDate,
       address: selectedEvent.address,
       latitude: selectedEvent.latitude?.toString() || '',
       longitude: selectedEvent.longitude?.toString() || '',
       geoRadius: selectedEvent.geoRadius?.toString() || '200',
-      assignedAgentId: selectedEvent.assignedAgentId,
+      assignedAgentIds: selectedEvent.assignedAgentIds,
       status: selectedEvent.status,
     });
     setFormShifts(selectedEvent.shifts || []);
@@ -168,13 +185,15 @@ export default function Planning() {
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.assignedAgentIds.length === 0) return;
 
     const eventData = {
       title: form.title,
       description: form.description,
       client: form.client || undefined,
+      color: form.color,
       startDate: form.startDate,
       endDate: form.endDate,
       shifts: formShifts,
@@ -182,38 +201,18 @@ export default function Planning() {
       latitude: form.latitude ? parseFloat(form.latitude) : undefined,
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 200,
-      assignedAgentId: form.assignedAgentId,
+      assignedAgentIds: form.assignedAgentIds,
       status: form.status,
     };
 
-    if (formMode === 'create') {
-      const newEvent: PlanningEvent = {
-        ...eventData,
-        id: generateId('evt'),
-        agentResponse: 'pending',
-        history: [
-          {
-            action: 'Création',
-            userId: 'admin-1',
-            timestamp: new Date().toISOString(),
-          },
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      addEvent(newEvent);
-    } else if (selectedEvent) {
-      updateEvent(selectedEvent.id, {
-        ...eventData,
-        history: [
-          ...selectedEvent.history,
-          {
-            action: 'Modification',
-            userId: 'admin-1',
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      });
+    try {
+      if (formMode === 'create') {
+        await addEvent(eventData);
+      } else if (selectedEvent) {
+        await updateEvent(selectedEvent.id, eventData);
+      }
+    } catch (err) {
+      console.error('Failed to save event', err);
     }
 
     setShowForm(false);
@@ -221,19 +220,28 @@ export default function Planning() {
     setSelectedEvent(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedEvent && confirm('Supprimer cet événement ?')) {
-      deleteEvent(selectedEvent.id);
+      try {
+        await deleteEvent(selectedEvent.id);
+      } catch (err) {
+        console.error('Failed to delete event', err);
+      }
       setShowDetail(false);
       setSelectedEvent(null);
     }
   };
 
-  const handleEventDrop = (info: { event: { id: string; startStr: string; endStr: string } }) => {
+  const handleEventDrop = async (info: { event: { id: string; startStr: string; endStr: string } }) => {
     const evtId = info.event.id.includes('__') ? info.event.id.split('__')[0] : info.event.id;
     const startDate = info.event.startStr.slice(0, 10);
     const endDate = info.event.endStr ? info.event.endStr.slice(0, 10) : startDate;
-    updateEvent(evtId, { startDate, endDate });
+    try {
+      await updateEvent(evtId, { startDate, endDate });
+    } catch (err) {
+      console.error('Failed to update event', err);
+      info.event.id; // FullCalendar handles revert via info.revert() if needed
+    }
   };
 
   const getAgentName = (id: string) => {
@@ -242,12 +250,62 @@ export default function Planning() {
   };
 
   // Shift management helpers
-  const addShift = () => {
-    const date = form.startDate || new Date().toISOString().slice(0, 10);
+  const getDatesInRange = (start: string, end: string): string[] => {
+    if (!start || !end) return [];
+    const dates: string[] = [];
+    const d = new Date(start);
+    const endDate = new Date(end);
+    while (d <= endDate) {
+      dates.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const addShiftForDate = (date: string) => {
     setFormShifts((s) => [
       ...s,
-      { id: generateId('sh'), date, startTime: '08:00', endTime: '17:00' },
+      { id: crypto.randomUUID(), date, startTime: '08:00', endTime: '17:00' },
     ]);
+  };
+
+  const applyTemplateToAllDays = (templates: { startTime: string; endTime: string }[]) => {
+    const dates = getDatesInRange(form.startDate, form.endDate);
+    if (dates.length === 0 || templates.length === 0) return;
+    const newShifts: EventShift[] = [];
+    for (const date of dates) {
+      for (const tpl of templates) {
+        newShifts.push({
+          id: crypto.randomUUID(),
+          date,
+          startTime: tpl.startTime,
+          endTime: tpl.endTime,
+        });
+      }
+    }
+    setFormShifts(newShifts);
+  };
+
+  const copyDayToAll = (sourceDate: string) => {
+    const sourceShifts = formShifts.filter((s) => s.date === sourceDate);
+    if (sourceShifts.length === 0) return;
+    const dates = getDatesInRange(form.startDate, form.endDate);
+    const newShifts: EventShift[] = [];
+    for (const date of dates) {
+      for (const src of sourceShifts) {
+        newShifts.push({
+          id: crypto.randomUUID(),
+          date,
+          startTime: src.startTime,
+          endTime: src.endTime,
+        });
+      }
+    }
+    setFormShifts(newShifts);
+  };
+
+  const removeShiftsForDate = (date: string) => {
+    setFormShifts((s) => s.filter((sh) => sh.date !== date));
   };
 
   const updateShift = (index: number, field: keyof EventShift, value: string) => {
@@ -300,13 +358,35 @@ export default function Planning() {
         ))}
       </div>
 
-      {/* Year view toggle */}
-      {showYearView ? (
+      {/* View switcher */}
+      <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
+        {[
+          { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
+          { key: 'year' as const, label: 'Année', icon: Grid3X3 },
+          { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setCalendarView(key)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all ${
+              calendarView === key
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-slate-500 hover:text-primary-700 hover:bg-slate-50'
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Views */}
+      {calendarView === 'year' && (
         <YearOverview
           year={yearViewYear}
           events={events}
           onSelectMonth={(month) => {
-            setShowYearView(false);
+            setCalendarView('calendar');
             setTimeout(() => {
               const api = calendarRef.current?.getApi();
               if (api) {
@@ -316,22 +396,35 @@ export default function Planning() {
             }, 0);
           }}
           onYearChange={setYearViewYear}
-          onClose={() => setShowYearView(false)}
+          onClose={() => setCalendarView('calendar')}
         />
-      ) : (
+      )}
+
+      {calendarView === 'heatmap' && (
+        <HeatmapCalendar
+          year={heatmapYear}
+          events={events}
+          onYearChange={setHeatmapYear}
+          onDayClick={(date) => {
+            setCalendarView('calendar');
+            setTimeout(() => {
+              const api = calendarRef.current?.getApi();
+              if (api) {
+                api.gotoDate(date);
+                api.changeView('timeGridDay');
+              }
+            }, 0);
+          }}
+        />
+      )}
+
+      {calendarView === 'calendar' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <CalendarDays size={16} className="text-primary-500" />
               <span className="font-medium">{events.length} événement{events.length > 1 ? 's' : ''}</span>
             </div>
-            <button
-              onClick={() => setShowYearView(true)}
-              className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-xl transition-all hover:shadow-sm"
-            >
-              <Grid3X3 size={15} />
-              Vue Année
-            </button>
           </div>
           <div className="p-4 sm:p-5">
             <FullCalendar
@@ -386,24 +479,32 @@ export default function Planning() {
         {selectedEvent && (
           <div className="space-y-6">
             <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">{selectedEvent.title}</h3>
-                <p className="text-slate-500 mt-1">{selectedEvent.description}</p>
+              <div className="flex items-start gap-3">
+                <span
+                  className="mt-1.5 w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
+                  style={{ backgroundColor: selectedEvent.color, boxShadow: `0 0 0 3px ${selectedEvent.color}30` }}
+                />
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedEvent.title}</h3>
+                  <p className="text-slate-500 mt-1">{selectedEvent.description}</p>
+                </div>
               </div>
               <StatusBadge status={selectedEvent.status} size="md" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                <User size={18} className="text-slate-400" />
-                <div>
-                  <p className="text-xs text-slate-400">Agent assigné</p>
-                  <p className="text-sm font-medium text-slate-900">
-                    {getAgentName(selectedEvent.assignedAgentId)}
-                  </p>
-                </div>
-                <div className="ml-auto">
-                  <StatusBadge status={selectedEvent.agentResponse || 'pending'} />
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl sm:col-span-2">
+                <User size={18} className="text-slate-400 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs text-slate-400 mb-1">Agents assignés</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedEvent.assignedAgentIds.map((agentId) => (
+                      <span key={agentId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-sm">
+                        <span className="font-medium text-slate-900">{getAgentName(agentId)}</span>
+                        <StatusBadge status={selectedEvent.agentResponses?.[agentId] || 'pending'} />
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -562,21 +663,63 @@ export default function Planning() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Agent assigné *
+                Agents assignés *
               </label>
-              <select
-                value={form.assignedAgentId}
-                onChange={(e) => setForm((f) => ({ ...f, assignedAgentId: e.target.value }))}
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              >
-                <option value="">Sélectionner un agent</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.firstName} {agent.lastName}
-                  </option>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-300 rounded-xl p-2.5">
+                {agents.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-2">Aucun agent actif</p>
+                )}
+                {agents.map((agent) => {
+                  const checked = form.assignedAgentIds.includes(agent.id);
+                  return (
+                    <label
+                      key={agent.id}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
+                        checked ? 'bg-primary-50 border border-primary-200' : 'hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setForm((f) => ({
+                            ...f,
+                            assignedAgentIds: checked
+                              ? f.assignedAgentIds.filter((id) => id !== agent.id)
+                              : [...f.assignedAgentIds, agent.id],
+                          }))
+                        }
+                        className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className={`text-sm ${checked ? 'font-medium text-primary-900' : 'text-slate-700'}`}>
+                        {agent.firstName} {agent.lastName}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {form.assignedAgentIds.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">Sélectionnez au moins un agent</p>
+              )}
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Couleur</label>
+              <div className="flex flex-wrap gap-2">
+                {EVENT_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, color: c }))}
+                    className={`w-8 h-8 rounded-lg transition-all ${
+                      form.color === c
+                        ? 'ring-2 ring-offset-2 ring-slate-400 scale-110'
+                        : 'hover:scale-110 opacity-70 hover:opacity-100'
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
                 ))}
-              </select>
+              </div>
             </div>
 
             <div>
@@ -605,41 +748,12 @@ export default function Planning() {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Adresse *</label>
-              <input
-                type="text"
-                value={form.address}
-                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="Adresse complète du lieu d'intervention"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Latitude</label>
-              <input
-                type="number"
-                step="any"
-                value={form.latitude}
-                onChange={(e) => setForm((f) => ({ ...f, latitude: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="48.8566"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Longitude</label>
-              <input
-                type="number"
-                step="any"
-                value={form.longitude}
-                onChange={(e) => setForm((f) => ({ ...f, longitude: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="2.3522"
-              />
-            </div>
+            <LocationPicker
+              address={form.address}
+              latitude={form.latitude}
+              longitude={form.longitude}
+              onUpdate={(fields) => setForm((f) => ({ ...f, ...fields }))}
+            />
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -674,76 +788,32 @@ export default function Planning() {
             )}
           </div>
 
-          {/* Shifts / Horaires */}
-          <div className="border border-slate-200 rounded-xl p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                <Clock size={16} /> Horaires / Créneaux
-              </h4>
-              <button
-                type="button"
-                onClick={addShift}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
-              >
-                <Plus size={14} />
-                Ajouter un créneau
-              </button>
-            </div>
+          {/* Shifts / Horaires — Smart scheduler */}
+          {form.startDate && form.endDate && (
+            <ShiftScheduler
+              startDate={form.startDate}
+              endDate={form.endDate}
+              shifts={formShifts}
+              onAddShiftForDate={addShiftForDate}
+              onApplyTemplate={applyTemplateToAllDays}
+              onCopyDayToAll={copyDayToAll}
+              onRemoveShiftsForDate={removeShiftsForDate}
+              onUpdateShift={updateShift}
+              onRemoveShift={removeShift}
+            />
+          )}
 
-            {formShifts.length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-3">
-                Aucun créneau horaire défini. Cliquez sur "Ajouter un créneau" pour définir les heures d'entrée et de sortie.
-              </p>
-            )}
-
-            <div className="space-y-3">
-              {formShifts.map((shift, idx) => (
-                <div
-                  key={shift.id}
-                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl"
-                >
-                  <input
-                    type="date"
-                    value={shift.date}
-                    min={form.startDate}
-                    max={form.endDate}
-                    onChange={(e) => updateShift(idx, 'date', e.target.value)}
-                    className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-500">Entrée</label>
-                    <input
-                      type="time"
-                      value={shift.startTime}
-                      onChange={(e) => updateShift(idx, 'startTime', e.target.value)}
-                      className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-500">Sortie</label>
-                    <input
-                      type="time"
-                      value={shift.endTime}
-                      onChange={(e) => updateShift(idx, 'endTime', e.target.value)}
-                      className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeShift(idx)}
-                    className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-auto"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ))}
+          {!form.startDate || !form.endDate ? (
+            <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center">
+              <Clock size={20} className="mx-auto text-slate-300 mb-2" />
+              <p className="text-sm text-slate-400">Renseignez les dates de début et fin pour configurer les créneaux horaires.</p>
             </div>
-          </div>
+          ) : null}
 
           {/* Conflict warning */}
-          {form.assignedAgentId && form.startDate && form.endDate && (
+          {form.assignedAgentIds.length > 0 && form.startDate && form.endDate && (
             <ConflictWarning
-              agentId={form.assignedAgentId}
+              agentIds={form.assignedAgentIds}
               start={form.startDate}
               end={form.endDate}
               excludeId={selectedEvent?.id}
@@ -771,21 +841,289 @@ export default function Planning() {
   );
 }
 
+const WEEKDAY_NAMES = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+function ShiftScheduler({
+  startDate,
+  endDate,
+  shifts,
+  onAddShiftForDate,
+  onApplyTemplate,
+  onCopyDayToAll,
+  onRemoveShiftsForDate,
+  onUpdateShift,
+  onRemoveShift,
+}: {
+  startDate: string;
+  endDate: string;
+  shifts: EventShift[];
+  onAddShiftForDate: (date: string) => void;
+  onApplyTemplate: (templates: { startTime: string; endTime: string }[]) => void;
+  onCopyDayToAll: (sourceDate: string) => void;
+  onRemoveShiftsForDate: (date: string) => void;
+  onUpdateShift: (index: number, field: keyof EventShift, value: string) => void;
+  onRemoveShift: (index: number) => void;
+}) {
+  const [templateSlots, setTemplateSlots] = useState<{ startTime: string; endTime: string }[]>([
+    { startTime: '08:00', endTime: '17:00' },
+  ]);
+  const [applied, setApplied] = useState(false);
+
+  const addTemplateSlot = () => {
+    setTemplateSlots((prev) => [...prev, { startTime: '08:00', endTime: '17:00' }]);
+  };
+
+  const removeTemplateSlot = (index: number) => {
+    setTemplateSlots((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateTemplateSlot = (index: number, field: 'startTime' | 'endTime', value: string) => {
+    setTemplateSlots((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  };
+
+  // Compute dates in range
+  const dates = useMemo(() => {
+    const result: string[] = [];
+    const d = new Date(startDate);
+    const end = new Date(endDate);
+    while (d <= end) {
+      result.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return result;
+  }, [startDate, endDate]);
+
+  // Group shifts by date
+  const shiftsByDate = useMemo(() => {
+    const map: Record<string, { shift: EventShift; globalIndex: number }[]> = {};
+    shifts.forEach((sh, idx) => {
+      if (!map[sh.date]) map[sh.date] = [];
+      map[sh.date].push({ shift: sh, globalIndex: idx });
+    });
+    return map;
+  }, [shifts]);
+
+  const totalShifts = shifts.length;
+  const daysWithShifts = Object.keys(shiftsByDate).length;
+
+  const handleApply = () => {
+    if (templateSlots.length === 0) return;
+    onApplyTemplate(templateSlots);
+    setApplied(true);
+    setTimeout(() => setApplied(false), 2000);
+  };
+
+  const formatDayLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const dayName = WEEKDAY_NAMES[d.getDay()];
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    return { dayName, short: `${day}/${month}`, full: `${dayName} ${day}/${month}` };
+  };
+
+  return (
+    <div className="border border-slate-200 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+          <Clock size={16} className="text-primary-500" />
+          Horaires / Créneaux
+          {totalShifts > 0 && (
+            <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
+              {totalShifts} créneau{totalShifts > 1 ? 'x' : ''} sur {daysWithShifts} jour{daysWithShifts > 1 ? 's' : ''}
+            </span>
+          )}
+        </h4>
+        <span className="text-xs text-slate-400">{dates.length} jour{dates.length > 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Quick apply template */}
+      <div className="px-4 py-3 bg-primary-50/50 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-primary-700">Appliquer des créneaux à tous les jours</p>
+          <button
+            type="button"
+            onClick={addTemplateSlot}
+            className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            <Plus size={13} /> Ajouter un créneau
+          </button>
+        </div>
+        <div className="space-y-2">
+          {templateSlots.map((slot, idx) => (
+            <div key={idx} className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="text-[11px] text-slate-500 block mb-1">Entrée {templateSlots.length > 1 ? idx + 1 : ''}</label>
+                <input
+                  type="time"
+                  value={slot.startTime}
+                  onChange={(e) => updateTemplateSlot(idx, 'startTime', e.target.value)}
+                  className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-500 block mb-1">Sortie {templateSlots.length > 1 ? idx + 1 : ''}</label>
+                <input
+                  type="time"
+                  value={slot.endTime}
+                  onChange={(e) => updateTemplateSlot(idx, 'endTime', e.target.value)}
+                  className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                />
+              </div>
+              {templateSlots.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeTemplateSlot(idx)}
+                  className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  title="Supprimer ce créneau"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={handleApply}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
+              applied
+                ? 'bg-emerald-500 text-white'
+                : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm'
+            }`}
+          >
+            {applied ? <Check size={15} /> : <Copy size={15} />}
+            {applied ? 'Appliqué !' : `Appliquer ${templateSlots.length} créneau${templateSlots.length > 1 ? 'x' : ''} aux ${dates.length} jours`}
+          </button>
+        </div>
+      </div>
+
+      {/* Day-by-day list */}
+      <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+        {dates.map((date) => {
+          const dayShifts = shiftsByDate[date] || [];
+          const { dayName, short } = formatDayLabel(date);
+          const isWeekend = new Date(date).getDay() === 0 || new Date(date).getDay() === 6;
+
+          return (
+            <div key={date} className={`px-4 py-3 ${isWeekend ? 'bg-slate-50/60' : ''}`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold w-8 ${isWeekend ? 'text-rose-400' : 'text-primary-600'}`}>
+                    {dayName}
+                  </span>
+                  <span className="text-sm font-medium text-slate-700">{short}</span>
+                  {dayShifts.length === 0 && (
+                    <span className="text-[11px] text-slate-300 italic">— aucun créneau</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {dayShifts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onCopyDayToAll(date)}
+                      title="Copier ces créneaux sur tous les jours"
+                      className="p-1.5 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    >
+                      <Copy size={14} />
+                    </button>
+                  )}
+                  {dayShifts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onRemoveShiftsForDate(date)}
+                      title="Supprimer tous les créneaux de ce jour"
+                      className="p-1.5 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onAddShiftForDate(date)}
+                    title="Ajouter un créneau"
+                    className="p-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {dayShifts.length > 0 && (
+                <div className="space-y-1.5 ml-10">
+                  {dayShifts.map(({ shift, globalIndex }) => (
+                    <div key={shift.id} className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={shift.startTime}
+                        onChange={(e) => onUpdateShift(globalIndex, 'startTime', e.target.value)}
+                        className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-[110px]"
+                      />
+                      <span className="text-slate-300 text-xs">→</span>
+                      <input
+                        type="time"
+                        value={shift.endTime}
+                        onChange={(e) => onUpdateShift(globalIndex, 'endTime', e.target.value)}
+                        className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-[110px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onRemoveShift(globalIndex)}
+                        className="p-1 text-rose-300 hover:text-rose-500 rounded transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ConflictWarning({
-  agentId,
+  agentIds,
   start,
   end,
   excludeId,
 }: {
-  agentId: string;
+  agentIds: string[];
   start: string;
   end: string;
   excludeId?: string;
 }) {
   const { getConflicts } = useEventStore();
-  const conflicts = getConflicts(agentId, start, end, excludeId);
+  const [allConflicts, setAllConflicts] = useState<PlanningEvent[]>([]);
 
-  if (conflicts.length === 0) return null;
+  useEffect(() => {
+    if (!agentIds.length || !start || !end) {
+      setAllConflicts([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const seen = new Set<string>();
+      const results: PlanningEvent[] = [];
+      for (const agentId of agentIds) {
+        const conflicts = await getConflicts(agentId, start, end, excludeId);
+        for (const c of conflicts) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id);
+            results.push(c);
+          }
+        }
+      }
+      if (!cancelled) setAllConflicts(results);
+    })();
+    return () => { cancelled = true; };
+  }, [agentIds, start, end, excludeId, getConflicts]);
+
+  if (allConflicts.length === 0) return null;
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -794,7 +1132,7 @@ function ConflictWarning({
         Conflit de planning détecté !
       </div>
       <ul className="space-y-1">
-        {conflicts.map((c) => (
+        {allConflicts.map((c) => (
           <li key={c.id} className="text-sm text-amber-600">
             • {c.title} ({formatDate(c.startDate)} → {formatDate(c.endDate)})
           </li>
@@ -913,6 +1251,216 @@ function YearOverview({
           <CalendarDays size={16} />
           Retour au calendrier
         </button>
+      </div>
+    </div>
+  );
+}
+
+const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+const HEATMAP_MONTH_NAMES = [
+  'Sept', 'Oct', 'Nov', 'Déc', 'Janv', 'Fév',
+  'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août',
+];
+
+function HeatmapCalendar({
+  year,
+  events,
+  onYearChange,
+  onDayClick,
+}: {
+  year: number;
+  events: PlanningEvent[];
+  onYearChange: (y: number) => void;
+  onDayClick: (date: string) => void;
+}) {
+  // Build a map: date -> array of event colors for that date
+  const dateMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const evt of events) {
+      const start = new Date(evt.startDate);
+      const end = new Date(evt.endDate);
+      const d = new Date(start);
+      while (d <= end) {
+        const key = d.toISOString().slice(0, 10);
+        if (!map[key]) map[key] = [];
+        map[key].push(evt.color || statusColors[evt.status]);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return map;
+  }, [events]);
+
+  // Build the 12 months (Sept year-1 to Aug year) as columns
+  const months = useMemo(() => {
+    const result: Array<{
+      label: string;
+      days: Array<{ date: string; dayOfMonth: number; dayOfWeek: number } | null>;
+    }> = [];
+
+    for (let i = 0; i < 12; i++) {
+      // Sept(year-1)=8, Oct=9, Nov=10, Dec=11, Jan(year)=0...
+      const monthIdx = (8 + i) % 12;
+      const yearForMonth = i < 4 ? year - 1 : year;
+      const daysInMonth = new Date(yearForMonth, monthIdx + 1, 0).getDate();
+
+      const days: Array<{ date: string; dayOfMonth: number; dayOfWeek: number } | null> = [];
+      for (let d = 1; d <= 31; d++) {
+        if (d <= daysInMonth) {
+          const dateObj = new Date(yearForMonth, monthIdx, d);
+          const dow = dateObj.getDay(); // 0=Sun
+          const adjustedDow = dow === 0 ? 6 : dow - 1; // 0=Mon...6=Sun
+          days.push({
+            date: dateObj.toISOString().slice(0, 10),
+            dayOfMonth: d,
+            dayOfWeek: adjustedDow,
+          });
+        } else {
+          days.push(null);
+        }
+      }
+
+      result.push({ label: HEATMAP_MONTH_NAMES[i], days });
+    }
+    return result;
+  }, [year]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Get color for a day cell
+  const getCellStyle = (date: string): React.CSSProperties => {
+    const colors = dateMap[date];
+    if (!colors || colors.length === 0) return {};
+    const color = colors[0];
+    const count = colors.length;
+    const opacity = Math.min(0.4 + count * 0.2, 1);
+    return { backgroundColor: color, opacity };
+  };
+
+  // Get multiple color bars for days with multiple events
+  const getCellColors = (date: string): string[] => {
+    const colors = dateMap[date];
+    if (!colors || colors.length === 0) return [];
+    // Deduplicate
+    return [...new Set(colors)];
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden animate-fadeIn">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-orange-500 to-amber-500">
+        <button
+          onClick={() => onYearChange(year - 1)}
+          className="p-2 hover:bg-white/15 rounded-xl transition-colors"
+        >
+          <ChevronLeft size={20} className="text-white" />
+        </button>
+        <div className="text-center">
+          <h2 className="text-lg font-extrabold text-white tracking-tight">
+            Sept {year - 1} — Août {year}
+          </h2>
+          <p className="text-white/70 text-xs font-medium mt-0.5">Calendrier Heatmap</p>
+        </div>
+        <button
+          onClick={() => onYearChange(year + 1)}
+          className="p-2 hover:bg-white/15 rounded-xl transition-colors"
+        >
+          <ChevronRight size={20} className="text-white" />
+        </button>
+      </div>
+
+      {/* Heatmap grid */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px] p-4">
+          <table className="w-full border-collapse heatmap-table">
+            <thead>
+              <tr>
+                <th className="w-8" />
+                {months.map((m) => (
+                  <th key={m.label} className="text-xs font-bold text-slate-600 pb-2 text-center">
+                    {m.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 31 }, (_, rowIdx) => (
+                <tr key={rowIdx}>
+                  <td className="text-right pr-2">
+                    <span className="text-[10px] font-bold text-slate-400">{rowIdx + 1}</span>
+                  </td>
+                  {months.map((m) => {
+                    const day = m.days[rowIdx];
+                    if (!day) {
+                      return <td key={`${m.label}-${rowIdx}`} className="heatmap-cell heatmap-empty" />;
+                    }
+                    const isToday = day.date === todayStr;
+                    const hasEvents = dateMap[day.date] && dateMap[day.date].length > 0;
+                    const isSunday = day.dayOfWeek === 6;
+                    const isSaturday = day.dayOfWeek === 5;
+                    const cellColors = getCellColors(day.date);
+                    return (
+                      <td
+                        key={`${m.label}-${rowIdx}`}
+                        onClick={() => onDayClick(day.date)}
+                        title={`${day.date}${hasEvents ? ` — ${dateMap[day.date].length} évén.` : ''}`}
+                        className={`heatmap-cell cursor-pointer transition-all ${
+                          isToday ? 'ring-2 ring-primary-500 ring-offset-1 z-10 relative rounded' : ''
+                        } ${
+                          isSunday ? 'heatmap-sunday' : isSaturday ? 'heatmap-saturday' : ''
+                        }`}
+                      >
+                        <div className="heatmap-cell-inner">
+                          {cellColors.length === 1 ? (
+                            <div className="heatmap-bar" style={getCellStyle(day.date)} />
+                          ) : cellColors.length > 1 ? (
+                            <div className="heatmap-multi-bar">
+                              {cellColors.map((c, ci) => (
+                                <div
+                                  key={ci}
+                                  className="heatmap-bar-segment"
+                                  style={{ backgroundColor: c, flex: 1 }}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                          <span className={`heatmap-day-letter ${
+                            isToday ? 'font-extrabold text-primary-700' :
+                            isSunday ? 'text-rose-400' :
+                            isSaturday ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
+                            {DAY_LETTERS[day.dayOfWeek]}
+                          </span>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Event color legend */}
+      <div className="flex flex-wrap items-center justify-center gap-3 px-5 pb-4">
+        {events.slice(0, 10).map((evt) => (
+          <div key={evt.id} className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: evt.color }} />
+            <span className="text-xs text-slate-500 truncate max-w-[120px]">{evt.title}</span>
+          </div>
+        ))}
+        {events.length > 10 && (
+          <span className="text-xs text-slate-400">+{events.length - 10} autres</span>
+        )}
+        <div className="flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200">
+          <span className="w-3 h-3 rounded-sm bg-slate-200" />
+          <span className="text-xs text-slate-400">Sam.</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-slate-300" />
+          <span className="text-xs text-slate-400">Dim.</span>
+        </div>
       </div>
     </div>
   );

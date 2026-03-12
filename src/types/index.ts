@@ -29,6 +29,7 @@ export interface PlanningEvent {
   title: string;
   description: string;
   client?: string;
+  color: string;
   startDate: string;   // YYYY-MM-DD (date début de l'événement)
   endDate: string;     // YYYY-MM-DD (date fin de l'événement)
   shifts: EventShift[];
@@ -36,9 +37,9 @@ export interface PlanningEvent {
   latitude?: number;
   longitude?: number;
   geoRadius?: number;
-  assignedAgentId: string;
+  assignedAgentIds: string[];
   status: EventStatus;
-  agentResponse?: 'accepted' | 'refused' | 'pending';
+  agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>;
   history: EventHistoryEntry[];
   createdAt: string;
   updatedAt: string;

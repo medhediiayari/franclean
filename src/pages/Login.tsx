@@ -13,21 +13,24 @@ export default function Login() {
   const { login } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      const success = login(email, password);
+    try {
+      const success = await login(email, password);
       if (success) {
         const user = useAuthStore.getState().user;
         navigate(user?.role === 'admin' ? '/admin' : '/agent');
       } else {
         setError('Email ou mot de passe incorrect');
       }
+    } catch {
+      setError('Erreur de connexion au serveur');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (

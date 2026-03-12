@@ -2,9 +2,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, formatTime, generateId } from '../../utils/helpers';
+import { formatDate, formatTime } from '../../utils/helpers';
 import { getCurrentPosition, isWithinRadius, formatDistance } from '../../utils/geolocation';
-import type { Attendance } from '../../types';
 import {
   Clock,
   MapPin,
@@ -18,13 +17,16 @@ import {
   Loader2,
   ImageIcon,
 } from 'lucide-react';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export default function MyPlanning() {
   const { user } = useAuthStore();
-  const { events, setAgentResponse } = useEventStore();
-  const { records, addRecord, updateRecord } = useAttendanceStore();
+  const { events, setAgentResponse, fetchEvents } = useEventStore();
+  const { records, addRecord, updateRecord, fetchRecords } = useAttendanceStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   // Camera state per-mission
   const [cameraEventId, setCameraEventId] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function MyPlanning() {
   const today = new Date().toISOString().slice(0, 10);
 
   const myEvents = events
-    .filter((e) => e.assignedAgentId === user.id)
+    .filter((e) => e.assignedAgentIds.includes(user.id))
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const upcomingEvents = myEvents.filter(
@@ -56,8 +58,12 @@ export default function MyPlanning() {
   const getRecordForEvent = (eventId: string) =>
     records.find((r) => r.agentId === user!.id && r.eventId === eventId && r.date === today);
 
-  const handleResponse = (eventId: string, response: 'accepted' | 'refused') => {
-    setAgentResponse(eventId, response);
+  const handleResponse = async (eventId: string, response: 'accepted' | 'refused') => {
+    try {
+      await setAgentResponse(eventId, user.id, response);
+    } catch (err) {
+      console.error('Failed to set response', err);
+    }
   };
 
   const startCamera = useCallback(async () => {
@@ -151,8 +157,7 @@ export default function MyPlanning() {
       const existingRecord = getRecordForEvent(cameraEventId);
 
       if (cameraMode === 'check-in') {
-        const newRecord: Attendance = {
-          id: generateId('att'),
+        await addRecord({
           eventId: selectedEvent.id,
           agentId: user.id,
           date: today,
@@ -164,10 +169,7 @@ export default function MyPlanning() {
           status: suspectReasons.length > 0 ? 'suspect' : 'en_attente',
           isSuspect: suspectReasons.length > 0,
           suspectReasons,
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        };
-        addRecord(newRecord);
+        });
         setSuccess("Photo d'entrée enregistrée !");
       } else if (existingRecord) {
         const checkInTime = new Date(existingRecord.checkInTime!);
@@ -488,7 +490,7 @@ export default function MyPlanning() {
                       )}
 
                       {/* Agent response buttons */}
-                      {event.agentResponse === 'pending' && (
+                      {event.agentResponses?.[user.id] === 'pending' && (
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => handleResponse(event.id, 'accepted')}
@@ -505,10 +507,10 @@ export default function MyPlanning() {
                         </div>
                       )}
 
-                      {event.agentResponse && event.agentResponse !== 'pending' && (
+                      {event.agentResponses?.[user.id] && event.agentResponses[user.id] !== 'pending' && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400">Votre réponse :</span>
-                          <StatusBadge status={event.agentResponse} />
+                          <StatusBadge status={event.agentResponses[user.id]} />
                         </div>
                       )}
                     </div>

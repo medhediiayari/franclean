@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
@@ -16,9 +16,13 @@ import {
 } from 'lucide-react';
 
 export default function HoursTracking() {
-  const { records } = useAttendanceStore();
-  const { events } = useEventStore();
-  const { users } = useAuthStore();
+  const { records, fetchRecords } = useAttendanceStore();
+  const { events, fetchEvents } = useEventStore();
+  const { users, fetchUsers } = useAuthStore();
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const [searchText, setSearchText] = useState('');
   const [sortField, setSortField] = useState<string>('agentName');

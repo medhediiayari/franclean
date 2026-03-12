@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 
@@ -24,7 +25,20 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 export default function App() {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, initAuth } = useAuthStore();
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    initAuth().finally(() => setAuthLoading(false));
+  }, [initAuth]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <Routes>
