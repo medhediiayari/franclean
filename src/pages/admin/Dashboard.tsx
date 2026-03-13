@@ -3,6 +3,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
+import StatCard from '../../components/common/StatCard';
+import PageHeader from '../../components/common/PageHeader';
 import { formatDate, formatTime } from '../../utils/helpers';
 import {
   Users,
@@ -35,44 +37,6 @@ export default function AdminDashboard() {
     .reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const toReassign = events.filter((e) => e.status === 'a_reattribuer');
 
-  const stats = [
-    {
-      label: 'Agents actifs',
-      value: activeAgents.length,
-      total: agents.length,
-      icon: Users,
-      color: 'bg-blue-500',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-    },
-    {
-      label: 'Événements en cours',
-      value: eventsEnCours.length,
-      total: events.length,
-      icon: CalendarDays,
-      color: 'bg-amber-500',
-      bgColor: 'bg-amber-50',
-      textColor: 'text-amber-600',
-    },
-    {
-      label: 'Pointages en attente',
-      value: pendingAttendance.length,
-      icon: Clock,
-      color: 'bg-purple-500',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
-      alert: pendingAttendance.length > 0,
-    },
-    {
-      label: 'Heures validées',
-      value: `${validatedHours.toFixed(1)}h`,
-      icon: CheckCircle2,
-      color: 'bg-emerald-500',
-      bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600',
-    },
-  ];
-
   const recentEvents = [...events]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
@@ -88,11 +52,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Vue d'ensemble de vos activités</p>
-      </div>
+      <PageHeader title="Dashboard" subtitle="Vue d'ensemble de vos activités" />
 
       {/* Alerts */}
       {(suspectAttendance.length > 0 || toReassign.length > 0) && (
@@ -130,37 +90,43 @@ export default function AdminDashboard() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className={`p-2.5 rounded-xl ${stat.bgColor}`}>
-                <stat.icon size={20} className={stat.textColor} />
-              </div>
-              {stat.alert && (
-                <span className="flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
-                </span>
-              )}
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-            <p className="text-sm text-slate-500 mt-1">
-              {stat.label}
-              {stat.total !== undefined && (
-                <span className="text-slate-400"> / {stat.total} total</span>
-              )}
-            </p>
-          </div>
-        ))}
+        <StatCard
+          label="Agents actifs"
+          value={activeAgents.length}
+          subtitle={`/ ${agents.length} total`}
+          icon={Users}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+        />
+        <StatCard
+          label="Événements en cours"
+          value={eventsEnCours.length}
+          subtitle={`/ ${events.length} total`}
+          icon={CalendarDays}
+          iconBg="bg-amber-50"
+          iconColor="text-amber-600"
+        />
+        <StatCard
+          label="Pointages en attente"
+          value={pendingAttendance.length}
+          icon={Clock}
+          iconBg="bg-purple-50"
+          iconColor="text-purple-600"
+          alert={pendingAttendance.length > 0}
+        />
+        <StatCard
+          label="Heures validées"
+          value={`${validatedHours.toFixed(1)}h`}
+          icon={CheckCircle2}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+        />
       </div>
 
       {/* Content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent events */}
-        <div className="bg-white rounded-xl border border-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-card">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h2 className="font-semibold text-slate-900">Événements récents</h2>
             <Link
@@ -200,7 +166,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Recent attendance */}
-        <div className="bg-white rounded-xl border border-slate-200">
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-card">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h2 className="font-semibold text-slate-900">Pointages récents</h2>
             <Link
@@ -259,7 +225,7 @@ export default function AdminDashboard() {
 
       {/* Quick stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-card">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-50">
               <TrendingUp size={18} className="text-emerald-600" />
@@ -274,7 +240,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-card">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-50">
               <CalendarDays size={18} className="text-blue-600" />
@@ -285,7 +251,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-card">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-orange-50">
               <AlertTriangle size={18} className="text-orange-600" />

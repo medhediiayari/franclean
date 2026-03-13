@@ -29,6 +29,7 @@ import {
   Flame,
   Copy,
   Check,
+  X,
 } from 'lucide-react';
 
 const EVENT_PALETTE = [
@@ -81,6 +82,19 @@ export default function Planning() {
   });
 
   const [formShifts, setFormShifts] = useState<EventShift[]>([]);
+  const [skipDays, setSkipDays] = useState<number[]>([0, 6]); // skip Sun=0, Sat=6 by default
+  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
+
+  // Remove shifts on skipped weekdays or excluded specific dates
+  useEffect(() => {
+    setFormShifts(prev => {
+      const filtered = prev.filter(s => {
+        const day = new Date(s.date + 'T12:00:00').getDay();
+        return !skipDays.includes(day) && !excludedDates.has(s.date);
+      });
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [skipDays, excludedDates]);
 
   // Generate calendar events from shifts
   const calendarEvents = useMemo(() => {
@@ -136,6 +150,8 @@ export default function Planning() {
       status: 'planifie',
     });
     setFormShifts([]);
+    setSkipDays([0, 6]);
+    setExcludedDates(new Set());
   };
 
   const handleDateSelect = (info: { startStr: string; endStr: string }) => {
@@ -180,6 +196,8 @@ export default function Planning() {
       status: selectedEvent.status,
     });
     setFormShifts(selectedEvent.shifts || []);
+    setSkipDays([]); // no skip when editing — show all existing shifts
+    setExcludedDates(new Set());
     setFormMode('edit');
     setShowDetail(false);
     setShowForm(true);
@@ -250,13 +268,16 @@ export default function Planning() {
   };
 
   // Shift management helpers
-  const getDatesInRange = (start: string, end: string): string[] => {
+  const getDatesInRange = (start: string, end: string, skip: number[] = skipDays): string[] => {
     if (!start || !end) return [];
     const dates: string[] = [];
-    const d = new Date(start);
-    const endDate = new Date(end);
+    const d = new Date(start + 'T12:00:00');
+    const endDate = new Date(end + 'T12:00:00');
     while (d <= endDate) {
-      dates.push(d.toISOString().slice(0, 10));
+      const iso = d.toISOString().slice(0, 10);
+      if (!skip.includes(d.getDay()) && !excludedDates.has(iso)) {
+        dates.push(iso);
+      }
       d.setDate(d.getDate() + 1);
     }
     return dates;
@@ -450,9 +471,10 @@ export default function Planning() {
               eventClick={handleEventClick}
               eventContent={(arg) => {
                 const timeText = arg.timeText;
+                const color = arg.event.backgroundColor || '#6366F1';
                 return (
-                  <div className="fc-event-inner">
-                    <span className="fc-event-dot" />
+                  <div className="fc-event-inner" style={{ backgroundColor: color }}>
+                    <span className="fc-event-dot" style={{ background: 'rgba(255,255,255,0.8)' }} />
                     <span className="fc-event-label">{arg.event.title}</span>
                     {timeText && <span className="fc-event-time-label">{timeText}</span>}
                   </div>
@@ -794,6 +816,10 @@ export default function Planning() {
               startDate={form.startDate}
               endDate={form.endDate}
               shifts={formShifts}
+              skipDays={skipDays}
+              onSkipDaysChange={setSkipDays}
+              excludedDates={excludedDates}
+              onExcludedDatesChange={setExcludedDates}
               onAddShiftForDate={addShiftForDate}
               onApplyTemplate={applyTemplateToAllDays}
               onCopyDayToAll={copyDayToAll}
@@ -847,6 +873,10 @@ function ShiftScheduler({
   startDate,
   endDate,
   shifts,
+  skipDays,
+  onSkipDaysChange,
+  excludedDates,
+  onExcludedDatesChange,
   onAddShiftForDate,
   onApplyTemplate,
   onCopyDayToAll,
@@ -857,6 +887,10 @@ function ShiftScheduler({
   startDate: string;
   endDate: string;
   shifts: EventShift[];
+  skipDays: number[];
+  onSkipDaysChange: (days: number[]) => void;
+  excludedDates: Set<string>;
+  onExcludedDatesChange: (dates: Set<string>) => void;
   onAddShiftForDate: (date: string) => void;
   onApplyTemplate: (templates: { startTime: string; endTime: string }[]) => void;
   onCopyDayToAll: (sourceDate: string) => void;
@@ -881,17 +915,56 @@ function ShiftScheduler({
     setTemplateSlots((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
-  // Compute dates in range
+  // Compute dates in range (respecting skip days AND excluded dates)
   const dates = useMemo(() => {
     const result: string[] = [];
-    const d = new Date(startDate);
-    const end = new Date(endDate);
+    const d = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate + 'T12:00:00');
+    while (d <= end) {
+      const iso = d.toISOString().slice(0, 10);
+      if (!skipDays.includes(d.getDay()) && !excludedDates.has(iso)) {
+        result.push(iso);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    return result;
+  }, [startDate, endDate, skipDays, excludedDates]);
+
+  // All dates in range (including skipped/excluded, for counting)
+  const allDates = useMemo(() => {
+    const result: string[] = [];
+    const d = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate + 'T12:00:00');
     while (d <= end) {
       result.push(d.toISOString().slice(0, 10));
       d.setDate(d.getDate() + 1);
     }
     return result;
   }, [startDate, endDate]);
+
+  // Dates excluded specifically (not by weekday rule) — shown as strikethrough rows
+  const manuallyExcluded = useMemo(() => {
+    return allDates.filter(d => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return excludedDates.has(d) && !skipDays.includes(day);
+    });
+  }, [allDates, excludedDates, skipDays]);
+
+  const toggleSkipDay = (day: number) => {
+    onSkipDaysChange(
+      skipDays.includes(day) ? skipDays.filter(d => d !== day) : [...skipDays, day]
+    );
+  };
+
+  const toggleExcludeDate = (date: string) => {
+    const next = new Set(excludedDates);
+    if (next.has(date)) {
+      next.delete(date);
+    } else {
+      next.add(date);
+    }
+    onExcludedDatesChange(next);
+  };
 
   // Group shifts by date
   const shiftsByDate = useMemo(() => {
@@ -934,7 +1007,40 @@ function ShiftScheduler({
             </span>
           )}
         </h4>
-        <span className="text-xs text-slate-400">{dates.length} jour{dates.length > 1 ? 's' : ''}</span>
+        <span className="text-xs text-slate-400">
+          {dates.length} jour{dates.length > 1 ? 's' : ''}
+          {skipDays.length > 0 && ` (${allDates.length - dates.length} exclus)`}
+        </span>
+      </div>
+
+      {/* Skip days selector */}
+      <div className="px-4 py-2.5 bg-amber-50/50 border-b border-slate-200">
+        <p className="text-xs font-semibold text-amber-700 mb-2">Jours à exclure</p>
+        <div className="flex flex-wrap gap-1.5">
+          {WEEKDAY_NAMES.map((name, i) => {
+            const isSkipped = skipDays.includes(i);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => toggleSkipDay(i)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                  isSkipped
+                    ? 'bg-amber-100 border-amber-300 text-amber-700'
+                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {isSkipped && <span className="mr-1">✕</span>}
+                {name}
+              </button>
+            );
+          })}
+        </div>
+        {skipDays.length > 0 && (
+          <p className="text-[11px] text-amber-600 mt-1.5">
+            Les créneaux ne seront pas générés pour : {skipDays.sort().map(d => WEEKDAY_NAMES[d]).join(', ')}
+          </p>
+        )}
       </div>
 
       {/* Quick apply template */}
@@ -1004,12 +1110,20 @@ function ShiftScheduler({
         {dates.map((date) => {
           const dayShifts = shiftsByDate[date] || [];
           const { dayName, short } = formatDayLabel(date);
-          const isWeekend = new Date(date).getDay() === 0 || new Date(date).getDay() === 6;
+          const isWeekend = new Date(date + 'T12:00:00').getDay() === 0 || new Date(date + 'T12:00:00').getDay() === 6;
 
           return (
             <div key={date} className={`px-4 py-3 ${isWeekend ? 'bg-slate-50/60' : ''}`}>
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExcludeDate(date)}
+                    title="Exclure ce jour"
+                    className="w-5 h-5 flex items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-400 hover:bg-rose-100 hover:text-rose-600 hover:border-rose-300 transition-colors flex-shrink-0"
+                  >
+                    <X size={12} strokeWidth={3} />
+                  </button>
                   <span className={`text-xs font-bold w-8 ${isWeekend ? 'text-rose-400' : 'text-primary-600'}`}>
                     {dayName}
                   </span>
@@ -1081,6 +1195,32 @@ function ShiftScheduler({
             </div>
           );
         })}
+
+        {/* Manually excluded dates — shown as strikethrough so user can re-include */}
+        {manuallyExcluded.length > 0 && (
+          <div className="px-4 py-2 bg-rose-50/50">
+            <p className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider mb-1.5">
+              Jours exclus ({manuallyExcluded.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {manuallyExcluded.map(date => {
+                const { dayName, short } = formatDayLabel(date);
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => toggleExcludeDate(date)}
+                    title="Ré-inclure ce jour"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-500 text-xs font-medium hover:bg-rose-100 transition-colors"
+                  >
+                    <Plus size={11} />
+                    <span className="line-through">{dayName} {short}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1348,7 +1488,7 @@ function HeatmapCalendar({
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden animate-fadeIn">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-orange-500 to-amber-500">
+      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-primary-600 to-primary-700">
         <button
           onClick={() => onYearChange(year - 1)}
           className="p-2 hover:bg-white/15 rounded-xl transition-colors"

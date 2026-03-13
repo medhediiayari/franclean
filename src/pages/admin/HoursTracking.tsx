@@ -13,7 +13,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   MinusCircle,
+  Clock,
+  FileCheck,
+  Receipt,
+  TrendingDown,
 } from 'lucide-react';
+import PageHeader from '../../components/common/PageHeader';
+import StatCard from '../../components/common/StatCard';
 
 export default function HoursTracking() {
   const { records, fetchRecords } = useAttendanceStore();
@@ -117,50 +123,27 @@ export default function HoursTracking() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Suivi des Heures</h1>
-          <p className="text-slate-500 mt-1">
-            Tableau comparatif heures pointées / validées / facturées
-          </p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl font-medium text-sm transition-colors">
-          <Download size={16} />
-          Exporter
-        </button>
-      </div>
+      <PageHeader
+        title="Suivi des Heures"
+        subtitle="Tableau comparatif heures pointées / validées / facturées"
+        action={
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-medium text-sm shadow-card transition-colors">
+            <Download size={16} />
+            Exporter
+          </button>
+        }
+      />
 
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-            H. Pointées
-          </p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{totalPointed.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-            H. Validées
-          </p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">{totalValidated.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-            H. Facturées
-          </p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{totalBilled.toFixed(1)}h</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Écart</p>
-          <p className={`text-2xl font-bold mt-1 ${getGapColor(totalGap)}`}>
-            {totalGap > 0 ? '+' : ''}
-            {totalGap.toFixed(1)}h
-          </p>
-        </div>
+        <StatCard label="H. Pointées" value={`${totalPointed.toFixed(1)}h`} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
+        <StatCard label="H. Validées" value={`${totalValidated.toFixed(1)}h`} icon={FileCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard label="H. Facturées" value={`${totalBilled.toFixed(1)}h`} icon={Receipt} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard label="Écart" value={`${totalGap > 0 ? '+' : ''}${totalGap.toFixed(1)}h`} icon={TrendingDown} iconBg="bg-orange-50" iconColor="text-orange-600" />
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-4 flex items-center gap-3 shadow-card">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input

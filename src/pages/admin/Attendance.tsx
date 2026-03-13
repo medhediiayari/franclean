@@ -23,6 +23,8 @@ import {
   ChevronUp,
   Calendar,
 } from 'lucide-react';
+import PageHeader from '../../components/common/PageHeader';
+import StatCard from '../../components/common/StatCard';
 
 type ViewMode = 'table' | 'par-agent';
 
@@ -98,39 +100,18 @@ export default function AdminAttendance() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Validation des Pointages</h1>
-        <p className="text-slate-500 mt-1">
-          Vérifiez et validez les pointages des agents
-        </p>
-      </div>
+      <PageHeader title="Validation des Pointages" subtitle="Vérifiez et validez les pointages des agents" />
 
-      {/* View mode toggle + Stats */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1 min-w-0">
-          <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-sm text-slate-500">Total</p>
-            <p className="text-2xl font-bold text-slate-900">{records.length}</p>
-          </div>
-          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
-            <p className="text-sm text-amber-600">En attente</p>
-            <p className="text-2xl font-bold text-amber-700">{pendingCount}</p>
-          </div>
-          <div className="bg-orange-50 rounded-xl border border-orange-200 p-4">
-            <p className="text-sm text-orange-600">Suspects</p>
-            <p className="text-2xl font-bold text-orange-700">{suspectCount}</p>
-          </div>
-          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4">
-            <p className="text-sm text-emerald-600">Validés</p>
-            <p className="text-2xl font-bold text-emerald-700">
-              {records.filter((r) => r.status === 'valide').length}
-            </p>
-          </div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard label="Total" value={records.length} icon={Calendar} iconBg="bg-slate-50" iconColor="text-slate-600" />
+        <StatCard label="En attente" value={pendingCount} icon={Clock} iconBg="bg-amber-50" iconColor="text-amber-600" alert={pendingCount > 0} />
+        <StatCard label="Suspects" value={suspectCount} icon={AlertTriangle} iconBg="bg-orange-50" iconColor="text-orange-600" alert={suspectCount > 0} />
+        <StatCard label="Validés" value={records.filter((r) => r.status === 'valide').length} icon={CheckCircle2} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
       </div>
 
       {/* View tabs */}
-      <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-1.5">
+      <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200/80 p-1.5 shadow-card">
         <button
           onClick={() => setViewMode('table')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -156,7 +137,7 @@ export default function AdminAttendance() {
       {viewMode === 'table' && (
         <>
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-card">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

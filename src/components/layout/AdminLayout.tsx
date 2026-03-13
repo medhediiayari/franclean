@@ -52,9 +52,7 @@ export default function AdminLayout() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-700/50">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary-600 text-white font-bold text-sm">
-              FC
-            </div>
+            <img src="/CX.png" alt="FranClean" className="w-14 h-14 rounded-xl object-contain" />
             <div>
               <h1 className="text-white font-bold text-lg leading-tight">FranClean</h1>
               <p className="text-slate-400 text-xs">Gestion RH</p>

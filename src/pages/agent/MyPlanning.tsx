@@ -17,7 +17,233 @@ import {
   Loader2,
   ImageIcon,
 } from 'lucide-react';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+
+/** Smart shift schedule display — groups by pattern, summarises date ranges */
+function ShiftSchedule({ shifts, today }: { shifts: { date: string; startTime: string; endTime: string }[]; today: string }) {
+  const [showExceptions, setShowExceptions] = useState(false);
+
+  // Build a lookup: date → sorted slot strings
+  const shiftsByDate = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const s of shifts) {
+      if (!map.has(s.date)) map.set(s.date, []);
+      map.get(s.date)!.push(`${s.startTime}→${s.endTime}`);
+    }
+    for (const [k, v] of map) map.set(k, v.sort());
+    return map;
+  }, [shifts]);
+
+  const summary = useMemo(() => {
+    // 1. Group dates sharing the same shift pattern
+    const patternGroups = new Map<string, string[]>();
+    for (const [date, slots] of shiftsByDate) {
+      const key = slots.join('|');
+      if (!patternGroups.has(key)) patternGroups.set(key, []);
+      patternGroups.get(key)!.push(date);
+    }
+
+    // 2. For each pattern group, build a human‑readable range summary
+    const result: {
+      pattern: string[];
+      rangeLabel: string;
+      exceptions: { date: string; slots: string[] | null }[]; // null = no shifts that day
+      dates: string[];
+      isSingleDay: boolean;
+    }[] = [];
+
+    for (const [patternKey, dates] of patternGroups) {
+      const sorted = dates.sort();
+      const pattern = patternKey.split('|');
+
+      if (sorted.length === 1) {
+        result.push({
+          pattern,
+          rangeLabel: formatDateShort(sorted[0], today),
+          exceptions: [],
+          dates: sorted,
+          isSingleDay: true,
+        });
+      } else {
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+
+        const allExpected = getAllDatesBetween(first, last);
+        const dateSet = new Set(sorted);
+        const missingDates = allExpected.filter(d => !dateSet.has(d));
+
+        // Build exception objects with their actual shifts (if any from another pattern)
+        const exceptions = missingDates.map(d => ({
+          date: d,
+          slots: shiftsByDate.get(d) ?? null,
+        }));
+
+        const useRange = missingDates.length <= allExpected.length * 0.4;
+
+        if (useRange) {
+          result.push({
+            pattern,
+            rangeLabel: `Du ${formatDateShort(first, today)} au ${formatDateShort(last, today)}`,
+            exceptions,
+            dates: sorted,
+            isSingleDay: false,
+          });
+        } else {
+          const subRanges = groupConsecutiveDays(sorted);
+          const labels = subRanges.map(r =>
+            r.length === 1
+              ? formatDateShort(r[0], today)
+              : r.length <= 3
+              ? r.map(d => formatDateShort(d, today)).join(', ')
+              : `${formatDateShort(r[0], today)} au ${formatDateShort(r[r.length - 1], today)}`
+          );
+          result.push({
+            pattern,
+            rangeLabel: labels.join(' · '),
+            exceptions: [],
+            dates: sorted,
+            isSingleDay: false,
+          });
+        }
+      }
+    }
+
+    // Sort: today-containing first, then by first date
+    result.sort((a, b) => {
+      const aToday = a.dates.includes(today) ? 0 : 1;
+      const bToday = b.dates.includes(today) ? 0 : 1;
+      if (aToday !== bToday) return aToday - bToday;
+      return a.dates[0].localeCompare(b.dates[0]);
+    });
+
+    return result;
+  }, [shiftsByDate, today]);
+
+  // Today's specific shifts (shown prominently at top)
+  const todayShifts = useMemo(() => {
+    return shifts.filter(s => s.date === today).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [shifts, today]);
+
+  return (
+    <div className="text-xs space-y-2">
+      {/* Today highlight */}
+      {todayShifts.length > 0 && (
+        <div className="bg-primary-50 border border-primary-200 rounded-lg p-2.5">
+          <p className="text-primary-700 font-semibold mb-1 flex items-center gap-1">
+            <Clock size={12} /> Aujourd'hui
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {todayShifts.map((s, i) => (
+              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full font-semibold bg-primary-100 text-primary-700 text-xs">
+                {s.startTime} → {s.endTime}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pattern groups */}
+      <div className="space-y-1.5">
+        <p className="text-slate-400 font-medium">Planning :</p>
+        {summary.map((group, gi) => (
+          <div key={gi} className="bg-slate-50 rounded-lg p-2.5 space-y-1.5">
+            {/* Date range */}
+            <p className="text-slate-700 font-medium">{group.rangeLabel}</p>
+
+            {/* Shift pattern pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {group.pattern.map((slot, si) => (
+                <span key={si} className="inline-flex items-center px-2 py-0.5 rounded-full bg-white text-slate-600 border border-slate-200 font-medium">
+                  {slot.replace('→', ' → ')}
+                </span>
+              ))}
+            </div>
+
+            {/* Exceptions */}
+            {group.exceptions.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowExceptions(!showExceptions)}
+                  className="text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
+                >
+                  {showExceptions ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                  sauf {group.exceptions.length} jour{group.exceptions.length > 1 ? 's' : ''}
+                </button>
+                {showExceptions && (
+                  <div className="mt-1.5 space-y-1">
+                    {group.exceptions.map((ex, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-amber-50 border border-amber-200">
+                        <span className="font-medium text-amber-700 whitespace-nowrap min-w-[70px]">
+                          {formatDateShort(ex.date, today)}
+                        </span>
+                        {ex.slots ? (
+                          <div className="flex flex-wrap gap-1">
+                            {ex.slots.map((slot, si) => (
+                              <span key={si} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium text-[11px]">
+                                {slot.replace('→', ' → ')}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-amber-500 italic text-[11px]">aucun créneau</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Count summary */}
+            {group.dates.length > 1 && (
+              <p className="text-slate-400 text-[11px]">
+                {group.dates.length} jours · {group.pattern.length} créneau{group.pattern.length > 1 ? 'x' : ''}/jour
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Short date label: "15 mars" (omits year if same year, shows "Aujourd'hui" for today) */
+function formatDateShort(dateStr: string, today: string): string {
+  if (dateStr === today) return "auj.";
+  const todayYear = today.slice(0, 4);
+  const dateYear = dateStr.slice(0, 4);
+  const fmt = dateYear === todayYear ? 'd MMM' : 'd MMM yyyy';
+  return formatDate(dateStr, fmt);
+}
+
+/** Get all dates between start and end (inclusive), as YYYY-MM-DD strings */
+function getAllDatesBetween(start: string, end: string): string[] {
+  const result: string[] = [];
+  const d = new Date(start + 'T12:00:00Z');
+  const endDate = new Date(end + 'T12:00:00Z');
+  while (d <= endDate) {
+    result.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return result;
+}
+
+/** Group sorted date strings into sub-arrays of consecutive days */
+function groupConsecutiveDays(sorted: string[]): string[][] {
+  if (sorted.length === 0) return [];
+  const groups: string[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1] + 'T12:00:00Z');
+    const curr = new Date(sorted[i] + 'T12:00:00Z');
+    const diff = (curr.getTime() - prev.getTime()) / 86400000;
+    if (diff === 1) {
+      groups[groups.length - 1].push(sorted[i]);
+    } else {
+      groups.push([sorted[i]]);
+    }
+  }
+  return groups;
+}
 
 export default function MyPlanning() {
   const { user } = useAuthStore();
@@ -324,12 +550,7 @@ export default function MyPlanning() {
                           Période : {formatDate(event.startDate)}{event.startDate !== event.endDate ? ` → ${formatDate(event.endDate)}` : ''}
                         </p>
                         {event.shifts && event.shifts.length > 0 && (
-                          <div className="text-xs text-slate-400">
-                            Horaires :{' '}
-                            {event.shifts.filter(s => s.date === today).length > 0
-                              ? event.shifts.filter(s => s.date === today).map(s => `${s.startTime}→${s.endTime}`).join(' | ')
-                              : event.shifts.map(s => `${formatDate(s.date)} ${s.startTime}→${s.endTime}`).join(' | ')}
-                          </div>
+                          <ShiftSchedule shifts={event.shifts} today={today} />
                         )}
                         <p className="text-xs text-slate-400">
                           Adresse : {event.address}

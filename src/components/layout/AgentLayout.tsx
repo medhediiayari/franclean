@@ -29,9 +29,7 @@ export default function AgentLayout() {
       {/* Mobile Header */}
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary-600 text-white flex items-center justify-center text-xs font-bold">
-            FC
-          </div>
+          <img src="/CX.png" alt="FranClean" className="w-8 h-8 rounded-lg object-contain" />
           <div>
             <h1 className="text-sm font-semibold text-slate-900">FranClean</h1>
             <p className="text-xs text-slate-400">

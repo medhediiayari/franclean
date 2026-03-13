@@ -14,6 +14,8 @@ import {
   Phone,
   Mail,
 } from 'lucide-react';
+import PageHeader from '../../components/common/PageHeader';
+import StatCard from '../../components/common/StatCard';
 
 export default function Users() {
   const { users, addUser, updateUser, deleteUser, fetchUsers } = useAuthStore();
@@ -112,59 +114,33 @@ export default function Users() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Utilisateurs</h1>
-          <p className="text-slate-500 mt-1">Gestion des comptes et des rôles</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setFormMode('create');
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
-        >
-          <Plus size={18} />
-          Nouvel utilisateur
-        </button>
-      </div>
+      <PageHeader
+        title="Utilisateurs"
+        subtitle="Gestion des comptes et des rôles"
+        action={
+          <button
+            onClick={() => {
+              resetForm();
+              setFormMode('create');
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
+          >
+            <Plus size={18} />
+            Nouvel utilisateur
+          </button>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-purple-50">
-            <Shield size={18} className="text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Admins</p>
-            <p className="text-xl font-bold text-slate-900">{adminCount}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-50">
-            <UserCheck size={18} className="text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Agents</p>
-            <p className="text-xl font-bold text-slate-900">{agentCount}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-50">
-            <UserCheck size={18} className="text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-sm text-slate-500">Actifs</p>
-            <p className="text-xl font-bold text-slate-900">
-              {activeCount}/{users.length}
-            </p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard label="Admins" value={adminCount} icon={Shield} iconBg="bg-purple-50" iconColor="text-purple-600" />
+        <StatCard label="Agents" value={agentCount} icon={UserCheck} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard label="Actifs" value={activeCount} subtitle={`/ ${users.length} total`} icon={UserCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-wrap items-center gap-3">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-4 flex flex-wrap items-center gap-3 shadow-card">
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -191,7 +167,7 @@ export default function Users() {
         {filteredUsers.map((user) => (
           <div
             key={user.id}
-            className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-card hover:shadow-card-hover transition-shadow"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
