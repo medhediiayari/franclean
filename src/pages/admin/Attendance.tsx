@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
@@ -25,7 +25,7 @@ import {
   ExternalLink,
   Navigation,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PageHeader from '../../components/common/PageHeader';
@@ -39,42 +39,57 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+/** Forces Leaflet to recalculate its size when the container becomes visible */
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    // Small delay to ensure the container is fully rendered
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 /** Mini-map showing agent GPS position at photo time */
 function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; label: string; isValid?: boolean }) {
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
   return (
-    <div className="space-y-1.5">
-      <div className="rounded-lg overflow-hidden border border-slate-200" style={{ height: 140 }}>
+    <div className="mt-2 space-y-1.5">
+      <div className="rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100" style={{ height: 150, width: '100%', position: 'relative' }}>
         <MapContainer
+          key={`${label}-${lat}-${lng}`}
           center={[lat, lng]}
           zoom={16}
           scrollWheelZoom={false}
           dragging={false}
           zoomControl={false}
           attributionControl={false}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <Marker position={[lat, lng]} />
+          <InvalidateSize />
         </MapContainer>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-1">
         <div className="flex items-center gap-1.5">
-          <Navigation size={11} className={isValid ? 'text-emerald-500' : 'text-rose-500'} />
-          <span className={`text-[10px] font-medium ${isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <Navigation size={12} className={isValid ? 'text-emerald-500' : 'text-rose-500'} />
+          <span className={`text-[11px] font-semibold ${isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
             {isValid ? 'Dans la zone' : 'Hors zone'}
           </span>
           <span className="text-[10px] text-slate-400 ml-1">
-            {lat.toFixed(5)}, {lng.toFixed(5)}
+            ({lat.toFixed(5)}, {lng.toFixed(5)})
           </span>
         </div>
         <a
           href={googleMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:text-primary-700 hover:underline"
+          className="flex items-center gap-1 text-[11px] font-semibold text-primary-600 hover:text-primary-700 hover:underline bg-primary-50 px-2 py-0.5 rounded-full"
         >
-          Google Maps <ExternalLink size={10} />
+          <MapPin size={11} /> Voir sur Google Maps <ExternalLink size={10} />
         </a>
       </div>
     </div>
