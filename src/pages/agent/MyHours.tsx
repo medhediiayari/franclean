@@ -11,6 +11,8 @@ import {
   AlertTriangle,
   Calendar,
   Filter,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 
 export default function MyHours() {
@@ -39,43 +41,86 @@ export default function MyHours() {
     .filter((r) => r.agentId === user.id && r.status === 'refuse')
     .reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
 
+  const totalAll = totalHoursValidated + totalHoursPending + totalHoursRefused;
+  const validationRate = totalAll > 0
+    ? Math.round((totalHoursValidated / totalAll) * 100)
+    : 0;
+
   return (
     <div className="p-4 space-y-5 animate-fadeIn">
       <div>
-        <h1 className="text-lg font-bold text-slate-900">Mes Heures</h1>
-        <p className="text-sm text-slate-500">Historique de vos pointages et heures</p>
+        <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Mes Heures</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Historique et suivi de vos pointages</p>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards — gradient accent */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-3 text-center">
-          <CheckCircle2 size={18} className="mx-auto text-emerald-500 mb-1" />
-          <p className="text-lg font-bold text-emerald-700">{totalHoursValidated.toFixed(1)}h</p>
-          <p className="text-xs text-emerald-600">Validées</p>
+        <div className="group bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 p-3.5 text-center hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+          <div className="inline-flex p-2 rounded-xl bg-emerald-100/80 mb-2">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-xl font-extrabold text-emerald-700 tracking-tight">{totalHoursValidated.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-[10px] font-bold text-emerald-600/70 uppercase tracking-wider mt-0.5">Validées</p>
         </div>
-        <div className="bg-amber-50 rounded-xl border border-amber-200 p-3 text-center">
-          <Clock size={18} className="mx-auto text-amber-500 mb-1" />
-          <p className="text-lg font-bold text-amber-700">{totalHoursPending.toFixed(1)}h</p>
-          <p className="text-xs text-amber-600">En attente</p>
+        <div className="group bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl border border-amber-100 p-3.5 text-center hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+          <div className="inline-flex p-2 rounded-xl bg-amber-100/80 mb-2">
+            <Clock size={16} className="text-amber-600" />
+          </div>
+          <p className="text-xl font-extrabold text-amber-700 tracking-tight">{totalHoursPending.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-[10px] font-bold text-amber-600/70 uppercase tracking-wider mt-0.5">En attente</p>
         </div>
-        <div className="bg-rose-50 rounded-xl border border-rose-200 p-3 text-center">
-          <XCircle size={18} className="mx-auto text-rose-500 mb-1" />
-          <p className="text-lg font-bold text-rose-700">{totalHoursRefused.toFixed(1)}h</p>
-          <p className="text-xs text-rose-600">Refusées</p>
+        <div className="group bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-100 p-3.5 text-center hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+          <div className="inline-flex p-2 rounded-xl bg-rose-100/80 mb-2">
+            <XCircle size={16} className="text-rose-600" />
+          </div>
+          <p className="text-xl font-extrabold text-rose-700 tracking-tight">{totalHoursRefused.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-[10px] font-bold text-rose-600/70 uppercase tracking-wider mt-0.5">Refusées</p>
         </div>
       </div>
 
-      {/* Total */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-        <p className="text-sm text-slate-500">Total heures ce mois</p>
-        <p className="text-3xl font-bold text-slate-900 mt-1">
-          {(totalHoursValidated + totalHoursPending).toFixed(1)}h
-        </p>
+      {/* Big total with progress bar */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-primary-50">
+              <TrendingUp size={16} className="text-primary-500" />
+            </div>
+            <span className="text-sm font-bold text-slate-900">Total ce mois</span>
+          </div>
+          <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            {(totalHoursValidated + totalHoursPending).toFixed(1)}<span className="text-lg text-slate-400">h</span>
+          </p>
+        </div>
+        {/* Progress bar */}
+        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full flex rounded-full overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
+              style={{ width: `${totalAll > 0 ? (totalHoursValidated / totalAll) * 100 : 0}%` }}
+            />
+            <div
+              className="bg-gradient-to-r from-amber-300 to-amber-400 transition-all duration-500"
+              style={{ width: `${totalAll > 0 ? (totalHoursPending / totalAll) * 100 : 0}%` }}
+            />
+            <div
+              className="bg-gradient-to-r from-rose-300 to-rose-400 transition-all duration-500"
+              style={{ width: `${totalAll > 0 ? (totalHoursRefused / totalAll) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-2.5">
+          <div className="flex items-center gap-3 text-[10px] font-semibold">
+            <span className="flex items-center gap-1 text-emerald-600"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Validées</span>
+            <span className="flex items-center gap-1 text-amber-600"><span className="w-2 h-2 rounded-full bg-amber-400" /> En attente</span>
+            <span className="flex items-center gap-1 text-rose-600"><span className="w-2 h-2 rounded-full bg-rose-400" /> Refusées</span>
+          </div>
+          <span className="text-[11px] font-bold text-primary-600">{validationRate}% validé</span>
+        </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-2">
-        <Filter size={14} className="text-slate-400" />
+      {/* Filter pills */}
+      <div className="flex items-center gap-2.5">
+        <Filter size={13} className="text-slate-400 flex-shrink-0" />
         <div className="flex gap-1.5 flex-wrap">
           {[
             { key: 'all', label: 'Tous' },
@@ -87,10 +132,10 @@ export default function MyHours() {
             <button
               key={f.key}
               onClick={() => setFilterStatus(f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 ${
                 filterStatus === f.key
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
               }`}
             >
               {f.label}
@@ -101,45 +146,48 @@ export default function MyHours() {
 
       {/* Records list */}
       {myRecords.length > 0 ? (
-        <div className="space-y-2">
-          {myRecords.map((rec) => {
+        <div className="space-y-2.5">
+          {myRecords.map((rec, idx) => {
             const event = events.find((e) => e.id === rec.eventId);
             return (
               <div
                 key={rec.id}
-                className="bg-white rounded-xl border border-slate-200 p-4"
+                className="bg-white rounded-2xl border border-slate-100 p-4 shadow-card hover:shadow-card-hover transition-all duration-200"
+                style={{ animationDelay: `${idx * 30}ms` }}
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
                       {event?.title || 'Mission'}
                     </p>
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
-                      <Calendar size={12} />
+                    <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                      <Calendar size={11} className="text-slate-400" />
                       {formatDate(rec.date)}
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                    {/* Timeline-style check-in / check-out */}
+                    <div className="flex items-center gap-3 mt-2">
                       {rec.checkInTime && (
-                        <span className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          {formatTime(rec.checkInTime)}
-                        </span>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-100" />
+                          <span className="font-semibold text-slate-700">{formatTime(rec.checkInTime)}</span>
+                        </div>
                       )}
                       {rec.checkOutTime && (
                         <>
-                          <span className="text-slate-300">→</span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                            {formatTime(rec.checkOutTime)}
-                          </span>
+                          <div className="w-6 h-px bg-slate-200" />
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <div className="w-2 h-2 rounded-full bg-rose-400 ring-2 ring-rose-100" />
+                            <span className="font-semibold text-slate-700">{formatTime(rec.checkOutTime)}</span>
+                          </div>
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
                     <StatusBadge status={rec.status} />
                     {rec.hoursWorked && (
-                      <span className="text-sm font-bold text-primary-600">
+                      <span className="flex items-center gap-1 text-sm font-extrabold text-primary-600">
+                        <Zap size={13} className="text-primary-400" />
                         {rec.hoursWorked.toFixed(1)}h
                       </span>
                     )}
@@ -148,13 +196,13 @@ export default function MyHours() {
 
                 {/* Suspect reasons */}
                 {rec.isSuspect && rec.suspectReasons.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-100">
+                  <div className="mt-3 pt-3 border-t border-slate-100">
                     {rec.suspectReasons.map((reason, i) => (
                       <p
                         key={i}
-                        className="text-xs text-orange-500 flex items-center gap-1"
+                        className="text-[11px] text-orange-500 flex items-center gap-1.5 font-semibold"
                       >
-                        <AlertTriangle size={10} /> {reason}
+                        <AlertTriangle size={11} /> {reason}
                       </p>
                     ))}
                   </div>
@@ -162,8 +210,8 @@ export default function MyHours() {
 
                 {/* Refusal reason */}
                 {rec.status === 'refuse' && rec.refusalReason && (
-                  <div className="mt-2 pt-2 border-t border-slate-100">
-                    <p className="text-xs text-rose-500">
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <p className="text-[11px] text-rose-500 font-semibold">
                       Motif : {rec.refusalReason}
                     </p>
                   </div>
@@ -173,9 +221,12 @@ export default function MyHours() {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-          <Clock size={32} className="mx-auto text-slate-300 mb-2" />
-          <p className="text-sm text-slate-400">Aucun pointage enregistré</p>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-10 text-center">
+          <div className="inline-flex p-4 rounded-2xl bg-slate-50 mb-3">
+            <Clock size={28} className="text-slate-300" />
+          </div>
+          <p className="text-sm font-medium text-slate-400">Aucun pointage enregistré</p>
+          <p className="text-xs text-slate-300 mt-1">Vos pointages apparaîtront ici</p>
         </div>
       )}
     </div>

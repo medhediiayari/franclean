@@ -15,6 +15,10 @@ import {
   Plus,
   MapPin,
   User,
+  Users,
+  UserCheck,
+  UserX,
+  UserMinus,
   Calendar,
   Clock,
   Trash2,
@@ -24,6 +28,8 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   CalendarDays,
   Briefcase,
   Flame,
@@ -84,6 +90,71 @@ export default function Planning() {
   const [formShifts, setFormShifts] = useState<EventShift[]>([]);
   const [skipDays, setSkipDays] = useState<number[]>([0, 6]); // skip Sun=0, Sat=6 by default
   const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
+  const [showResponsesWidget, setShowResponsesWidget] = useState(true);
+  const [expandedResponseEventId, setExpandedResponseEventId] = useState<string | null>(null);
+
+  // Compute agent responses grouped by event
+  const eventResponsesGrouped = useMemo(() => {
+    const nameOf = (id: string) => {
+      const u = users.find((u) => u.id === id);
+      return u ? `${u.firstName} ${u.lastName}` : 'Non assigné';
+    };
+
+    const result: Array<{
+      eventId: string;
+      eventTitle: string;
+      eventColor: string;
+      status: EventStatus;
+      agents: Array<{ agentId: string; name: string; response: 'accepted' | 'refused' | 'pending' }>;
+      counts: { accepted: number; pending: number; refused: number };
+    }> = [];
+
+    for (const evt of events) {
+      if (evt.status === 'annule' || evt.status === 'termine') continue;
+      if (evt.assignedAgentIds.length === 0) continue;
+      const responses = evt.agentResponses || {};
+      const agentsList = evt.assignedAgentIds.map((agentId) => ({
+        agentId,
+        name: nameOf(agentId),
+        response: (responses[agentId] || 'pending') as 'accepted' | 'refused' | 'pending',
+      }));
+      const counts = {
+        accepted: agentsList.filter(a => a.response === 'accepted').length,
+        pending: agentsList.filter(a => a.response === 'pending').length,
+        refused: agentsList.filter(a => a.response === 'refused').length,
+      };
+      result.push({
+        eventId: evt.id,
+        eventTitle: evt.title,
+        eventColor: evt.color,
+        status: evt.status,
+        agents: agentsList,
+        counts,
+      });
+    }
+
+    // Sort: events with pending first, then by title
+    result.sort((a, b) => {
+      if (a.counts.pending > 0 && b.counts.pending === 0) return -1;
+      if (a.counts.pending === 0 && b.counts.pending > 0) return 1;
+      if (a.counts.refused > 0 && b.counts.refused === 0) return -1;
+      if (a.counts.refused === 0 && b.counts.refused > 0) return 1;
+      return a.eventTitle.localeCompare(b.eventTitle);
+    });
+
+    return result;
+  }, [events, users]);
+
+  const totalResponseCounts = useMemo(() => {
+    return eventResponsesGrouped.reduce(
+      (acc, g) => ({
+        accepted: acc.accepted + g.counts.accepted,
+        pending: acc.pending + g.counts.pending,
+        refused: acc.refused + g.counts.refused,
+      }),
+      { accepted: 0, pending: 0, refused: 0 },
+    );
+  }, [eventResponsesGrouped]);
 
   // Remove shifts on skipped weekdays or excluded specific dates
   useEffect(() => {
@@ -399,6 +470,156 @@ export default function Planning() {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Agent Responses Widget — grouped by event */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowResponsesWidget(!showResponsesWidget)}
+          className="w-full flex items-center justify-between px-5 py-3.5 bg-slate-50/50 border-b border-slate-100 hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <Users size={18} className="text-primary-600" />
+            <span className="font-semibold text-slate-800 text-sm">Réponses des agents</span>
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <UserCheck size={12} /> {totalResponseCounts.accepted}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                <Clock size={12} /> {totalResponseCounts.pending}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
+                <UserX size={12} /> {totalResponseCounts.refused}
+              </span>
+            </div>
+          </div>
+          {showResponsesWidget ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+        </button>
+
+        {showResponsesWidget && (
+          <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
+            {eventResponsesGrouped.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <Users size={28} className="mx-auto text-slate-300 mb-2" />
+                <p className="text-sm text-slate-400">Aucun événement actif avec des agents assignés</p>
+              </div>
+            ) : (
+              eventResponsesGrouped.map((group) => {
+                const isExpanded = expandedResponseEventId === group.eventId;
+                const allAccepted = group.counts.pending === 0 && group.counts.refused === 0;
+                const hasPending = group.counts.pending > 0;
+                const hasRefused = group.counts.refused > 0;
+
+                return (
+                  <div key={group.eventId}>
+                    {/* Event row header */}
+                    <button
+                      onClick={() => setExpandedResponseEventId(isExpanded ? null : group.eventId)}
+                      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50/80 transition-colors text-left"
+                    >
+                      {/* Color dot */}
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-offset-1"
+                        style={{ backgroundColor: group.eventColor, boxShadow: `0 0 0 3px ${group.eventColor}20` }}
+                      />
+
+                      {/* Event title + status */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-800 truncate">{group.eventTitle}</span>
+                          <StatusBadge status={group.status} />
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {group.agents.length} agent{group.agents.length > 1 ? 's' : ''} assigné{group.agents.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+
+                      {/* Mini response pills */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {group.counts.accepted > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
+                            <UserCheck size={10} /> {group.counts.accepted}
+                          </span>
+                        )}
+                        {group.counts.pending > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 animate-pulse">
+                            <Clock size={10} /> {group.counts.pending}
+                          </span>
+                        )}
+                        {group.counts.refused > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-100 text-red-700">
+                            <UserX size={10} /> {group.counts.refused}
+                          </span>
+                        )}
+                        {allAccepted && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">
+                            <Check size={10} /> Tous OK
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Chevron */}
+                      {isExpanded
+                        ? <ChevronUp size={16} className="text-slate-400 flex-shrink-0" />
+                        : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />
+                      }
+                    </button>
+
+                    {/* Expanded agent list */}
+                    {isExpanded && (
+                      <div className="px-5 pb-4 pt-1 animate-fadeIn">
+                        <div className="bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                          {group.agents.map((agent) => (
+                            <div
+                              key={agent.agentId}
+                              className="flex items-center gap-3 px-4 py-2.5"
+                            >
+                              {/* Agent avatar placeholder */}
+                              <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                                {agent.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </div>
+
+                              {/* Name */}
+                              <span className="flex-1 text-sm font-medium text-slate-700 truncate">{agent.name}</span>
+
+                              {/* Response status */}
+                              {agent.response === 'accepted' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-700">
+                                  <UserCheck size={13} /> Accepté
+                                </span>
+                              )}
+                              {agent.response === 'pending' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-100 text-amber-700">
+                                  <Clock size={13} /> En attente
+                                </span>
+                              )}
+                              {agent.response === 'refused' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 text-red-700">
+                                  <UserX size={13} /> Refusé
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Quick action: open event detail */}
+                        <button
+                          onClick={() => {
+                            const evt = events.find(e => e.id === group.eventId);
+                            if (evt) { setSelectedEvent(evt); setShowDetail(true); }
+                          }}
+                          className="mt-2.5 w-full text-center text-xs font-semibold text-primary-600 hover:text-primary-700 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
+                        >
+                          Voir le détail de l'événement →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
       {/* Views */}
