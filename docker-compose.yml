@@ -1,13 +1,14 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: franclean-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-franclean}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-franclean_secret}
       POSTGRES_DB: ${POSTGRES_DB:-franclean_db}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,6 +21,7 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+    container_name: franclean-api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -28,8 +30,18 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-franclean}:${POSTGRES_PASSWORD:-franclean_secret}@postgres:5432/${POSTGRES_DB:-franclean_db}
       JWT_SECRET: ${JWT_SECRET:-change_me_in_production_please}
       PORT: 3000
+    # No external port - accessed via nginx internally
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: franclean-frontend
+    restart: unless-stopped
+    depends_on:
+      - server
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-8081}:80"
 
 volumes:
   pgdata:
