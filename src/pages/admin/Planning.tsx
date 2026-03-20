@@ -450,28 +450,6 @@ export default function Planning() {
         ))}
       </div>
 
-      {/* View switcher */}
-      <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
-        {[
-          { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
-          { key: 'year' as const, label: 'Année', icon: Grid3X3 },
-          { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setCalendarView(key)}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all ${
-              calendarView === key
-                ? 'bg-primary-600 text-white shadow-sm'
-                : 'text-slate-500 hover:text-primary-700 hover:bg-slate-50'
-            }`}
-          >
-            <Icon size={15} />
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Agent Responses Widget — grouped by event */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <button
@@ -620,6 +598,28 @@ export default function Planning() {
             )}
           </div>
         )}
+      </div>
+
+      {/* View switcher */}
+      <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
+        {[
+          { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
+          { key: 'year' as const, label: 'Année', icon: Grid3X3 },
+          { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setCalendarView(key)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all ${
+              calendarView === key
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-slate-500 hover:text-primary-700 hover:bg-slate-50'
+            }`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Views */}
