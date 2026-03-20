@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -108,7 +108,7 @@ export default function Planning() {
   const eventResponsesGrouped = useMemo(() => {
     const nameOf = (id: string) => {
       const u = users.find((u) => u.id === id);
-      return u ? `${u.firstName} ${u.lastName}` : 'Non assignÃ©';
+      return u ? `${u.firstName} ${u.lastName}` : 'Non assigné';
     };
 
     const result: Array<{
@@ -334,7 +334,7 @@ export default function Planning() {
   };
 
   const handleDelete = async () => {
-    if (selectedEvent && confirm('Supprimer cet Ã©vÃ©nement ?')) {
+    if (selectedEvent && confirm('Supprimer cet événement ?')) {
       try {
         await deleteEvent(selectedEvent.id);
       } catch (err) {
@@ -359,7 +359,7 @@ export default function Planning() {
 
   const getAgentName = (id: string) => {
     const agent = users.find((u) => u.id === id);
-    return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assignÃ©';
+    return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assigné';
   };
 
   // Helper: get all dates in event range
@@ -445,7 +445,7 @@ export default function Planning() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Planning</h1>
-          <p className="text-slate-500 mt-1">Gestion des Ã©vÃ©nements et interventions</p>
+          <p className="text-slate-500 mt-1">Gestion des événements et interventions</p>
         </div>
         <button
           onClick={() => {
@@ -456,7 +456,7 @@ export default function Planning() {
           className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
         >
           <Plus size={18} />
-          Nouvel Ã©vÃ©nement
+          Nouvel événement
         </button>
       </div>
 
@@ -470,7 +470,7 @@ export default function Planning() {
         ))}
       </div>
 
-      {/* Agent Responses Widget â€” grouped by event */}
+      {/* Agent Responses Widget — grouped by event */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <button
           onClick={() => setShowResponsesWidget(!showResponsesWidget)}
@@ -478,7 +478,7 @@ export default function Planning() {
         >
           <div className="flex items-center gap-2.5">
             <Users size={18} className="text-primary-600" />
-            <span className="font-semibold text-slate-800 text-sm">RÃ©ponses des agents</span>
+            <span className="font-semibold text-slate-800 text-sm">Réponses des agents</span>
             <div className="flex items-center gap-1.5 ml-2">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <UserCheck size={12} /> {totalResponseCounts.accepted}
@@ -499,7 +499,7 @@ export default function Planning() {
             {eventResponsesGrouped.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <Users size={28} className="mx-auto text-slate-300 mb-2" />
-                <p className="text-sm text-slate-400">Aucun Ã©vÃ©nement actif avec des agents assignÃ©s</p>
+                <p className="text-sm text-slate-400">Aucun événement actif avec des agents assignés</p>
               </div>
             ) : (
               eventResponsesGrouped.map((group) => {
@@ -528,7 +528,7 @@ export default function Planning() {
                           <StatusBadge status={group.status} />
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {group.agents.length} agent{group.agents.length > 1 ? 's' : ''} assignÃ©{group.agents.length > 1 ? 's' : ''}
+                          {group.agents.length} agent{group.agents.length > 1 ? 's' : ''} assigné{group.agents.length > 1 ? 's' : ''}
                         </p>
                       </div>
 
@@ -583,7 +583,7 @@ export default function Planning() {
                               {/* Response status */}
                               {agent.response === 'accepted' && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-700">
-                                  <UserCheck size={13} /> AcceptÃ©
+                                  <UserCheck size={13} /> Accepté
                                 </span>
                               )}
                               {agent.response === 'pending' && (
@@ -593,7 +593,7 @@ export default function Planning() {
                               )}
                               {agent.response === 'refused' && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 text-red-700">
-                                  <UserX size={13} /> RefusÃ©
+                                  <UserX size={13} /> Refusé
                                 </span>
                               )}
                             </div>
@@ -608,7 +608,7 @@ export default function Planning() {
                           }}
                           className="mt-2.5 w-full text-center text-xs font-semibold text-primary-600 hover:text-primary-700 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
                         >
-                          Voir le dÃ©tail de l'Ã©vÃ©nement â†’
+                          Voir le détail de l'événement →
                         </button>
                       </div>
                     )}
@@ -624,7 +624,7 @@ export default function Planning() {
       <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
         {[
           { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
-          { key: 'year' as const, label: 'AnnÃ©e', icon: Grid3X3 },
+          { key: 'year' as const, label: 'Année', icon: Grid3X3 },
           { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -685,7 +685,7 @@ export default function Planning() {
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <CalendarDays size={16} className="text-primary-500" />
-              <span className="font-medium">{events.length} Ã©vÃ©nement{events.length > 1 ? 's' : ''}</span>
+              <span className="font-medium">{events.length} événement{events.length > 1 ? 's' : ''}</span>
             </div>
           </div>
           <div className="p-4 sm:p-5">
@@ -736,7 +736,7 @@ export default function Planning() {
       <Modal
         isOpen={showDetail}
         onClose={() => setShowDetail(false)}
-        title="DÃ©tail de l'Ã©vÃ©nement"
+        title="Détail de l'événement"
         size="lg"
       >
         {selectedEvent && (
@@ -759,7 +759,7 @@ export default function Planning() {
               <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl sm:col-span-2">
                 <User size={18} className="text-slate-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-xs text-slate-400 mb-1">Agents assignÃ©s</p>
+                  <p className="text-xs text-slate-400 mb-1">Agents assignés</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedEvent.assignedAgentIds.map((agentId) => (
                       <span key={agentId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-sm">
@@ -784,9 +784,9 @@ export default function Planning() {
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <Calendar size={18} className="text-slate-400" />
                 <div>
-                  <p className="text-xs text-slate-400">PÃ©riode</p>
+                  <p className="text-xs text-slate-400">Période</p>
                   <p className="text-sm font-medium text-slate-900">
-                    {formatDate(selectedEvent.startDate)} â†’ {formatDate(selectedEvent.endDate)}
+                    {formatDate(selectedEvent.startDate)} →  {formatDate(selectedEvent.endDate)}
                   </p>
                 </div>
               </div>
@@ -798,7 +798,7 @@ export default function Planning() {
                   <p className="text-sm font-medium text-slate-900">{selectedEvent.address}</p>
                   {selectedEvent.geoRadius && (
                     <p className="text-xs text-slate-400">
-                      Rayon de contrÃ´le : {selectedEvent.geoRadius}m
+                      Rayon de contrôle : {selectedEvent.geoRadius}m
                     </p>
                   )}
                 </div>
@@ -809,7 +809,7 @@ export default function Planning() {
             {selectedEvent.shifts && selectedEvent.shifts.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Clock size={16} /> Horaires ({selectedEvent.shifts.length} crÃ©neau{selectedEvent.shifts.length > 1 ? 'x' : ''})
+                  <Clock size={16} /> Horaires ({selectedEvent.shifts.length} créneau{selectedEvent.shifts.length > 1 ? 'x' : ''})
                 </h4>
                 <div className="space-y-3">
                   {groupShiftsByDate(selectedEvent.shifts).map(([date, shifts]) => (
@@ -822,7 +822,7 @@ export default function Planning() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-primary-200 text-primary-700 rounded-lg text-sm font-medium"
                           >
                             <Clock size={14} />
-                            {sh.startTime} â†’ {sh.endTime}
+                            {sh.startTime} →  {sh.endTime}
                           </span>
                         ))}
                       </div>
@@ -846,7 +846,7 @@ export default function Planning() {
                     >
                       <span className="w-2 h-2 rounded-full bg-primary-400 flex-shrink-0" />
                       <span className="font-medium text-slate-700">{h.action}</span>
-                      <span className="text-slate-400">â€”</span>
+                      <span className="text-slate-400">·</span>
                       <span className="text-slate-500">{getAgentName(h.userId)}</span>
                       <span className="ml-auto text-xs text-slate-400">
                         {formatDateTime(h.timestamp)}
@@ -876,17 +876,17 @@ export default function Planning() {
         )}
       </Modal>
 
-      {/* Event form modal â€” 2 tabs: Ã‰vÃ©nement / Affectation */}
+      {/* Event form modal — 2 tabs: Événement / Affectation */}
       <Modal
         isOpen={showForm}
         onClose={() => setShowForm(false)}
-        title={formMode === 'create' ? 'Nouvel Ã©vÃ©nement' : 'Modifier l\'Ã©vÃ©nement'}
+        title={formMode === 'create' ? 'Nouvel événement' : 'Modifier l\'événement'}
         size="xl"
       >
         {/* Tab bar */}
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
           {[
-            { key: 'event' as const, label: 'Ã‰vÃ©nement', icon: Briefcase },
+            { key: 'event' as const, label: 'Événement', icon: Briefcase },
             { key: 'agents' as const, label: 'Affectation agents', icon: Users },
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -934,7 +934,7 @@ export default function Planning() {
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     rows={2}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
-                    placeholder="Description dÃ©taillÃ©e"
+                    placeholder="Description détaillée"
                   />
                 </div>
 
@@ -967,7 +967,7 @@ export default function Planning() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Date dÃ©but *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Date début *</label>
                   <input
                     type="date"
                     value={form.startDate}
@@ -1013,11 +1013,11 @@ export default function Planning() {
                       onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as EventStatus }))}
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     >
-                      <option value="planifie">PlanifiÃ©</option>
+                      <option value="planifie">Planifié</option>
                       <option value="en_cours">En cours</option>
-                      <option value="termine">TerminÃ©</option>
-                      <option value="a_reattribuer">Ã€ rÃ©attribuer</option>
-                      <option value="annule">AnnulÃ©</option>
+                      <option value="termine">Terminé</option>
+                      <option value="a_reattribuer">ì réattribuer</option>
+                      <option value="annule">Annulé</option>
                     </select>
                   </div>
                 )}
@@ -1038,14 +1038,14 @@ export default function Planning() {
                       onClick={() => setFormTab('agents')}
                       className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-xl transition-all"
                     >
-                      <Users size={16} /> Affecter des agents â†’
+                      <Users size={16} /> Affecter des agents →
                     </button>
                   )}
                   <button
                     type="submit"
                     className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
                   >
-                    {formMode === 'create' ? 'CrÃ©er' : 'Enregistrer'}
+                    {formMode === 'create' ? 'Créer' : 'Enregistrer'}
                   </button>
                 </div>
               </div>
@@ -1058,7 +1058,7 @@ export default function Planning() {
               {(!form.startDate || !form.endDate) ? (
                 <div className="border border-dashed border-slate-300 rounded-xl p-6 text-center">
                   <Calendar size={24} className="mx-auto text-slate-300 mb-2" />
-                  <p className="text-sm text-slate-500">Renseignez d'abord les dates de l'Ã©vÃ©nement dans l'onglet "Ã‰vÃ©nement".</p>
+                  <p className="text-sm text-slate-500">Renseignez d'abord les dates de l'événement dans l'onglet "Événement".</p>
                 </div>
               ) : (
                 <>
@@ -1066,7 +1066,7 @@ export default function Planning() {
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-3">
                     <Calendar size={16} className="text-blue-500 flex-shrink-0" />
                     <div className="text-xs text-blue-700">
-                      <span className="font-semibold">Plage :</span> {formatDate(form.startDate)} â†’ {formatDate(form.endDate)}
+                      <span className="font-semibold">Plage :</span> {formatDate(form.startDate)} →  {formatDate(form.endDate)}
                       <span className="ml-3 text-blue-500">({getEventDatesInRange([]).length} jours)</span>
                     </div>
                   </div>
@@ -1092,7 +1092,7 @@ export default function Planning() {
                         </button>
                       ))}
                       {agents.filter((a) => !agentShiftAssignments[a.id]).length === 0 && (
-                        <p className="text-xs text-slate-400 italic py-1">Tous les agents actifs sont assignÃ©s</p>
+                        <p className="text-xs text-slate-400 italic py-1">Tous les agents actifs sont assignés</p>
                       )}
                     </div>
                   </div>
@@ -1126,8 +1126,8 @@ export default function Planning() {
                                 </p>
                                 <p className="text-[11px] text-slate-400">
                                   {shiftCount > 0
-                                    ? `${shiftCount} crÃ©neau${shiftCount > 1 ? 'x' : ''} sur ${dayCount} jour${dayCount > 1 ? 's' : ''}`
-                                    : 'Aucun crÃ©neau dÃ©fini'}
+                                    ? `${shiftCount} créneau${shiftCount > 1 ? 'x' : ''} sur ${dayCount} jour${dayCount > 1 ? 's' : ''}`
+                                    : 'Aucun créneau défini'}
                                 </p>
                               </div>
                             </div>
@@ -1140,7 +1140,7 @@ export default function Planning() {
                                     ? 'bg-primary-100 text-primary-700'
                                     : 'text-slate-400 hover:text-primary-600 hover:bg-primary-50'
                                 }`}
-                                title="Modifier les crÃ©neaux"
+                                title="Modifier les créneaux"
                               >
                                 <Edit3 size={15} />
                               </button>
@@ -1168,7 +1168,7 @@ export default function Planning() {
                                     <span className="font-bold text-primary-600 w-8">{dayName}</span>
                                     <span className="text-slate-600 font-medium w-12">{dd}/{mm}</span>
                                     <span className="text-slate-500">
-                                      {slots.map((s) => `${s.startTime}â€“${s.endTime}`).join(', ')}
+                                      {slots.map((s) => `${s.startTime}→${s.endTime}`).join(', ')}
                                     </span>
                                   </div>
                                 );
@@ -1181,7 +1181,7 @@ export default function Planning() {
                             <div className="px-4 py-3 space-y-4 bg-primary-50/30">
                               {/* Skip days */}
                               <div>
-                                <p className="text-xs font-semibold text-slate-600 mb-1.5">Jours Ã  exclure</p>
+                                <p className="text-xs font-semibold text-slate-600 mb-1.5">Jours à exclure</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {WEEKDAY_NAMES.map((name, i) => {
                                     const isSkipped = agentSkipDays.includes(i);
@@ -1198,7 +1198,7 @@ export default function Planning() {
                                             : 'bg-white border-slate-200 text-slate-500'
                                         }`}
                                       >
-                                        {isSkipped && 'âœ• '}{name}
+                                        {isSkipped && '✕ '}{name}
                                       </button>
                                     );
                                   })}
@@ -1215,7 +1215,7 @@ export default function Planning() {
                                       onClick={selectAllDatesForAgent}
                                       className="text-[11px] font-medium text-primary-600 hover:text-primary-700 px-2 py-0.5 rounded bg-primary-50 hover:bg-primary-100 transition-colors"
                                     >
-                                      Tout sÃ©lectionner
+                                      Tout sélectionner
                                     </button>
                                     <button
                                       type="button"
@@ -1256,14 +1256,14 @@ export default function Planning() {
                                   })}
                                 </div>
                                 <p className="text-[10px] text-slate-400 mt-1">
-                                  {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''} sÃ©lectionnÃ©{agentShiftDates.size > 1 ? 's' : ''}
+                                  {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''} sélectionné{agentShiftDates.size > 1 ? 's' : ''}
                                 </p>
                               </div>
 
                               {/* Time slots template */}
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <p className="text-xs font-semibold text-slate-600">CrÃ©neaux horaires</p>
+                                  <p className="text-xs font-semibold text-slate-600">Créneaux horaires</p>
                                   <button
                                     type="button"
                                     onClick={() => setAgentTemplateSlots((prev) => [...prev, { startTime: '08:00', endTime: '17:00' }])}
@@ -1283,7 +1283,7 @@ export default function Planning() {
                                         }
                                         className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                       />
-                                      <span className="text-slate-300 text-xs">â†’</span>
+                                      <span className="text-slate-300 text-xs">→ </span>
                                       <input
                                         type="time"
                                         value={slot.endTime}
@@ -1314,7 +1314,7 @@ export default function Planning() {
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-all"
                               >
                                 <Check size={16} />
-                                Appliquer {agentTemplateSlots.length} crÃ©neau{agentTemplateSlots.length > 1 ? 'x' : ''} Ã  {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''}
+                                Appliquer {agentTemplateSlots.length} créneau{agentTemplateSlots.length > 1 ? 'x' : ''} à {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''}
                               </button>
                             </div>
                           )}
@@ -1325,7 +1325,7 @@ export default function Planning() {
                     {Object.keys(agentShiftAssignments).length === 0 && (
                       <div className="border border-dashed border-slate-300 rounded-xl p-6 text-center">
                         <Users size={24} className="mx-auto text-slate-300 mb-2" />
-                        <p className="text-sm text-slate-400">Aucun agent affectÃ©. Ajoutez un agent ci-dessus.</p>
+                        <p className="text-sm text-slate-400">Aucun agent affecté. Ajoutez un agent ci-dessus.</p>
                       </div>
                     )}
                   </div>
@@ -1348,13 +1348,13 @@ export default function Planning() {
                   onClick={() => setFormTab('event')}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  â† Ã‰vÃ©nement
+                  ← Événement
                 </button>
                 <button
                   type="submit"
                   className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
                 >
-                  {formMode === 'create' ? 'CrÃ©er' : 'Enregistrer'}
+                  {formMode === 'create' ? 'Créer' : 'Enregistrer'}
                 </button>
               </div>
             </div>
@@ -1411,12 +1411,12 @@ function ConflictWarning({
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
       <div className="flex items-center gap-2 text-amber-700 font-medium text-sm mb-2">
         <AlertTriangle size={16} />
-        Conflit de planning dÃ©tectÃ© !
+        Conflit de planning détecté !
       </div>
       <ul className="space-y-1">
         {allConflicts.map((c) => (
           <li key={c.id} className="text-sm text-amber-600">
-            â€¢ {c.title} ({formatDate(c.startDate)} â†’ {formatDate(c.endDate)})
+            ⬢ {c.title} ({formatDate(c.startDate)} →  {formatDate(c.endDate)})
           </li>
         ))}
       </ul>
@@ -1425,8 +1425,8 @@ function ConflictWarning({
 }
 
 const MONTH_NAMES = [
-  'Janvier', 'FÃ©vrier', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'AoÃ»t', 'Septembre', 'Octobre', 'Novembre', 'DÃ©cembre',
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
 ];
 
 function YearOverview({
@@ -1514,7 +1514,7 @@ function YearOverview({
                   {count}
                 </span>
               ) : (
-                <span className={`text-xs ${isCurrent ? 'text-white/60' : 'text-slate-300'}`}>â€”</span>
+                <span className={`text-xs ${isCurrent ? 'text-white/60' : 'text-slate-300'}`}>·</span>
               )}
               {isCurrent && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-white rounded-full shadow" />
@@ -1541,8 +1541,8 @@ function YearOverview({
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 const HEATMAP_MONTH_NAMES = [
-  'Sept', 'Oct', 'Nov', 'DÃ©c', 'Janv', 'FÃ©v',
-  'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'AoÃ»t',
+  'Sept', 'Oct', 'Nov', 'Déc', 'Janv', 'Fév',
+  'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août',
 ];
 
 interface HeatmapEventInfo {
@@ -1680,7 +1680,7 @@ function HeatmapCalendar({
         </button>
         <div className="text-center">
           <h2 className="text-lg font-extrabold text-white tracking-tight">
-            Sept {year - 1} â€” AoÃ»t {year}
+            Sept {year - 1} → Août {year}
           </h2>
           <p className="text-white/70 text-xs font-medium mt-0.5">Calendrier Heatmap</p>
         </div>
@@ -1807,7 +1807,7 @@ function HeatmapCalendar({
                       <div className="flex items-center gap-1 mt-0.5">
                         <Clock size={10} className="text-slate-400 flex-shrink-0" />
                         <span className="text-[10px] text-slate-500 font-medium">
-                          {evt.shifts.map((s) => `${s.startTime}â€“${s.endTime}`).join(' / ')}
+                          {evt.shifts.map((s) => `${s.startTime}→${s.endTime}`).join(' / ')}
                         </span>
                       </div>
                     )}
