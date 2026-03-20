@@ -37,7 +37,25 @@ export default function CheckIn() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
+
+  // When cameraActive becomes true and the video element is rendered, attach the stream
+  useEffect(() => {
+    if (cameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [cameraActive]);
+
+  // Cleanup stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   if (!user) return null;
 
@@ -60,31 +78,32 @@ export default function CheckIn() {
   // Current step for visual stepper
   const currentStep = !selectedEventId ? 1 : !capturedPhoto ? 2 : 3;
 
-  const startCamera = useCallback(async () => {
+  const startCamera = async () => {
     try {
       setError('');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setCameraActive(true);
-      }
+      streamRef.current = stream;
+      // Set active first so the <video> element renders, then useEffect attaches the stream
+      setCameraActive(true);
     } catch {
       setError('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès.');
     }
-  }, []);
+  };
 
-  const stopCamera = useCallback(() => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach((t) => t.stop());
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
-  }, []);
+  };
 
-  const capturePhoto = useCallback(() => {
+  const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -108,7 +127,7 @@ export default function CheckIn() {
       setCapturedPhoto(photoData);
       stopCamera();
     }
-  }, [stopCamera]);
+  };
 
   const handleCheckInOut = async () => {
     if (!selectedEvent || !capturedPhoto) return;
@@ -407,7 +426,12 @@ export default function CheckIn() {
                   {cameraActive ? (
                     <div className="relative rounded-2xl overflow-hidden bg-black shadow-xl">
                       <video
-                        ref={videoRef}
+                        ref={(el) => {
+                          (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                          if (el && streamRef.current && !el.srcObject) {
+                            el.srcObject = streamRef.current;
+                          }
+                        }}
                         autoPlay
                         playsInline
                         muted
