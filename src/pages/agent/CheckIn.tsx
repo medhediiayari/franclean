@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatTime } from '../../utils/helpers';
+import { formatTime, formatDuration } from '../../utils/helpers';
 import { getCurrentPosition, isWithinRadius, formatDistance } from '../../utils/geolocation';
 import {
   Camera,
@@ -312,7 +312,7 @@ export default function CheckIn() {
                         <div className="mt-2 flex items-center gap-1.5">
                           <Zap size={12} className="text-primary-500" />
                           <span className="text-xs font-bold text-primary-600">
-                            {rec.hoursWorked.toFixed(1)}h travaillées
+                            {formatDuration(rec.hoursWorked)} travaillées
                           </span>
                         </div>
                       )}

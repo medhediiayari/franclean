@@ -5,7 +5,7 @@ import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import StatCard from '../../components/common/StatCard';
 import PageHeader from '../../components/common/PageHeader';
-import { formatDate, formatTime } from '../../utils/helpers';
+import { formatDate, formatTime, formatDuration } from '../../utils/helpers';
 import {
   Users,
   CalendarDays,
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
                       </div>
                       {record.hoursWorked && (
                         <p className="text-xs font-medium text-primary-600 mt-1">
-                          {record.hoursWorked.toFixed(1)}h travaillées
+                          {formatDuration(record.hoursWorked)} travaillées
                         </p>
                       )}
                     </div>

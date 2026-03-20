@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, formatTime } from '../../utils/helpers';
+import { formatDate, formatTime, formatDuration } from '../../utils/helpers';
 import {
   Clock,
   CheckCircle2,
@@ -59,21 +59,21 @@ export default function MyHours() {
           <div className="inline-flex p-2 rounded-xl bg-emerald-100/80 mb-2">
             <CheckCircle2 size={16} className="text-emerald-600" />
           </div>
-          <p className="text-xl font-extrabold text-emerald-700 tracking-tight">{totalHoursValidated.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-xl font-extrabold text-emerald-700 tracking-tight">{formatDuration(totalHoursValidated)}</p>
           <p className="text-[10px] font-bold text-emerald-600/70 uppercase tracking-wider mt-0.5">Validées</p>
         </div>
         <div className="group bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl border border-amber-100 p-3.5 text-center hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
           <div className="inline-flex p-2 rounded-xl bg-amber-100/80 mb-2">
             <Clock size={16} className="text-amber-600" />
           </div>
-          <p className="text-xl font-extrabold text-amber-700 tracking-tight">{totalHoursPending.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-xl font-extrabold text-amber-700 tracking-tight">{formatDuration(totalHoursPending)}</p>
           <p className="text-[10px] font-bold text-amber-600/70 uppercase tracking-wider mt-0.5">En attente</p>
         </div>
         <div className="group bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-100 p-3.5 text-center hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
           <div className="inline-flex p-2 rounded-xl bg-rose-100/80 mb-2">
             <XCircle size={16} className="text-rose-600" />
           </div>
-          <p className="text-xl font-extrabold text-rose-700 tracking-tight">{totalHoursRefused.toFixed(1)}<span className="text-sm">h</span></p>
+          <p className="text-xl font-extrabold text-rose-700 tracking-tight">{formatDuration(totalHoursRefused)}</p>
           <p className="text-[10px] font-bold text-rose-600/70 uppercase tracking-wider mt-0.5">Refusées</p>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default function MyHours() {
             <span className="text-sm font-bold text-slate-900">Total ce mois</span>
           </div>
           <p className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {(totalHoursValidated + totalHoursPending).toFixed(1)}<span className="text-lg text-slate-400">h</span>
+            {formatDuration(totalHoursValidated + totalHoursPending)}
           </p>
         </div>
         {/* Progress bar */}
@@ -188,7 +188,7 @@ export default function MyHours() {
                     {rec.hoursWorked && (
                       <span className="flex items-center gap-1 text-sm font-extrabold text-primary-600">
                         <Zap size={13} className="text-primary-400" />
-                        {rec.hoursWorked.toFixed(1)}h
+                        {formatDuration(rec.hoursWorked)}
                       </span>
                     )}
                   </div>

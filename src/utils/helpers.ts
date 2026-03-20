@@ -28,6 +28,15 @@ export function getInitials(firstName: string, lastName: string): string {
   return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase();
 }
 
+/** Formats decimal hours (e.g. 7.92) as "Xh Ymin" */
+export function formatDuration(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
+}
+
 export function cn(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }

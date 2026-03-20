@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate } from '../../utils/helpers';
+import { formatDate, formatDuration } from '../../utils/helpers';
 import {
   CalendarDays,
   Clock,
@@ -286,7 +286,7 @@ export default function AgentDashboard() {
             <div>
               <p className="text-xs text-slate-400">Heures totales</p>
               <p className="text-lg font-bold text-primary-600">
-                {myRecords.reduce((s, r) => s + (r.hoursWorked || 0), 0).toFixed(1)}h
+                {formatDuration(myRecords.reduce((s, r) => s + (r.hoursWorked || 0), 0))}
               </p>
             </div>
             <div className="h-8 w-px bg-slate-100" />

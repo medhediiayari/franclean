@@ -4,7 +4,7 @@ import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
 import Modal from '../../components/common/Modal';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate, formatTime } from '../../utils/helpers';
+import { formatDate, formatTime, formatDuration } from '../../utils/helpers';
 import type { AttendanceStatus } from '../../types';
 import {
   CheckCircle2,
@@ -329,7 +329,7 @@ export default function AdminAttendance() {
                   </td>
                   <td className="px-5 py-3.5">
                     <span className="text-sm font-semibold text-slate-900">
-                      {rec.hoursWorked ? `${rec.hoursWorked.toFixed(1)}h` : '—'}
+                      {rec.hoursWorked ? formatDuration(rec.hoursWorked) : '—'}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
@@ -531,7 +531,7 @@ export default function AdminAttendance() {
                                 )}
                                 {rec.hoursWorked && (
                                   <span className="font-semibold text-primary-600">
-                                    {rec.hoursWorked.toFixed(1)}h
+                                    {formatDuration(rec.hoursWorked)}
                                   </span>
                                 )}
                               </div>
@@ -643,7 +643,7 @@ export default function AdminAttendance() {
                                 {rec.hoursWorked && (
                                   <div className="bg-primary-50 rounded-lg px-4 py-2 text-center">
                                     <p className="text-xs text-primary-600">Heures</p>
-                                    <p className="text-xl font-bold text-primary-700">{rec.hoursWorked.toFixed(2)}h</p>
+                                    <p className="text-xl font-bold text-primary-700">{formatDuration(rec.hoursWorked)}</p>
                                   </div>
                                 )}
                                 {rec.isSuspect && rec.suspectReasons.length > 0 && (
@@ -847,7 +847,7 @@ export default function AdminAttendance() {
               <div className="bg-primary-50 rounded-xl p-4 text-center">
                 <p className="text-sm text-primary-600 font-medium">Heures travaillées</p>
                 <p className="text-3xl font-bold text-primary-700 mt-1">
-                  {record.hoursWorked.toFixed(2)}h
+                  {formatDuration(record.hoursWorked)}
                 </p>
               </div>
             )}

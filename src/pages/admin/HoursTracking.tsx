@@ -3,7 +3,7 @@ import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
 import StatusBadge from '../../components/common/StatusBadge';
-import { formatDate } from '../../utils/helpers';
+import { formatDate, formatDuration } from '../../utils/helpers';
 import type { HoursSummary } from '../../types';
 import {
   Search,
@@ -136,10 +136,10 @@ export default function HoursTracking() {
 
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard label="H. Pointées" value={`${totalPointed.toFixed(1)}h`} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
-        <StatCard label="H. Validées" value={`${totalValidated.toFixed(1)}h`} icon={FileCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-        <StatCard label="H. Facturées" value={`${totalBilled.toFixed(1)}h`} icon={Receipt} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard label="Écart" value={`${totalGap > 0 ? '+' : ''}${totalGap.toFixed(1)}h`} icon={TrendingDown} iconBg="bg-orange-50" iconColor="text-orange-600" />
+        <StatCard label="H. Pointées" value={formatDuration(totalPointed)} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
+        <StatCard label="H. Validées" value={formatDuration(totalValidated)} icon={FileCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard label="H. Facturées" value={formatDuration(totalBilled)} icon={Receipt} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard label="Écart" value={`${totalGap > 0 ? '+' : ''}${formatDuration(totalGap)}`} icon={TrendingDown} iconBg="bg-orange-50" iconColor="text-orange-600" />
       </div>
 
       {/* Search */}
@@ -199,23 +199,23 @@ export default function HoursTracking() {
                   <td className="px-5 py-3.5 text-sm text-slate-600">{row.client}</td>
                   <td className="px-5 py-3.5 text-sm text-slate-600">{row.period}</td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-slate-900">
-                    {row.hoursPointed.toFixed(1)}h
+                    {formatDuration(row.hoursPointed)}
                   </td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-emerald-600">
-                    {row.hoursValidated.toFixed(1)}h
+                    {formatDuration(row.hoursValidated)}
                   </td>
                   <td className="px-5 py-3.5">
                     <StatusBadge status={row.validationStatus} />
                   </td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-blue-600">
-                    {row.hoursBilled.toFixed(1)}h
+                    {formatDuration(row.hoursBilled)}
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
                       {getGapIcon(row.gap)}
                       <span className={`text-sm font-semibold ${getGapColor(row.gap)}`}>
                         {row.gap > 0 ? '+' : ''}
-                        {row.gap.toFixed(1)}h
+                        {formatDuration(Math.abs(row.gap))}
                       </span>
                     </div>
                   </td>
@@ -236,19 +236,19 @@ export default function HoursTracking() {
                     TOTAL
                   </td>
                   <td className="px-5 py-3 text-sm font-bold text-slate-900">
-                    {totalPointed.toFixed(1)}h
+                    {formatDuration(totalPointed)}
                   </td>
                   <td className="px-5 py-3 text-sm font-bold text-emerald-600">
-                    {totalValidated.toFixed(1)}h
+                    {formatDuration(totalValidated)}
                   </td>
                   <td className="px-5 py-3" />
                   <td className="px-5 py-3 text-sm font-bold text-blue-600">
-                    {totalBilled.toFixed(1)}h
+                    {formatDuration(totalBilled)}
                   </td>
                   <td className="px-5 py-3">
                     <span className={`text-sm font-bold ${getGapColor(totalGap)}`}>
                       {totalGap > 0 ? '+' : ''}
-                      {totalGap.toFixed(1)}h
+                      {formatDuration(Math.abs(totalGap))}
                     </span>
                   </td>
                 </tr>
