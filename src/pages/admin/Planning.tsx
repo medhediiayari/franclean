@@ -1624,6 +1624,16 @@ const HEATMAP_MONTH_NAMES = [
   'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août',
 ];
 
+interface HeatmapEventInfo {
+  id: string;
+  title: string;
+  client: string;
+  color: string;
+  status: EventStatus;
+  address: string;
+  shifts: EventShift[];
+}
+
 function HeatmapCalendar({
   year,
   events,
@@ -1635,6 +1645,12 @@ function HeatmapCalendar({
   onYearChange: (y: number) => void;
   onDayClick: (date: string) => void;
 }) {
+  const [hoveredCell, setHoveredCell] = useState<{
+    date: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   // Build a map: date -> array of event colors for that date
   const dateMap = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -1646,6 +1662,31 @@ function HeatmapCalendar({
         const key = d.toISOString().slice(0, 10);
         if (!map[key]) map[key] = [];
         map[key].push(evt.color || statusColors[evt.status]);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return map;
+  }, [events]);
+
+  // Build a map: date -> array of event details
+  const dateEventsMap = useMemo(() => {
+    const map: Record<string, HeatmapEventInfo[]> = {};
+    for (const evt of events) {
+      const start = new Date(evt.startDate);
+      const end = new Date(evt.endDate);
+      const d = new Date(start);
+      while (d <= end) {
+        const key = d.toISOString().slice(0, 10);
+        if (!map[key]) map[key] = [];
+        map[key].push({
+          id: evt.id,
+          title: evt.title,
+          client: evt.client || '',
+          color: evt.color || statusColors[evt.status],
+          status: evt.status,
+          address: evt.address || '',
+          shifts: evt.shifts?.filter((s) => s.date === key) || [],
+        });
         d.setDate(d.getDate() + 1);
       }
     }
@@ -1760,11 +1801,18 @@ function HeatmapCalendar({
                     const isSunday = day.dayOfWeek === 6;
                     const isSaturday = day.dayOfWeek === 5;
                     const cellColors = getCellColors(day.date);
+                    const dayEvts = dateEventsMap[day.date] || [];
                     return (
                       <td
                         key={`${m.label}-${rowIdx}`}
                         onClick={() => onDayClick(day.date)}
-                        title={`${day.date}${hasEvents ? ` — ${dateMap[day.date].length} évén.` : ''}`}
+                        onMouseEnter={(e) => {
+                          if (dayEvts.length > 0) {
+                            const rect = (e.target as HTMLElement).getBoundingClientRect();
+                            setHoveredCell({ date: day.date, x: rect.left + rect.width / 2, y: rect.bottom + 4 });
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredCell(null)}
                         className={`heatmap-cell cursor-pointer transition-all ${
                           isToday ? 'ring-2 ring-primary-500 ring-offset-1 z-10 relative rounded' : ''
                         } ${
@@ -1802,6 +1850,64 @@ function HeatmapCalendar({
           </table>
         </div>
       </div>
+
+      {/* Hover tooltip */}
+      {hoveredCell && dateEventsMap[hoveredCell.date] && (
+        <div
+          className="fixed z-[9999] pointer-events-none animate-fadeIn"
+          style={{
+            left: hoveredCell.x,
+            top: hoveredCell.y,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-3 min-w-[220px] max-w-[300px]">
+            {/* Date header */}
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+              <Calendar size={13} className="text-primary-500" />
+              <span className="text-xs font-bold text-slate-700">
+                {new Date(hoveredCell.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+            </div>
+            {/* Events list */}
+            <div className="space-y-2">
+              {dateEventsMap[hoveredCell.date].map((evt) => (
+                <div key={evt.id} className="flex gap-2">
+                  <span
+                    className="w-1 rounded-full flex-shrink-0 mt-0.5"
+                    style={{ backgroundColor: evt.color, minHeight: 28 }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-800 truncate">{evt.title}</p>
+                    {evt.client && (
+                      <p className="text-[10px] text-slate-400 truncate">{evt.client}</p>
+                    )}
+                    {evt.shifts.length > 0 && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Clock size={10} className="text-slate-400 flex-shrink-0" />
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {evt.shifts.map((s) => `${s.startTime}–${s.endTime}`).join(' / ')}
+                        </span>
+                      </div>
+                    )}
+                    {evt.address && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} className="text-slate-400 flex-shrink-0" />
+                        <span className="text-[10px] text-slate-400 truncate">{evt.address}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0">
+                    <StatusBadge status={evt.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Arrow */}
+            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-slate-200 rotate-45" />
+          </div>
+        </div>
+      )}
 
       {/* Event color legend */}
       <div className="flex flex-wrap items-center justify-center gap-3 px-5 pb-4">
