@@ -167,17 +167,6 @@ export default function Planning() {
     );
   }, [eventResponsesGrouped]);
 
-  // Remove shifts on skipped weekdays or excluded specific dates
-  useEffect(() => {
-    setFormShifts(prev => {
-      const filtered = prev.filter(s => {
-        const day = new Date(s.date + 'T12:00:00').getDay();
-        return !skipDays.includes(day) && !excludedDates.has(s.date);
-      });
-      return filtered.length === prev.length ? prev : filtered;
-    });
-  }, [skipDays, excludedDates]);
-
   // Generate calendar events from shifts
   const calendarEvents = useMemo(() => {
     const result: Array<{
@@ -231,7 +220,6 @@ export default function Planning() {
       assignedAgentIds: [] as string[],
       status: 'planifie',
     });
-    setFormShifts([]);
     setAgentShiftAssignments({});
     setEditingAgentId(null);
     setFormTab('event');
@@ -278,7 +266,6 @@ export default function Planning() {
       assignedAgentIds: selectedEvent.assignedAgentIds,
       status: selectedEvent.status,
     });
-    setFormShifts(selectedEvent.shifts || []);
     // Build per-agent shift assignments from existing shifts
     const assignments: Record<string, { date: string; startTime: string; endTime: string }[]> = {};
     for (const shift of (selectedEvent.shifts || [])) {

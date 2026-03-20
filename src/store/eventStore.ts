@@ -5,8 +5,8 @@ import type { PlanningEvent } from '../types';
 interface EventState {
   events: PlanningEvent[];
   fetchEvents: () => Promise<void>;
-  addEvent: (event: Omit<PlanningEvent, 'id' | 'createdAt' | 'updatedAt' | 'history' | 'agentResponses'> & { agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>; history?: PlanningEvent['history'] }) => Promise<PlanningEvent>;
-  updateEvent: (id: string, data: Partial<PlanningEvent>) => Promise<void>;
+  addEvent: (event: Omit<PlanningEvent, 'id' | 'createdAt' | 'updatedAt' | 'history' | 'agentResponses' | 'shifts'> & { shifts: Array<{ date: string; startTime: string; endTime: string; agentId?: string }>; agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>; history?: PlanningEvent['history'] }) => Promise<PlanningEvent>;
+  updateEvent: (id: string, data: Partial<Omit<PlanningEvent, 'shifts'>> & { shifts?: Array<{ date: string; startTime: string; endTime: string; agentId?: string }> }) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   setAgentResponse: (eventId: string, agentId: string, response: 'accepted' | 'refused') => Promise<void>;
   getEventsByAgent: (agentId: string) => PlanningEvent[];
