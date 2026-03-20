@@ -236,6 +236,10 @@ export default function MyPlanning() {
 
   const myEvents = events
     .filter((e) => e.assignedAgentIds.includes(user.id))
+    .map(e => ({
+      ...e,
+      shifts: (e.shifts || []).filter(s => !s.agentId || s.agentId === user!.id),
+    }))
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const upcomingEvents = myEvents.filter(

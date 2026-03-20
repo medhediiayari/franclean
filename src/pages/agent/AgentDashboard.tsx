@@ -28,7 +28,12 @@ export default function AgentDashboard() {
 
   if (!user) return null;
 
-  const myEvents = events.filter((e) => e.assignedAgentIds.includes(user.id));
+  const myEvents = events
+    .filter((e) => e.assignedAgentIds.includes(user.id))
+    .map(e => ({
+      ...e,
+      shifts: (e.shifts || []).filter(s => !s.agentId || s.agentId === user!.id),
+    }));
   const myRecords = records.filter((r) => r.agentId === user.id);
 
   const activeEvents = myEvents.filter(

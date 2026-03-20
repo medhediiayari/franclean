@@ -118,8 +118,8 @@ async function main() {
       status: 'en_cours',
       shifts: {
         create: [
-          { date: today, startTime: '08:00', endTime: '12:00' },
-          { date: today, startTime: '14:00', endTime: '17:00' },
+          { date: today, startTime: '08:00', endTime: '12:00', agentId: agent1.id },
+          { date: today, startTime: '14:00', endTime: '17:00', agentId: agent1.id },
         ],
       },
       agents: {
@@ -333,9 +333,10 @@ async function main() {
       status: 'planifie',
       shifts: {
         create: [
-          { date: inFourDays, startTime: '09:00', endTime: '13:00' },
-          { date: inFourDays, startTime: '14:00', endTime: '18:00' },
-          { date: inFiveDays, startTime: '09:00', endTime: '13:00' },
+          { date: inFourDays, startTime: '09:00', endTime: '13:00', agentId: agent1.id },
+          { date: inFourDays, startTime: '14:00', endTime: '18:00', agentId: agent2.id },
+          { date: inFiveDays, startTime: '09:00', endTime: '13:00', agentId: agent1.id },
+          { date: inFiveDays, startTime: '09:00', endTime: '13:00', agentId: agent2.id },
         ],
       },
       agents: {

@@ -66,7 +66,10 @@ export default function CheckIn() {
       (e.status === 'en_cours' || e.status === 'planifie') &&
       e.startDate.slice(0, 10) <= today &&
       e.endDate.slice(0, 10) >= today,
-  );
+  ).map(e => ({
+    ...e,
+    shifts: (e.shifts || []).filter(s => !s.agentId || s.agentId === user!.id),
+  }));
 
   const todayRecords = records.filter(
     (r) => r.agentId === user.id && r.date === today,

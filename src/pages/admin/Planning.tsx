@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -87,9 +87,20 @@ export default function Planning() {
     status: 'planifie' as EventStatus,
   });
 
-  const [formShifts, setFormShifts] = useState<EventShift[]>([]);
-  const [skipDays, setSkipDays] = useState<number[]>([0, 6]); // skip Sun=0, Sat=6 by default
-  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
+  const [formTab, setFormTab] = useState<'event' | 'agents'>('event');
+
+  // Per-agent shift assignments: agentId -> array of shifts
+  const [agentShiftAssignments, setAgentShiftAssignments] = useState<
+    Record<string, { date: string; startTime: string; endTime: string }[]>
+  >({});
+
+  // Editing agent shifts
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+  const [agentShiftDates, setAgentShiftDates] = useState<Set<string>>(new Set());
+  const [agentTemplateSlots, setAgentTemplateSlots] = useState<{ startTime: string; endTime: string }[]>([
+    { startTime: '08:00', endTime: '17:00' },
+  ]);
+  const [agentSkipDays, setAgentSkipDays] = useState<number[]>([0, 6]);
   const [showResponsesWidget, setShowResponsesWidget] = useState(true);
   const [expandedResponseEventId, setExpandedResponseEventId] = useState<string | null>(null);
 
@@ -97,7 +108,7 @@ export default function Planning() {
   const eventResponsesGrouped = useMemo(() => {
     const nameOf = (id: string) => {
       const u = users.find((u) => u.id === id);
-      return u ? `${u.firstName} ${u.lastName}` : 'Non assigné';
+      return u ? `${u.firstName} ${u.lastName}` : 'Non assignÃ©';
     };
 
     const result: Array<{
@@ -221,8 +232,9 @@ export default function Planning() {
       status: 'planifie',
     });
     setFormShifts([]);
-    setSkipDays([0, 6]);
-    setExcludedDates(new Set());
+    setAgentShiftAssignments({});
+    setEditingAgentId(null);
+    setFormTab('event');
   };
 
   const handleDateSelect = (info: { startStr: string; endStr: string }) => {
@@ -267,8 +279,25 @@ export default function Planning() {
       status: selectedEvent.status,
     });
     setFormShifts(selectedEvent.shifts || []);
-    setSkipDays([]); // no skip when editing — show all existing shifts
-    setExcludedDates(new Set());
+    // Build per-agent shift assignments from existing shifts
+    const assignments: Record<string, { date: string; startTime: string; endTime: string }[]> = {};
+    for (const shift of (selectedEvent.shifts || [])) {
+      const aid = shift.agentId || '__shared__';
+      if (!assignments[aid]) assignments[aid] = [];
+      assignments[aid].push({ date: shift.date, startTime: shift.startTime, endTime: shift.endTime });
+    }
+    // If shifts have no agentId, replicate them for each assigned agent (legacy compat)
+    if (assignments['__shared__'] && selectedEvent.assignedAgentIds.length > 0) {
+      for (const agentId of selectedEvent.assignedAgentIds) {
+        if (!assignments[agentId]) {
+          assignments[agentId] = [...assignments['__shared__']];
+        }
+      }
+      delete assignments['__shared__'];
+    }
+    setAgentShiftAssignments(assignments);
+    setEditingAgentId(null);
+    setFormTab('event');
     setFormMode('edit');
     setShowDetail(false);
     setShowForm(true);
@@ -276,7 +305,15 @@ export default function Planning() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.assignedAgentIds.length === 0) return;
+
+    // Build flat shifts array from per-agent assignments
+    const allShifts: { date: string; startTime: string; endTime: string; agentId?: string }[] = [];
+    const allAgentIds = Object.keys(agentShiftAssignments);
+    for (const agentId of allAgentIds) {
+      for (const s of agentShiftAssignments[agentId]) {
+        allShifts.push({ ...s, agentId });
+      }
+    }
 
     const eventData = {
       title: form.title,
@@ -285,12 +322,12 @@ export default function Planning() {
       color: form.color,
       startDate: form.startDate,
       endDate: form.endDate,
-      shifts: formShifts,
+      shifts: allShifts,
       address: form.address,
       latitude: form.latitude ? parseFloat(form.latitude) : undefined,
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 200,
-      assignedAgentIds: form.assignedAgentIds,
+      assignedAgentIds: allAgentIds,
       status: form.status,
     };
 
@@ -310,7 +347,7 @@ export default function Planning() {
   };
 
   const handleDelete = async () => {
-    if (selectedEvent && confirm('Supprimer cet événement ?')) {
+    if (selectedEvent && confirm('Supprimer cet Ã©vÃ©nement ?')) {
       try {
         await deleteEvent(selectedEvent.id);
       } catch (err) {
@@ -335,18 +372,18 @@ export default function Planning() {
 
   const getAgentName = (id: string) => {
     const agent = users.find((u) => u.id === id);
-    return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assigné';
+    return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assignÃ©';
   };
 
-  // Shift management helpers
-  const getDatesInRange = (start: string, end: string, skip: number[] = skipDays): string[] => {
-    if (!start || !end) return [];
+  // Helper: get all dates in event range
+  const getEventDatesInRange = (skip: number[] = [0, 6]): string[] => {
+    if (!form.startDate || !form.endDate) return [];
     const dates: string[] = [];
-    const d = new Date(start + 'T12:00:00');
-    const endDate = new Date(end + 'T12:00:00');
+    const d = new Date(form.startDate + 'T12:00:00');
+    const endDate = new Date(form.endDate + 'T12:00:00');
     while (d <= endDate) {
       const iso = d.toISOString().slice(0, 10);
-      if (!skip.includes(d.getDay()) && !excludedDates.has(iso)) {
+      if (!skip.includes(d.getDay())) {
         dates.push(iso);
       }
       d.setDate(d.getDate() + 1);
@@ -354,60 +391,56 @@ export default function Planning() {
     return dates;
   };
 
-  const addShiftForDate = (date: string) => {
-    setFormShifts((s) => [
-      ...s,
-      { id: crypto.randomUUID(), date, startTime: '08:00', endTime: '17:00' },
-    ]);
+  // Agent assignment helpers
+  const addAgentToEvent = (agentId: string) => {
+    if (agentShiftAssignments[agentId]) return;
+    setAgentShiftAssignments((prev) => ({ ...prev, [agentId]: [] }));
   };
 
-  const applyTemplateToAllDays = (templates: { startTime: string; endTime: string }[]) => {
-    const dates = getDatesInRange(form.startDate, form.endDate);
-    if (dates.length === 0 || templates.length === 0) return;
-    const newShifts: EventShift[] = [];
+  const removeAgentFromEvent = (agentId: string) => {
+    setAgentShiftAssignments((prev) => {
+      const next = { ...prev };
+      delete next[agentId];
+      return next;
+    });
+    if (editingAgentId === agentId) setEditingAgentId(null);
+  };
+
+  const applyAgentShifts = (agentId: string) => {
+    const dates = Array.from(agentShiftDates).sort();
+    if (dates.length === 0 || agentTemplateSlots.length === 0) return;
+    const shifts: { date: string; startTime: string; endTime: string }[] = [];
     for (const date of dates) {
-      for (const tpl of templates) {
-        newShifts.push({
-          id: crypto.randomUUID(),
-          date,
-          startTime: tpl.startTime,
-          endTime: tpl.endTime,
-        });
+      for (const tpl of agentTemplateSlots) {
+        shifts.push({ date, startTime: tpl.startTime, endTime: tpl.endTime });
       }
     }
-    setFormShifts(newShifts);
+    setAgentShiftAssignments((prev) => ({ ...prev, [agentId]: shifts }));
+    setEditingAgentId(null);
   };
 
-  const copyDayToAll = (sourceDate: string) => {
-    const sourceShifts = formShifts.filter((s) => s.date === sourceDate);
-    if (sourceShifts.length === 0) return;
-    const dates = getDatesInRange(form.startDate, form.endDate);
-    const newShifts: EventShift[] = [];
-    for (const date of dates) {
-      for (const src of sourceShifts) {
-        newShifts.push({
-          id: crypto.randomUUID(),
-          date,
-          startTime: src.startTime,
-          endTime: src.endTime,
-        });
-      }
+  const startEditingAgent = (agentId: string) => {
+    setEditingAgentId(agentId);
+    const existing = agentShiftAssignments[agentId] || [];
+    setAgentShiftDates(new Set(existing.map((s) => s.date)));
+    // Infer template from first date's shifts
+    const firstDate = existing[0]?.date;
+    if (firstDate) {
+      const firstDaySlots = existing.filter((s) => s.date === firstDate);
+      setAgentTemplateSlots(firstDaySlots.map((s) => ({ startTime: s.startTime, endTime: s.endTime })));
+    } else {
+      setAgentTemplateSlots([{ startTime: '08:00', endTime: '17:00' }]);
     }
-    setFormShifts(newShifts);
+    setAgentSkipDays([0, 6]);
   };
 
-  const removeShiftsForDate = (date: string) => {
-    setFormShifts((s) => s.filter((sh) => sh.date !== date));
+  const selectAllDatesForAgent = () => {
+    const dates = getEventDatesInRange(agentSkipDays);
+    setAgentShiftDates(new Set(dates));
   };
 
-  const updateShift = (index: number, field: keyof EventShift, value: string) => {
-    setFormShifts((s) =>
-      s.map((sh, i) => (i === index ? { ...sh, [field]: value } : sh)),
-    );
-  };
-
-  const removeShift = (index: number) => {
-    setFormShifts((s) => s.filter((_, i) => i !== index));
+  const clearDatesForAgent = () => {
+    setAgentShiftDates(new Set());
   };
 
   // Group shifts by date for display
@@ -425,7 +458,7 @@ export default function Planning() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Planning</h1>
-          <p className="text-slate-500 mt-1">Gestion des événements et interventions</p>
+          <p className="text-slate-500 mt-1">Gestion des Ã©vÃ©nements et interventions</p>
         </div>
         <button
           onClick={() => {
@@ -436,7 +469,7 @@ export default function Planning() {
           className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
         >
           <Plus size={18} />
-          Nouvel événement
+          Nouvel Ã©vÃ©nement
         </button>
       </div>
 
@@ -450,7 +483,7 @@ export default function Planning() {
         ))}
       </div>
 
-      {/* Agent Responses Widget — grouped by event */}
+      {/* Agent Responses Widget â€” grouped by event */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <button
           onClick={() => setShowResponsesWidget(!showResponsesWidget)}
@@ -458,7 +491,7 @@ export default function Planning() {
         >
           <div className="flex items-center gap-2.5">
             <Users size={18} className="text-primary-600" />
-            <span className="font-semibold text-slate-800 text-sm">Réponses des agents</span>
+            <span className="font-semibold text-slate-800 text-sm">RÃ©ponses des agents</span>
             <div className="flex items-center gap-1.5 ml-2">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <UserCheck size={12} /> {totalResponseCounts.accepted}
@@ -479,7 +512,7 @@ export default function Planning() {
             {eventResponsesGrouped.length === 0 ? (
               <div className="px-5 py-8 text-center">
                 <Users size={28} className="mx-auto text-slate-300 mb-2" />
-                <p className="text-sm text-slate-400">Aucun événement actif avec des agents assignés</p>
+                <p className="text-sm text-slate-400">Aucun Ã©vÃ©nement actif avec des agents assignÃ©s</p>
               </div>
             ) : (
               eventResponsesGrouped.map((group) => {
@@ -508,7 +541,7 @@ export default function Planning() {
                           <StatusBadge status={group.status} />
                         </div>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {group.agents.length} agent{group.agents.length > 1 ? 's' : ''} assigné{group.agents.length > 1 ? 's' : ''}
+                          {group.agents.length} agent{group.agents.length > 1 ? 's' : ''} assignÃ©{group.agents.length > 1 ? 's' : ''}
                         </p>
                       </div>
 
@@ -563,7 +596,7 @@ export default function Planning() {
                               {/* Response status */}
                               {agent.response === 'accepted' && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-700">
-                                  <UserCheck size={13} /> Accepté
+                                  <UserCheck size={13} /> AcceptÃ©
                                 </span>
                               )}
                               {agent.response === 'pending' && (
@@ -573,7 +606,7 @@ export default function Planning() {
                               )}
                               {agent.response === 'refused' && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 text-red-700">
-                                  <UserX size={13} /> Refusé
+                                  <UserX size={13} /> RefusÃ©
                                 </span>
                               )}
                             </div>
@@ -588,7 +621,7 @@ export default function Planning() {
                           }}
                           className="mt-2.5 w-full text-center text-xs font-semibold text-primary-600 hover:text-primary-700 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
                         >
-                          Voir le détail de l'événement →
+                          Voir le dÃ©tail de l'Ã©vÃ©nement â†’
                         </button>
                       </div>
                     )}
@@ -604,7 +637,7 @@ export default function Planning() {
       <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-sm w-fit">
         {[
           { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
-          { key: 'year' as const, label: 'Année', icon: Grid3X3 },
+          { key: 'year' as const, label: 'AnnÃ©e', icon: Grid3X3 },
           { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -665,7 +698,7 @@ export default function Planning() {
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <CalendarDays size={16} className="text-primary-500" />
-              <span className="font-medium">{events.length} événement{events.length > 1 ? 's' : ''}</span>
+              <span className="font-medium">{events.length} Ã©vÃ©nement{events.length > 1 ? 's' : ''}</span>
             </div>
           </div>
           <div className="p-4 sm:p-5">
@@ -716,7 +749,7 @@ export default function Planning() {
       <Modal
         isOpen={showDetail}
         onClose={() => setShowDetail(false)}
-        title="Détail de l'événement"
+        title="DÃ©tail de l'Ã©vÃ©nement"
         size="lg"
       >
         {selectedEvent && (
@@ -739,7 +772,7 @@ export default function Planning() {
               <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl sm:col-span-2">
                 <User size={18} className="text-slate-400 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-xs text-slate-400 mb-1">Agents assignés</p>
+                  <p className="text-xs text-slate-400 mb-1">Agents assignÃ©s</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedEvent.assignedAgentIds.map((agentId) => (
                       <span key={agentId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-sm">
@@ -764,9 +797,9 @@ export default function Planning() {
               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                 <Calendar size={18} className="text-slate-400" />
                 <div>
-                  <p className="text-xs text-slate-400">Période</p>
+                  <p className="text-xs text-slate-400">PÃ©riode</p>
                   <p className="text-sm font-medium text-slate-900">
-                    {formatDate(selectedEvent.startDate)} → {formatDate(selectedEvent.endDate)}
+                    {formatDate(selectedEvent.startDate)} â†’ {formatDate(selectedEvent.endDate)}
                   </p>
                 </div>
               </div>
@@ -778,7 +811,7 @@ export default function Planning() {
                   <p className="text-sm font-medium text-slate-900">{selectedEvent.address}</p>
                   {selectedEvent.geoRadius && (
                     <p className="text-xs text-slate-400">
-                      Rayon de contrôle : {selectedEvent.geoRadius}m
+                      Rayon de contrÃ´le : {selectedEvent.geoRadius}m
                     </p>
                   )}
                 </div>
@@ -789,7 +822,7 @@ export default function Planning() {
             {selectedEvent.shifts && selectedEvent.shifts.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Clock size={16} /> Horaires ({selectedEvent.shifts.length} créneau{selectedEvent.shifts.length > 1 ? 'x' : ''})
+                  <Clock size={16} /> Horaires ({selectedEvent.shifts.length} crÃ©neau{selectedEvent.shifts.length > 1 ? 'x' : ''})
                 </h4>
                 <div className="space-y-3">
                   {groupShiftsByDate(selectedEvent.shifts).map(([date, shifts]) => (
@@ -802,7 +835,7 @@ export default function Planning() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-primary-200 text-primary-700 rounded-lg text-sm font-medium"
                           >
                             <Clock size={14} />
-                            {sh.startTime} → {sh.endTime}
+                            {sh.startTime} â†’ {sh.endTime}
                           </span>
                         ))}
                       </div>
@@ -826,7 +859,7 @@ export default function Planning() {
                     >
                       <span className="w-2 h-2 rounded-full bg-primary-400 flex-shrink-0" />
                       <span className="font-medium text-slate-700">{h.action}</span>
-                      <span className="text-slate-400">—</span>
+                      <span className="text-slate-400">â€”</span>
                       <span className="text-slate-500">{getAgentName(h.userId)}</span>
                       <span className="ml-auto text-xs text-slate-400">
                         {formatDateTime(h.timestamp)}
@@ -856,232 +889,489 @@ export default function Planning() {
         )}
       </Modal>
 
-      {/* Event form modal */}
+      {/* Event form modal â€” 2 tabs: Ã‰vÃ©nement / Affectation */}
       <Modal
         isOpen={showForm}
         onClose={() => setShowForm(false)}
-        title={formMode === 'create' ? 'Nouvel événement' : 'Modifier l\'événement'}
-        size="lg"
+        title={formMode === 'create' ? 'Nouvel Ã©vÃ©nement' : 'Modifier l\'Ã©vÃ©nement'}
+        size="xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Titre *</label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="Nom de l'intervention"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Description *
-              </label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                required
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
-                placeholder="Description détaillée de l'intervention"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Client / Projet
-              </label>
-              <input
-                type="text"
-                value={form.client}
-                onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="Nom du client"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Agents assignés *
-              </label>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto border border-slate-300 rounded-xl p-2.5">
-                {agents.length === 0 && (
-                  <p className="text-sm text-slate-400 text-center py-2">Aucun agent actif</p>
-                )}
-                {agents.map((agent) => {
-                  const checked = form.assignedAgentIds.includes(agent.id);
-                  return (
-                    <label
-                      key={agent.id}
-                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                        checked ? 'bg-primary-50 border border-primary-200' : 'hover:bg-slate-50 border border-transparent'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() =>
-                          setForm((f) => ({
-                            ...f,
-                            assignedAgentIds: checked
-                              ? f.assignedAgentIds.filter((id) => id !== agent.id)
-                              : [...f.assignedAgentIds, agent.id],
-                          }))
-                        }
-                        className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span className={`text-sm ${checked ? 'font-medium text-primary-900' : 'text-slate-700'}`}>
-                        {agent.firstName} {agent.lastName}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-              {form.assignedAgentIds.length === 0 && (
-                <p className="text-xs text-red-500 mt-1">Sélectionnez au moins un agent</p>
-              )}
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Couleur</label>
-              <div className="flex flex-wrap gap-2">
-                {EVENT_PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, color: c }))}
-                    className={`w-8 h-8 rounded-lg transition-all ${
-                      form.color === c
-                        ? 'ring-2 ring-offset-2 ring-slate-400 scale-110'
-                        : 'hover:scale-110 opacity-70 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Date début *
-              </label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Date fin *
-              </label>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                required
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              />
-            </div>
-
-            <LocationPicker
-              address={form.address}
-              latitude={form.latitude}
-              longitude={form.longitude}
-              onUpdate={(fields) => setForm((f) => ({ ...f, ...fields }))}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Rayon GPS (mètres)
-              </label>
-              <input
-                type="number"
-                value={form.geoRadius}
-                onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="200"
-              />
-            </div>
-
-            {formMode === 'edit' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Statut</label>
-                <select
-                  value={form.status}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, status: e.target.value as EventStatus }))
-                  }
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                >
-                  <option value="planifie">Planifié</option>
-                  <option value="en_cours">En cours</option>
-                  <option value="termine">Terminé</option>
-                  <option value="a_reattribuer">À réattribuer</option>
-                  <option value="annule">Annulé</option>
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Shifts / Horaires — Smart scheduler */}
-          {form.startDate && form.endDate && (
-            <ShiftScheduler
-              startDate={form.startDate}
-              endDate={form.endDate}
-              shifts={formShifts}
-              skipDays={skipDays}
-              onSkipDaysChange={setSkipDays}
-              excludedDates={excludedDates}
-              onExcludedDatesChange={setExcludedDates}
-              onAddShiftForDate={addShiftForDate}
-              onApplyTemplate={applyTemplateToAllDays}
-              onCopyDayToAll={copyDayToAll}
-              onRemoveShiftsForDate={removeShiftsForDate}
-              onUpdateShift={updateShift}
-              onRemoveShift={removeShift}
-            />
-          )}
-
-          {!form.startDate || !form.endDate ? (
-            <div className="border border-dashed border-slate-300 rounded-xl p-4 text-center">
-              <Clock size={20} className="mx-auto text-slate-300 mb-2" />
-              <p className="text-sm text-slate-400">Renseignez les dates de début et fin pour configurer les créneaux horaires.</p>
-            </div>
-          ) : null}
-
-          {/* Conflict warning */}
-          {form.assignedAgentIds.length > 0 && form.startDate && form.endDate && (
-            <ConflictWarning
-              agentIds={form.assignedAgentIds}
-              start={form.startDate}
-              end={form.endDate}
-              excludeId={selectedEvent?.id}
-            />
-          )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+        {/* Tab bar */}
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-5">
+          {[
+            { key: 'event' as const, label: 'Ã‰vÃ©nement', icon: Briefcase },
+            { key: 'agents' as const, label: 'Affectation agents', icon: Users },
+          ].map(({ key, label, icon: Icon }) => (
             <button
+              key={key}
               type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+              onClick={() => setFormTab(key)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                formTab === key
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
             >
-              Annuler
+              <Icon size={16} />
+              {label}
+              {key === 'agents' && Object.keys(agentShiftAssignments).length > 0 && (
+                <span className="ml-1 w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-[11px] font-bold flex items-center justify-center">
+                  {Object.keys(agentShiftAssignments).length}
+                </span>
+              )}
             </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
-            >
-              {formMode === 'create' ? 'Créer' : 'Enregistrer'}
-            </button>
-          </div>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {/* TAB 1: Event info */}
+          {formTab === 'event' && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Titre *</label>
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    placeholder="Nom de l'intervention"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    rows={2}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
+                    placeholder="Description dÃ©taillÃ©e"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Client</label>
+                  <input
+                    type="text"
+                    value={form.client}
+                    onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    placeholder="Nom du client"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Couleur</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {EVENT_PALETTE.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, color: c }))}
+                        className={`w-7 h-7 rounded-lg transition-all ${
+                          form.color === c ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Date dÃ©but *</label>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Date fin *</label>
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  />
+                </div>
+
+                <LocationPicker
+                  address={form.address}
+                  latitude={form.latitude}
+                  longitude={form.longitude}
+                  onUpdate={(fields) => setForm((f) => ({ ...f, ...fields }))}
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Rayon GPS (m)</label>
+                  <input
+                    type="number"
+                    value={form.geoRadius}
+                    onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    placeholder="200"
+                  />
+                </div>
+
+                {formMode === 'edit' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Statut</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as EventStatus }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    >
+                      <option value="planifie">PlanifiÃ©</option>
+                      <option value="en_cours">En cours</option>
+                      <option value="termine">TerminÃ©</option>
+                      <option value="a_reattribuer">Ã€ rÃ©attribuer</option>
+                      <option value="annule">AnnulÃ©</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <div className="flex gap-2">
+                  {form.startDate && form.endDate && (
+                    <button
+                      type="button"
+                      onClick={() => setFormTab('agents')}
+                      className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-xl transition-all"
+                    >
+                      <Users size={16} /> Affecter des agents â†’
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
+                  >
+                    {formMode === 'create' ? 'CrÃ©er' : 'Enregistrer'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Agent assignment */}
+          {formTab === 'agents' && (
+            <div className="space-y-4">
+              {(!form.startDate || !form.endDate) ? (
+                <div className="border border-dashed border-slate-300 rounded-xl p-6 text-center">
+                  <Calendar size={24} className="mx-auto text-slate-300 mb-2" />
+                  <p className="text-sm text-slate-500">Renseignez d'abord les dates de l'Ã©vÃ©nement dans l'onglet "Ã‰vÃ©nement".</p>
+                </div>
+              ) : (
+                <>
+                  {/* Info banner */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-3">
+                    <Calendar size={16} className="text-blue-500 flex-shrink-0" />
+                    <div className="text-xs text-blue-700">
+                      <span className="font-semibold">Plage :</span> {formatDate(form.startDate)} â†’ {formatDate(form.endDate)}
+                      <span className="ml-3 text-blue-500">({getEventDatesInRange([]).length} jours)</span>
+                    </div>
+                  </div>
+
+                  {/* Add agent selector */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4">
+                    <p className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                      <Plus size={15} className="text-emerald-500" /> Ajouter un agent
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {agents.filter((a) => !agentShiftAssignments[a.id]).map((agent) => (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => {
+                            addAgentToEvent(agent.id);
+                            startEditingAgent(agent.id);
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                        >
+                          <User size={14} className="text-slate-400" />
+                          {agent.firstName} {agent.lastName}
+                        </button>
+                      ))}
+                      {agents.filter((a) => !agentShiftAssignments[a.id]).length === 0 && (
+                        <p className="text-xs text-slate-400 italic py-1">Tous les agents actifs sont assignÃ©s</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Assigned agents list */}
+                  <div className="space-y-3">
+                    {Object.entries(agentShiftAssignments).map(([agentId, agentShifts]) => {
+                      const agent = users.find((u) => u.id === agentId);
+                      const isEditing = editingAgentId === agentId;
+                      const shiftCount = agentShifts.length;
+                      const dayCount = new Set(agentShifts.map((s) => s.date)).size;
+
+                      // Group shifts by date for summary
+                      const shiftsByDate: Record<string, { startTime: string; endTime: string }[]> = {};
+                      for (const s of agentShifts) {
+                        if (!shiftsByDate[s.date]) shiftsByDate[s.date] = [];
+                        shiftsByDate[s.date].push(s);
+                      }
+
+                      return (
+                        <div key={agentId} className="border border-slate-200 rounded-xl overflow-hidden">
+                          {/* Agent header */}
+                          <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+                                <User size={14} className="text-primary-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {agent ? `${agent.firstName} ${agent.lastName}` : 'Agent inconnu'}
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  {shiftCount > 0
+                                    ? `${shiftCount} crÃ©neau${shiftCount > 1 ? 'x' : ''} sur ${dayCount} jour${dayCount > 1 ? 's' : ''}`
+                                    : 'Aucun crÃ©neau dÃ©fini'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => isEditing ? setEditingAgentId(null) : startEditingAgent(agentId)}
+                                className={`p-2 rounded-lg text-sm transition-colors ${
+                                  isEditing
+                                    ? 'bg-primary-100 text-primary-700'
+                                    : 'text-slate-400 hover:text-primary-600 hover:bg-primary-50'
+                                }`}
+                                title="Modifier les crÃ©neaux"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeAgentFromEvent(agentId)}
+                                className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                title="Retirer l'agent"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Shift summary (compact, when not editing) */}
+                          {!isEditing && shiftCount > 0 && (
+                            <div className="px-4 py-2.5 space-y-1 max-h-[200px] overflow-y-auto">
+                              {Object.entries(shiftsByDate).sort(([a], [b]) => a.localeCompare(b)).map(([date, slots]) => {
+                                const d = new Date(date + 'T12:00:00');
+                                const dayName = WEEKDAY_NAMES[d.getDay()];
+                                const dd = d.getDate().toString().padStart(2, '0');
+                                const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+                                return (
+                                  <div key={date} className="flex items-center gap-2 text-xs">
+                                    <span className="font-bold text-primary-600 w-8">{dayName}</span>
+                                    <span className="text-slate-600 font-medium w-12">{dd}/{mm}</span>
+                                    <span className="text-slate-500">
+                                      {slots.map((s) => `${s.startTime}â€“${s.endTime}`).join(', ')}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Editing panel */}
+                          {isEditing && (
+                            <div className="px-4 py-3 space-y-4 bg-primary-50/30">
+                              {/* Skip days */}
+                              <div>
+                                <p className="text-xs font-semibold text-slate-600 mb-1.5">Jours Ã  exclure</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {WEEKDAY_NAMES.map((name, i) => {
+                                    const isSkipped = agentSkipDays.includes(i);
+                                    return (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => setAgentSkipDays(
+                                          isSkipped ? agentSkipDays.filter((d) => d !== i) : [...agentSkipDays, i]
+                                        )}
+                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all ${
+                                          isSkipped
+                                            ? 'bg-amber-100 border-amber-300 text-amber-700'
+                                            : 'bg-white border-slate-200 text-slate-500'
+                                        }`}
+                                      >
+                                        {isSkipped && 'âœ• '}{name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Date selection */}
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <p className="text-xs font-semibold text-slate-600">Dates de travail</p>
+                                  <div className="flex gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={selectAllDatesForAgent}
+                                      className="text-[11px] font-medium text-primary-600 hover:text-primary-700 px-2 py-0.5 rounded bg-primary-50 hover:bg-primary-100 transition-colors"
+                                    >
+                                      Tout sÃ©lectionner
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={clearDatesForAgent}
+                                      className="text-[11px] font-medium text-slate-400 hover:text-slate-600 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                                    >
+                                      Tout effacer
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto">
+                                  {getEventDatesInRange(agentSkipDays).map((date) => {
+                                    const d = new Date(date + 'T12:00:00');
+                                    const dayName = WEEKDAY_NAMES[d.getDay()];
+                                    const dd = d.getDate().toString().padStart(2, '0');
+                                    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+                                    const isSelected = agentShiftDates.has(date);
+                                    return (
+                                      <button
+                                        key={date}
+                                        type="button"
+                                        onClick={() => {
+                                          const next = new Set(agentShiftDates);
+                                          if (next.has(date)) next.delete(date);
+                                          else next.add(date);
+                                          setAgentShiftDates(next);
+                                        }}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                          isSelected
+                                            ? 'bg-primary-100 border-primary-300 text-primary-800'
+                                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                                        }`}
+                                      >
+                                        {isSelected && <Check size={11} />}
+                                        <span className="font-bold">{dayName}</span> {dd}/{mm}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''} sÃ©lectionnÃ©{agentShiftDates.size > 1 ? 's' : ''}
+                                </p>
+                              </div>
+
+                              {/* Time slots template */}
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <p className="text-xs font-semibold text-slate-600">CrÃ©neaux horaires</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setAgentTemplateSlots((prev) => [...prev, { startTime: '08:00', endTime: '17:00' }])}
+                                    className="text-[11px] font-medium text-primary-600 hover:text-primary-700 flex items-center gap-0.5"
+                                  >
+                                    <Plus size={12} /> Ajouter
+                                  </button>
+                                </div>
+                                <div className="space-y-2">
+                                  {agentTemplateSlots.map((slot, idx) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <input
+                                        type="time"
+                                        value={slot.startTime}
+                                        onChange={(e) =>
+                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, startTime: e.target.value } : s)))
+                                        }
+                                        className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                      />
+                                      <span className="text-slate-300 text-xs">â†’</span>
+                                      <input
+                                        type="time"
+                                        value={slot.endTime}
+                                        onChange={(e) =>
+                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, endTime: e.target.value } : s)))
+                                        }
+                                        className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                      />
+                                      {agentTemplateSlots.length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setAgentTemplateSlots((prev) => prev.filter((_, i) => i !== idx))}
+                                          className="p-1.5 text-rose-400 hover:text-rose-600 rounded transition-colors"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Apply button */}
+                              <button
+                                type="button"
+                                onClick={() => applyAgentShifts(agentId)}
+                                disabled={agentShiftDates.size === 0}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-all"
+                              >
+                                <Check size={16} />
+                                Appliquer {agentTemplateSlots.length} crÃ©neau{agentTemplateSlots.length > 1 ? 'x' : ''} Ã  {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {Object.keys(agentShiftAssignments).length === 0 && (
+                      <div className="border border-dashed border-slate-300 rounded-xl p-6 text-center">
+                        <Users size={24} className="mx-auto text-slate-300 mb-2" />
+                        <p className="text-sm text-slate-400">Aucun agent affectÃ©. Ajoutez un agent ci-dessus.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Conflict warning */}
+                  {Object.keys(agentShiftAssignments).length > 0 && form.startDate && form.endDate && (
+                    <ConflictWarning
+                      agentIds={Object.keys(agentShiftAssignments)}
+                      start={form.startDate}
+                      end={form.endDate}
+                      excludeId={selectedEvent?.id}
+                    />
+                  )}
+                </>
+              )}
+
+              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setFormTab('event')}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  â† Ã‰vÃ©nement
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
+                >
+                  {formMode === 'create' ? 'CrÃ©er' : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       </Modal>
     </div>
@@ -1090,362 +1380,6 @@ export default function Planning() {
 
 const WEEKDAY_NAMES = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
-function ShiftScheduler({
-  startDate,
-  endDate,
-  shifts,
-  skipDays,
-  onSkipDaysChange,
-  excludedDates,
-  onExcludedDatesChange,
-  onAddShiftForDate,
-  onApplyTemplate,
-  onCopyDayToAll,
-  onRemoveShiftsForDate,
-  onUpdateShift,
-  onRemoveShift,
-}: {
-  startDate: string;
-  endDate: string;
-  shifts: EventShift[];
-  skipDays: number[];
-  onSkipDaysChange: (days: number[]) => void;
-  excludedDates: Set<string>;
-  onExcludedDatesChange: (dates: Set<string>) => void;
-  onAddShiftForDate: (date: string) => void;
-  onApplyTemplate: (templates: { startTime: string; endTime: string }[]) => void;
-  onCopyDayToAll: (sourceDate: string) => void;
-  onRemoveShiftsForDate: (date: string) => void;
-  onUpdateShift: (index: number, field: keyof EventShift, value: string) => void;
-  onRemoveShift: (index: number) => void;
-}) {
-  const [templateSlots, setTemplateSlots] = useState<{ startTime: string; endTime: string }[]>([
-    { startTime: '08:00', endTime: '17:00' },
-  ]);
-  const [applied, setApplied] = useState(false);
-
-  const addTemplateSlot = () => {
-    setTemplateSlots((prev) => [...prev, { startTime: '08:00', endTime: '17:00' }]);
-  };
-
-  const removeTemplateSlot = (index: number) => {
-    setTemplateSlots((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateTemplateSlot = (index: number, field: 'startTime' | 'endTime', value: string) => {
-    setTemplateSlots((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
-  };
-
-  // Compute dates in range (respecting skip days AND excluded dates)
-  const dates = useMemo(() => {
-    const result: string[] = [];
-    const d = new Date(startDate + 'T12:00:00');
-    const end = new Date(endDate + 'T12:00:00');
-    while (d <= end) {
-      const iso = d.toISOString().slice(0, 10);
-      if (!skipDays.includes(d.getDay()) && !excludedDates.has(iso)) {
-        result.push(iso);
-      }
-      d.setDate(d.getDate() + 1);
-    }
-    return result;
-  }, [startDate, endDate, skipDays, excludedDates]);
-
-  // All dates in range (including skipped/excluded, for counting)
-  const allDates = useMemo(() => {
-    const result: string[] = [];
-    const d = new Date(startDate + 'T12:00:00');
-    const end = new Date(endDate + 'T12:00:00');
-    while (d <= end) {
-      result.push(d.toISOString().slice(0, 10));
-      d.setDate(d.getDate() + 1);
-    }
-    return result;
-  }, [startDate, endDate]);
-
-  // Dates excluded specifically (not by weekday rule) — shown as strikethrough rows
-  const manuallyExcluded = useMemo(() => {
-    return allDates.filter(d => {
-      const day = new Date(d + 'T12:00:00').getDay();
-      return excludedDates.has(d) && !skipDays.includes(day);
-    });
-  }, [allDates, excludedDates, skipDays]);
-
-  const toggleSkipDay = (day: number) => {
-    onSkipDaysChange(
-      skipDays.includes(day) ? skipDays.filter(d => d !== day) : [...skipDays, day]
-    );
-  };
-
-  const toggleExcludeDate = (date: string) => {
-    const next = new Set(excludedDates);
-    if (next.has(date)) {
-      next.delete(date);
-    } else {
-      next.add(date);
-    }
-    onExcludedDatesChange(next);
-  };
-
-  // Group shifts by date
-  const shiftsByDate = useMemo(() => {
-    const map: Record<string, { shift: EventShift; globalIndex: number }[]> = {};
-    shifts.forEach((sh, idx) => {
-      if (!map[sh.date]) map[sh.date] = [];
-      map[sh.date].push({ shift: sh, globalIndex: idx });
-    });
-    return map;
-  }, [shifts]);
-
-  const totalShifts = shifts.length;
-  const daysWithShifts = Object.keys(shiftsByDate).length;
-
-  const handleApply = () => {
-    if (templateSlots.length === 0) return;
-    onApplyTemplate(templateSlots);
-    setApplied(true);
-    setTimeout(() => setApplied(false), 2000);
-  };
-
-  const formatDayLabel = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const dayName = WEEKDAY_NAMES[d.getDay()];
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    return { dayName, short: `${day}/${month}`, full: `${dayName} ${day}/${month}` };
-  };
-
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
-        <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-          <Clock size={16} className="text-primary-500" />
-          Horaires / Créneaux
-          {totalShifts > 0 && (
-            <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
-              {totalShifts} créneau{totalShifts > 1 ? 'x' : ''} sur {daysWithShifts} jour{daysWithShifts > 1 ? 's' : ''}
-            </span>
-          )}
-        </h4>
-        <span className="text-xs text-slate-400">
-          {dates.length} jour{dates.length > 1 ? 's' : ''}
-          {skipDays.length > 0 && ` (${allDates.length - dates.length} exclus)`}
-        </span>
-      </div>
-
-      {/* Skip days selector */}
-      <div className="px-4 py-2.5 bg-amber-50/50 border-b border-slate-200">
-        <p className="text-xs font-semibold text-amber-700 mb-2">Jours à exclure</p>
-        <div className="flex flex-wrap gap-1.5">
-          {WEEKDAY_NAMES.map((name, i) => {
-            const isSkipped = skipDays.includes(i);
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => toggleSkipDay(i)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                  isSkipped
-                    ? 'bg-amber-100 border-amber-300 text-amber-700'
-                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                }`}
-              >
-                {isSkipped && <span className="mr-1">✕</span>}
-                {name}
-              </button>
-            );
-          })}
-        </div>
-        {skipDays.length > 0 && (
-          <p className="text-[11px] text-amber-600 mt-1.5">
-            Les créneaux ne seront pas générés pour : {skipDays.sort().map(d => WEEKDAY_NAMES[d]).join(', ')}
-          </p>
-        )}
-      </div>
-
-      {/* Quick apply template */}
-      <div className="px-4 py-3 bg-primary-50/50 border-b border-slate-200">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold text-primary-700">Appliquer des créneaux à tous les jours</p>
-          <button
-            type="button"
-            onClick={addTemplateSlot}
-            className="flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
-          >
-            <Plus size={13} /> Ajouter un créneau
-          </button>
-        </div>
-        <div className="space-y-2">
-          {templateSlots.map((slot, idx) => (
-            <div key={idx} className="flex flex-wrap items-end gap-3">
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Entrée {templateSlots.length > 1 ? idx + 1 : ''}</label>
-                <input
-                  type="time"
-                  value={slot.startTime}
-                  onChange={(e) => updateTemplateSlot(idx, 'startTime', e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Sortie {templateSlots.length > 1 ? idx + 1 : ''}</label>
-                <input
-                  type="time"
-                  value={slot.endTime}
-                  onChange={(e) => updateTemplateSlot(idx, 'endTime', e.target.value)}
-                  className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                />
-              </div>
-              {templateSlots.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeTemplateSlot(idx)}
-                  className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                  title="Supprimer ce créneau"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={handleApply}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
-              applied
-                ? 'bg-emerald-500 text-white'
-                : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm'
-            }`}
-          >
-            {applied ? <Check size={15} /> : <Copy size={15} />}
-            {applied ? 'Appliqué !' : `Appliquer ${templateSlots.length} créneau${templateSlots.length > 1 ? 'x' : ''} aux ${dates.length} jours`}
-          </button>
-        </div>
-      </div>
-
-      {/* Day-by-day list */}
-      <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-        {dates.map((date) => {
-          const dayShifts = shiftsByDate[date] || [];
-          const { dayName, short } = formatDayLabel(date);
-          const isWeekend = new Date(date + 'T12:00:00').getDay() === 0 || new Date(date + 'T12:00:00').getDay() === 6;
-
-          return (
-            <div key={date} className={`px-4 py-3 ${isWeekend ? 'bg-slate-50/60' : ''}`}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleExcludeDate(date)}
-                    title="Exclure ce jour"
-                    className="w-5 h-5 flex items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-400 hover:bg-rose-100 hover:text-rose-600 hover:border-rose-300 transition-colors flex-shrink-0"
-                  >
-                    <X size={12} strokeWidth={3} />
-                  </button>
-                  <span className={`text-xs font-bold w-8 ${isWeekend ? 'text-rose-400' : 'text-primary-600'}`}>
-                    {dayName}
-                  </span>
-                  <span className="text-sm font-medium text-slate-700">{short}</span>
-                  {dayShifts.length === 0 && (
-                    <span className="text-[11px] text-slate-300 italic">— aucun créneau</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {dayShifts.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onCopyDayToAll(date)}
-                      title="Copier ces créneaux sur tous les jours"
-                      className="p-1.5 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  )}
-                  {dayShifts.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveShiftsForDate(date)}
-                      title="Supprimer tous les créneaux de ce jour"
-                      className="p-1.5 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onAddShiftForDate(date)}
-                    title="Ajouter un créneau"
-                    className="p-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {dayShifts.length > 0 && (
-                <div className="space-y-1.5 ml-10">
-                  {dayShifts.map(({ shift, globalIndex }) => (
-                    <div key={shift.id} className="flex items-center gap-2">
-                      <input
-                        type="time"
-                        value={shift.startTime}
-                        onChange={(e) => onUpdateShift(globalIndex, 'startTime', e.target.value)}
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-[110px]"
-                      />
-                      <span className="text-slate-300 text-xs">→</span>
-                      <input
-                        type="time"
-                        value={shift.endTime}
-                        onChange={(e) => onUpdateShift(globalIndex, 'endTime', e.target.value)}
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-[110px]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => onRemoveShift(globalIndex)}
-                        className="p-1 text-rose-300 hover:text-rose-500 rounded transition-colors"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Manually excluded dates — shown as strikethrough so user can re-include */}
-        {manuallyExcluded.length > 0 && (
-          <div className="px-4 py-2 bg-rose-50/50">
-            <p className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider mb-1.5">
-              Jours exclus ({manuallyExcluded.length})
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {manuallyExcluded.map(date => {
-                const { dayName, short } = formatDayLabel(date);
-                return (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => toggleExcludeDate(date)}
-                    title="Ré-inclure ce jour"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-500 text-xs font-medium hover:bg-rose-100 transition-colors"
-                  >
-                    <Plus size={11} />
-                    <span className="line-through">{dayName} {short}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ConflictWarning({
   agentIds,
@@ -1490,12 +1424,12 @@ function ConflictWarning({
     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
       <div className="flex items-center gap-2 text-amber-700 font-medium text-sm mb-2">
         <AlertTriangle size={16} />
-        Conflit de planning détecté !
+        Conflit de planning dÃ©tectÃ© !
       </div>
       <ul className="space-y-1">
         {allConflicts.map((c) => (
           <li key={c.id} className="text-sm text-amber-600">
-            • {c.title} ({formatDate(c.startDate)} → {formatDate(c.endDate)})
+            â€¢ {c.title} ({formatDate(c.startDate)} â†’ {formatDate(c.endDate)})
           </li>
         ))}
       </ul>
@@ -1504,8 +1438,8 @@ function ConflictWarning({
 }
 
 const MONTH_NAMES = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  'Janvier', 'FÃ©vrier', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'AoÃ»t', 'Septembre', 'Octobre', 'Novembre', 'DÃ©cembre',
 ];
 
 function YearOverview({
@@ -1593,7 +1527,7 @@ function YearOverview({
                   {count}
                 </span>
               ) : (
-                <span className={`text-xs ${isCurrent ? 'text-white/60' : 'text-slate-300'}`}>—</span>
+                <span className={`text-xs ${isCurrent ? 'text-white/60' : 'text-slate-300'}`}>â€”</span>
               )}
               {isCurrent && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-white rounded-full shadow" />
@@ -1620,8 +1554,8 @@ function YearOverview({
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 const HEATMAP_MONTH_NAMES = [
-  'Sept', 'Oct', 'Nov', 'Déc', 'Janv', 'Fév',
-  'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août',
+  'Sept', 'Oct', 'Nov', 'DÃ©c', 'Janv', 'FÃ©v',
+  'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'AoÃ»t',
 ];
 
 interface HeatmapEventInfo {
@@ -1759,7 +1693,7 @@ function HeatmapCalendar({
         </button>
         <div className="text-center">
           <h2 className="text-lg font-extrabold text-white tracking-tight">
-            Sept {year - 1} — Août {year}
+            Sept {year - 1} â€” AoÃ»t {year}
           </h2>
           <p className="text-white/70 text-xs font-medium mt-0.5">Calendrier Heatmap</p>
         </div>
@@ -1886,7 +1820,7 @@ function HeatmapCalendar({
                       <div className="flex items-center gap-1 mt-0.5">
                         <Clock size={10} className="text-slate-400 flex-shrink-0" />
                         <span className="text-[10px] text-slate-500 font-medium">
-                          {evt.shifts.map((s) => `${s.startTime}–${s.endTime}`).join(' / ')}
+                          {evt.shifts.map((s) => `${s.startTime}â€“${s.endTime}`).join(' / ')}
                         </span>
                       </div>
                     )}

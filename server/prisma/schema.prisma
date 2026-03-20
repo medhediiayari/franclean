@@ -28,6 +28,7 @@ model User {
 
   // Relations
   assignedEvents EventAgent[]
+  shifts         EventShift[]
   attendances    Attendance[]
   historyEntries EventHistory[]
 
@@ -92,11 +93,13 @@ model EventAgent {
 model EventShift {
   id        String   @id @default(cuid())
   eventId   String
+  agentId   String?
   date      DateTime @db.Date
   startTime String   // HH:mm
   endTime   String   // HH:mm
 
   event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  agent       User?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
   attendances Attendance[]
 
   @@map("event_shifts")

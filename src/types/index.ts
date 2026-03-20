@@ -19,6 +19,7 @@ export type EventStatus = 'planifie' | 'en_cours' | 'termine' | 'a_reattribuer' 
 
 export interface EventShift {
   id: string;
+  agentId?: string | null;
   date: string;        // YYYY-MM-DD
   startTime: string;   // HH:mm
   endTime: string;     // HH:mm

@@ -18,6 +18,7 @@ function formatEvent(event: any) {
     endDate: event.endDate.toISOString().slice(0, 10),
     shifts: (event.shifts || []).map((s: any) => ({
       id: s.id,
+      agentId: s.agentId || null,
       date: s.date.toISOString().slice(0, 10),
       startTime: s.startTime,
       endTime: s.endTime,
@@ -83,6 +84,7 @@ const shiftSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  agentId: z.string().optional().nullable(),
 });
 
 const createEventSchema = z.object({
@@ -117,7 +119,7 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       shifts: shifts
-        ? { create: shifts.map((s) => ({ date: new Date(s.date), startTime: s.startTime, endTime: s.endTime })) }
+        ? { create: shifts.map((s) => ({ date: new Date(s.date), startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || null })) }
         : undefined,
       agents: assignedAgentIds
         ? { create: assignedAgentIds.map((agentId) => ({ agentId, response: 'pending' })) }
@@ -177,6 +179,7 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
           date: new Date(s.date),
           startTime: s.startTime,
           endTime: s.endTime,
+          agentId: s.agentId || null,
         })),
       });
     }
