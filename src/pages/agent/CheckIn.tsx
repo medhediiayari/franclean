@@ -81,14 +81,21 @@ export default function CheckIn() {
   const startCamera = async () => {
     try {
       setError('');
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-      });
+      // Request camera AND GPS permissions simultaneously
+      const [stream, position] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+        }),
+        getCurrentPosition().catch(() => null), // GPS starts warming up, don't block if slow
+      ]);
       streamRef.current = stream;
+      if (position) {
+        setGeoData({ lat: position.coords.latitude, lon: position.coords.longitude });
+      }
       // Set active first so the <video> element renders, then useEffect attaches the stream
       setCameraActive(true);
     } catch {
-      setError('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès.');
+      setError('Impossible d\'accéder à la caméra et/ou au GPS. Veuillez autoriser les deux accès.');
     }
   };
 
@@ -136,10 +143,18 @@ export default function CheckIn() {
     setSuccess('');
 
     try {
-      // Get GPS position
-      const position = await getCurrentPosition();
-      const { latitude, longitude } = position.coords;
-      setGeoData({ lat: latitude, lon: longitude });
+      // Use already-obtained GPS position or get a fresh one
+      let latitude: number;
+      let longitude: number;
+      if (geoData) {
+        latitude = geoData.lat;
+        longitude = geoData.lon;
+      } else {
+        const position = await getCurrentPosition();
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
+        setGeoData({ lat: latitude, lon: longitude });
+      }
 
       // Check if within radius
       let locationValid = true;

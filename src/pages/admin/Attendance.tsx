@@ -22,9 +22,64 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
+  ExternalLink,
+  Navigation,
 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
+
+// Fix Leaflet default marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+/** Mini-map showing agent GPS position at photo time */
+function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; label: string; isValid?: boolean }) {
+  const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+  return (
+    <div className="space-y-1.5">
+      <div className="rounded-lg overflow-hidden border border-slate-200" style={{ height: 140 }}>
+        <MapContainer
+          center={[lat, lng]}
+          zoom={16}
+          scrollWheelZoom={false}
+          dragging={false}
+          zoomControl={false}
+          attributionControl={false}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <Marker position={[lat, lng]} />
+        </MapContainer>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Navigation size={11} className={isValid ? 'text-emerald-500' : 'text-rose-500'} />
+          <span className={`text-[10px] font-medium ${isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {isValid ? 'Dans la zone' : 'Hors zone'}
+          </span>
+          <span className="text-[10px] text-slate-400 ml-1">
+            {lat.toFixed(5)}, {lng.toFixed(5)}
+          </span>
+        </div>
+        <a
+          href={googleMapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[10px] font-medium text-primary-600 hover:text-primary-700 hover:underline"
+        >
+          Google Maps <ExternalLink size={10} />
+        </a>
+      </div>
+    </div>
+  );
+}
 
 type ViewMode = 'table' | 'par-agent';
 
@@ -517,9 +572,12 @@ export default function AdminAttendance() {
                                         </span>
                                       </div>
                                       {rec.checkInLatitude && rec.checkInLongitude && (
-                                        <p className="text-[10px] text-slate-400">
-                                          {rec.checkInLatitude.toFixed(6)}, {rec.checkInLongitude.toFixed(6)}
-                                        </p>
+                                        <GpsMiniMap
+                                          lat={rec.checkInLatitude}
+                                          lng={rec.checkInLongitude}
+                                          label="Entrée"
+                                          isValid={rec.checkInLocationValid}
+                                        />
                                       )}
                                     </div>
                                   ) : (
@@ -549,9 +607,12 @@ export default function AdminAttendance() {
                                         </span>
                                       </div>
                                       {rec.checkOutLatitude && rec.checkOutLongitude && (
-                                        <p className="text-[10px] text-slate-400">
-                                          {rec.checkOutLatitude.toFixed(6)}, {rec.checkOutLongitude.toFixed(6)}
-                                        </p>
+                                        <GpsMiniMap
+                                          lat={rec.checkOutLatitude}
+                                          lng={rec.checkOutLongitude}
+                                          label="Sortie"
+                                          isValid={rec.checkOutLocationValid}
+                                        />
                                       )}
                                     </div>
                                   ) : (
@@ -706,16 +767,19 @@ export default function AdminAttendance() {
                         />
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} className={record.checkInLocationValid ? 'text-emerald-500' : 'text-rose-500'} />
-                      <span className={`text-xs font-medium ${record.checkInLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {record.checkInLocationValid ? 'Localisation valide' : 'Hors zone'}
-                      </span>
-                    </div>
                     {record.checkInLatitude && record.checkInLongitude && (
-                      <p className="text-xs text-slate-400">
-                        GPS: {record.checkInLatitude.toFixed(6)}, {record.checkInLongitude.toFixed(6)}
-                      </p>
+                      <GpsMiniMap
+                        lat={record.checkInLatitude}
+                        lng={record.checkInLongitude}
+                        label="Entrée"
+                        isValid={record.checkInLocationValid}
+                      />
+                    )}
+                    {!record.checkInLatitude && (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className="text-slate-400" />
+                        <span className="text-xs text-slate-400">GPS non disponible</span>
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -742,16 +806,19 @@ export default function AdminAttendance() {
                         />
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} className={record.checkOutLocationValid ? 'text-emerald-500' : 'text-rose-500'} />
-                      <span className={`text-xs font-medium ${record.checkOutLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {record.checkOutLocationValid ? 'Localisation valide' : 'Hors zone'}
-                      </span>
-                    </div>
                     {record.checkOutLatitude && record.checkOutLongitude && (
-                      <p className="text-xs text-slate-400">
-                        GPS: {record.checkOutLatitude.toFixed(6)}, {record.checkOutLongitude.toFixed(6)}
-                      </p>
+                      <GpsMiniMap
+                        lat={record.checkOutLatitude}
+                        lng={record.checkOutLongitude}
+                        label="Sortie"
+                        isValid={record.checkOutLocationValid}
+                      />
+                    )}
+                    {!record.checkOutLatitude && (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className="text-slate-400" />
+                        <span className="text-xs text-slate-400">GPS non disponible</span>
+                      </div>
                     )}
                   </div>
                 ) : (
