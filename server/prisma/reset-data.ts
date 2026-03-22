@@ -5,6 +5,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🧹 Suppression des données (les utilisateurs sont conservés)...');
 
+  await prisma.agentPayment.deleteMany();
+  console.log('  ✓ Paiements supprimés');
+
   await prisma.attendance.deleteMany();
   console.log('  ✓ Attendance supprimés');
 
