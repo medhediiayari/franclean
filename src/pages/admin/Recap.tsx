@@ -573,6 +573,7 @@ export default function Recap() {
         >
           <Table2 size={16} /> Tableau
         </button>
+        {/* Récap agents et clients masqués temporairement
         <button
           onClick={() => setTab('agents')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -593,6 +594,7 @@ export default function Recap() {
         >
           <Building2 size={16} /> Récap clients
         </button>
+        */}
       </div>
 
       {/* ─── Tableau (grouped by agent) ─────────────── */}
