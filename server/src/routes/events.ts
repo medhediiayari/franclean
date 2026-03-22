@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
+import { emitEventsChanged, emitToAdmins, emitToUser } from '../lib/socket.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -27,6 +28,7 @@ function formatEvent(event: any) {
     latitude: event.latitude,
     longitude: event.longitude,
     geoRadius: event.geoRadius,
+    hourlyRate: event.hourlyRate,
     assignedAgentIds: (event.agents || []).map((ea: any) => ea.agentId),
     agentResponses: Object.fromEntries(
       (event.agents || []).map((ea: any) => [ea.agentId, ea.response]),
@@ -99,6 +101,7 @@ const createEventSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   geoRadius: z.number().int().optional(),
+  hourlyRate: z.number().optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
 });
@@ -135,6 +138,7 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
   });
 
   res.status(201).json(formatEvent(event));
+  emitEventsChanged();
 });
 
 const updateEventSchema = z.object({
@@ -149,6 +153,7 @@ const updateEventSchema = z.object({
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
   geoRadius: z.number().int().optional(),
+  hourlyRate: z.number().nullable().optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
 });
@@ -221,6 +226,7 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
   });
 
   res.json(formatEvent(event));
+  emitEventsChanged();
 });
 
 // DELETE /api/events/:id (admin only)
@@ -228,6 +234,7 @@ router.delete('/:id', adminOnly, async (req: Request, res: Response) => {
   try {
     await prisma.event.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+    emitEventsChanged();
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Événement introuvable' });
@@ -291,6 +298,14 @@ router.post('/:id/response', async (req: Request, res: Response) => {
   });
 
   res.json(formatEvent(event));
+  // Notify admins in real-time about agent response
+  emitEventsChanged();
+  emitToAdmins('notification:agentResponse', {
+    eventId,
+    agentId,
+    response: parsed.data.response,
+    eventTitle: event!.title,
+  });
 });
 
 // GET /api/events/conflicts?agentId=...&start=...&end=...&excludeId=...

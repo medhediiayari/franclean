@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useSocket } from '../../lib/socket';
 import { getInitials } from '../../utils/helpers';
 import {
   LayoutDashboard,
@@ -19,6 +20,9 @@ const navItems = [
 export default function AgentLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+
+  // Socket.IO — handles all real-time data fetching
+  useSocket();
 
   const handleLogout = () => {
     logout();

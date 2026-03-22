@@ -7,6 +7,7 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // Clear existing data
+  await prisma.client.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.eventHistory.deleteMany();
   await prisma.eventAgent.deleteMany();
@@ -704,6 +705,40 @@ async function main() {
   });
 
   console.log('✅ Seed complete!');
+
+  // ── Seed default clients ──────────────────────────────
+  const defaultClients = [
+    'COREDIF NOISY', 'EIFFAGE ST GERMAIN', 'PARIS DEMOLITION HOTEL', 'PARIS DEMOLITION ST LAZARE',
+    'COREDIF DRANCY', 'SACR AUBERVILLIERS', 'SPCR EVRY', 'COREDIF SERRIS 136', 'LCF LEVALLOIS',
+    'COREDIF CORBEIL BV', 'COREDIF ORLY BV', 'COREDIF BLANC MESNIL BV', 'COREDIF BONNEUIL BV',
+    'COREDIF NOISY BV', 'COREDIF PIERREFITE BV', 'COPRO MONTREUIL', 'COPRO BONNEUIL',
+    'SACR BLANC MESNIL BV', 'CLOS EMERAINVILLE', 'NURDAN MAISON', 'LEYLA MAISON',
+    'SCI YAVUZ ET FILS', 'COREDIF BOIS COLOMBES BUREAU', 'DOMAINE CHAUFFOUR', 'AGANDIRA BUREAU',
+    'COEUR DE FORET BUREAU', 'LCF KREMLIN', 'KEVSER MAISON', 'BUREAU VALENTON', 'COREDIF EVRY',
+    'MAITRE CUBE DAMMARTIN', 'MAISON MAMAN', 'SNP VSD BUREAU', 'MCP BAT BRETIGNY',
+    'MAIRIE FONTENAY', 'COREDIF BAGNEUX BV', 'COREDIF SERRIS BV', 'HARMONIE AUDITION',
+    'POISSY S2D', 'RCM BONNEUIL', 'CARPETCARE', 'FUNDA MAISON', 'COREDIF DRANCY FC',
+    'UMC SAINT OUEN BUREAU', 'UMC FONTENAY BV', 'UMC AUBERGENVILLE BV', 'FCR FORMATION',
+    'MEANET', 'MEANET MASSY PALAISEAU', 'LA BELLE VIANDE', 'LCF NOISY LE ROI', 'EIFFAGE FC',
+    'MEANET RUNGIS', 'PARIS DEMOLITION VOLTAIRE', 'EIFFAGE CHATENAY', 'SCI THELI',
+    'HUGO RIS ORANGIS BV', 'HUGO CERGY BV', 'HUGO LOGES EN JOSAS', 'HUGO SAVIGNY LE TEMPLE BV',
+    'HUGO VERT ST DENIS BV', 'HUGO MELUN', 'HUGO CHENNEVIERES BV', 'HUGO ST MAUR DES FOSSES BV',
+    'HUGO AULNAY SS BOIS BV', 'HUGO EPINAY SUR SEINE ICADE BV', 'HUGO VILLIERS SUR MARNE BV',
+    'HUGO EPINAY SUR SEINE INLI BV', 'COREDIF CORBEIL', 'GAMZE MAISON',
+    'MTPB BAT LEUVILLE SR ORGE', 'SACR ASNIERES', 'LCF BOISSY ST LEGER',
+    'HUGO BOIS COLOMBES BV', 'HUGO NONVILLE BV', 'LCF CACHAN', 'LCF DRAVEIL',
+    'HUGO LOGES EN JOSAS BV', 'HUGO MELUN BV', 'COREDIF BONNEUIL',
+  ];
+
+  for (const name of defaultClients) {
+    await prisma.client.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+  console.log(`📋 ${defaultClients.length} clients seeded`);
+
   console.log('');
   console.log('Comptes de connexion :');
   console.log('  Admin  → admin@franclean.fr / admin123');

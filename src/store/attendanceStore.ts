@@ -50,7 +50,8 @@ export const useAttendanceStore = create<AttendanceState>()((set, get) => ({
   },
 
   getTodayRecord: (agentId, eventId) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const t = new Date();
+    const today = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
     return get().records.find(
       (r) => r.agentId === agentId && r.eventId === eventId && r.date === today,
     );

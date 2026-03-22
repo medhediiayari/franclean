@@ -47,7 +47,8 @@ export default function AgentDashboard() {
     .filter((r) => r.status === 'en_attente')
     .reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayD = new Date();
+  const today = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
   const todayEvents = myEvents.filter(
     (e) => e.startDate.slice(0, 10) <= today && e.endDate.slice(0, 10) >= today,
   );

@@ -24,6 +24,7 @@ import {
   Calendar,
   ExternalLink,
   Navigation,
+  CalendarDays,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -96,7 +97,7 @@ function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; la
   );
 }
 
-type ViewMode = 'table' | 'par-agent';
+type ViewMode = 'table' | 'par-agent' | 'par-event';
 
 export default function AdminAttendance() {
   const { records, validateRecord, fetchRecords } = useAttendanceStore();
@@ -115,6 +116,7 @@ export default function AdminAttendance() {
   const [refusalReason, setRefusalReason] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
 
   const agents = users.filter((u) => u.role === 'agent');
@@ -200,7 +202,17 @@ export default function AdminAttendance() {
               : 'text-slate-500 hover:bg-slate-50'
           }`}
         >
-          <Users size={16} /> Par agent (photos)
+          <Users size={16} /> Par agent
+        </button>
+        <button
+          onClick={() => setViewMode('par-event')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            viewMode === 'par-event'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          <CalendarDays size={16} /> Par événement
         </button>
       </div>
 
@@ -702,6 +714,293 @@ export default function AdminAttendance() {
               <p className="text-sm text-slate-500 font-medium">Sélectionnez un agent</p>
               <p className="text-xs text-slate-400 mt-1">
                 Choisissez un agent pour voir ses photos et horaires par mission
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Par Événement view */}
+      {viewMode === 'par-event' && (
+        <div className="space-y-5">
+          {/* Event selector */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Sélectionner un événement
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => { setSelectedEventId(e.target.value); setExpandedMissionId(null); }}
+              className="w-full sm:w-96 px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            >
+              <option value="">— Choisir un événement —</option>
+              {events
+                .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.title}{e.client ? ` — ${e.client}` : ''} ({e.startDate})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {selectedEventId && (() => {
+            const evt = events.find((e) => e.id === selectedEventId);
+            if (!evt) return null;
+            const eventRecords = records
+              .filter((r) => r.eventId === selectedEventId)
+              .sort((a, b) => {
+                const d = new Date(b.date).getTime() - new Date(a.date).getTime();
+                if (d !== 0) return d;
+                return getAgentName(a.agentId).localeCompare(getAgentName(b.agentId));
+              });
+            const totalHours = eventRecords.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
+            const uniqueAgents = new Set(eventRecords.map((r) => r.agentId)).size;
+
+            return (
+              <div className="space-y-4">
+                {/* Event summary */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                      style={{ backgroundColor: evt.color || '#6366F1' }}
+                    >
+                      <CalendarDays size={22} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-slate-900 truncate">{evt.title}</h3>
+                      <p className="text-sm text-slate-500">
+                        {evt.client && <span>{evt.client} • </span>}
+                        {evt.startDate} → {evt.endDate}
+                        {evt.address && <span className="ml-2 text-xs">📍 {evt.address.split(',')[0]}</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400">Pointages</p>
+                        <p className="text-lg font-bold text-slate-700">{eventRecords.length}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400">Agents</p>
+                        <p className="text-lg font-bold text-primary-600">{uniqueAgents}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400">Heures</p>
+                        <p className="text-lg font-bold text-emerald-600">{formatDuration(totalHours)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-slate-400">Validés</p>
+                        <p className="text-lg font-bold text-emerald-600">
+                          {eventRecords.filter((r) => r.status === 'valide').length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Records by agent */}
+                {eventRecords.length > 0 ? (
+                  <div className="space-y-3">
+                    {eventRecords.map((rec) => {
+                      const agent = users.find((u) => u.id === rec.agentId);
+                      const isExpanded = expandedMissionId === rec.id;
+                      return (
+                        <div key={rec.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                          <button
+                            onClick={() => setExpandedMissionId(isExpanded ? null : rec.id)}
+                            className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-slate-50 transition-colors"
+                          >
+                            {/* Agent avatar */}
+                            <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-sm flex-shrink-0">
+                              {agent ? `${agent.firstName[0]}${agent.lastName[0]}` : '?'}
+                            </div>
+
+                            {/* Thumbnails */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {rec.checkInPhotoUrl ? (
+                                <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-emerald-300">
+                                  <img src={rec.checkInPhotoUrl} alt="Entrée" className="w-full h-full object-cover" />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
+                                  <ImageIcon size={14} className="text-slate-300" />
+                                </div>
+                              )}
+                              {rec.checkOutPhotoUrl ? (
+                                <div className="w-10 h-10 rounded-lg overflow-hidden border-2 border-rose-300">
+                                  <img src={rec.checkOutPhotoUrl} alt="Sortie" className="w-full h-full object-cover" />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
+                                  <ImageIcon size={14} className="text-slate-300" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {getAgentName(rec.agentId)}
+                              </p>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar size={12} /> {formatDate(rec.date)}
+                                </span>
+                                {rec.checkInTime && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock size={12} className="text-emerald-500" />
+                                    {formatTime(rec.checkInTime)}
+                                  </span>
+                                )}
+                                {rec.checkOutTime && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock size={12} className="text-rose-500" />
+                                    {formatTime(rec.checkOutTime)}
+                                  </span>
+                                )}
+                                {rec.hoursWorked && (
+                                  <span className="font-semibold text-primary-600">
+                                    {formatDuration(rec.hoursWorked)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <StatusBadge status={rec.status} />
+                              {rec.isSuspect && <AlertTriangle size={14} className="text-orange-500" />}
+                              {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="px-5 pb-5 pt-0 border-t border-slate-100 space-y-4 animate-fadeIn">
+                              {/* Photos side by side */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                                {/* Entry photo */}
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                    <Camera size={14} className="text-emerald-500" /> Photo d'entrée
+                                  </h4>
+                                  {rec.checkInPhotoUrl ? (
+                                    <div className="space-y-2">
+                                      <div className="rounded-xl overflow-hidden border border-slate-200">
+                                        <img src={rec.checkInPhotoUrl} alt="Photo entrée" className="w-full h-48 object-cover bg-slate-100" />
+                                      </div>
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold text-slate-900 flex items-center gap-1">
+                                          <Clock size={12} /> {formatTime(rec.checkInTime!)}
+                                        </span>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkInLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                          <MapPin size={12} />
+                                          {rec.checkInLocationValid ? 'GPS valide' : 'Hors zone'}
+                                        </span>
+                                      </div>
+                                      {rec.checkInLatitude && rec.checkInLongitude && (
+                                        <GpsMiniMap lat={rec.checkInLatitude} lng={rec.checkInLongitude} label="Entrée" isValid={rec.checkInLocationValid} />
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="h-48 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
+                                      <span className="text-sm text-slate-400">Aucune photo</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Exit photo */}
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                    <Camera size={14} className="text-rose-500" /> Photo de clôture
+                                  </h4>
+                                  {rec.checkOutPhotoUrl ? (
+                                    <div className="space-y-2">
+                                      <div className="rounded-xl overflow-hidden border border-slate-200">
+                                        <img src={rec.checkOutPhotoUrl} alt="Photo sortie" className="w-full h-48 object-cover bg-slate-100" />
+                                      </div>
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="font-semibold text-slate-900 flex items-center gap-1">
+                                          <Clock size={12} /> {formatTime(rec.checkOutTime!)}
+                                        </span>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkOutLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                          <MapPin size={12} />
+                                          {rec.checkOutLocationValid ? 'GPS valide' : 'Hors zone'}
+                                        </span>
+                                      </div>
+                                      {rec.checkOutLatitude && rec.checkOutLongitude && (
+                                        <GpsMiniMap lat={rec.checkOutLatitude} lng={rec.checkOutLongitude} label="Sortie" isValid={rec.checkOutLocationValid} />
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="h-48 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
+                                      <span className="text-sm text-slate-400">Aucune photo</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Hours + alerts */}
+                              <div className="flex items-center gap-4">
+                                {rec.hoursWorked && (
+                                  <div className="bg-primary-50 rounded-lg px-4 py-2 text-center">
+                                    <p className="text-xs text-primary-600">Heures</p>
+                                    <p className="text-xl font-bold text-primary-700">{formatDuration(rec.hoursWorked)}</p>
+                                  </div>
+                                )}
+                                {rec.isSuspect && rec.suspectReasons.length > 0 && (
+                                  <div className="flex-1 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                    <p className="text-xs font-semibold text-orange-700 flex items-center gap-1 mb-1">
+                                      <AlertTriangle size={12} /> Alertes
+                                    </p>
+                                    {rec.suspectReasons.map((r, i) => (
+                                      <p key={i} className="text-xs text-orange-600">• {r}</p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Validation actions */}
+                              {(rec.status === 'en_attente' || rec.status === 'suspect') && (
+                                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                  <button
+                                    onClick={() => {
+                                      if (currentUser) validateRecord(rec.id, 'valide', currentUser.id);
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-all"
+                                  >
+                                    <CheckCircle2 size={14} /> Valider
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedRecord(rec.id);
+                                      setShowDetail(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-all"
+                                  >
+                                    <XCircle size={14} /> Refuser
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                    <Camera size={32} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-400">Aucun pointage pour cet événement</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {!selectedEventId && (
+            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+              <CalendarDays size={40} className="mx-auto text-slate-300 mb-3" />
+              <p className="text-sm text-slate-500 font-medium">Sélectionnez un événement</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Choisissez un événement pour voir les pointages de tous les agents associés
               </p>
             </div>
           )}

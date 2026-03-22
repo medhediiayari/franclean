@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
+import { emitUsersChanged } from '../lib/socket.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -56,6 +57,7 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
       omit: { password: true },
     });
     res.status(201).json(user);
+    emitUsersChanged();
   } catch (e: any) {
     if (e.code === 'P2002') {
       res.status(409).json({ error: 'Cet email existe déjà' });
@@ -97,6 +99,7 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
       omit: { password: true },
     });
     res.json(user);
+    emitUsersChanged();
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -111,6 +114,7 @@ router.delete('/:id', adminOnly, async (req: Request, res: Response) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+    emitUsersChanged();
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Utilisateur introuvable' });

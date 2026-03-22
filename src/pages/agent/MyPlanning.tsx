@@ -197,11 +197,11 @@ function formatDateWithDay(dateStr: string, today: string): string {
 /** Get all dates between start and end (inclusive), as YYYY-MM-DD strings */
 function getAllDatesBetween(start: string, end: string): string[] {
   const result: string[] = [];
-  const d = new Date(start + 'T12:00:00Z');
-  const endDate = new Date(end + 'T12:00:00Z');
+  const d = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
   while (d <= endDate) {
-    result.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
+    result.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    d.setDate(d.getDate() + 1);
   }
   return result;
 }
@@ -232,7 +232,8 @@ export default function MyPlanning() {
 
   if (!user) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayD = new Date();
+  const today = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
 
   const myEvents = events
     .filter((e) => e.assignedAgentIds.includes(user.id))
@@ -275,9 +276,9 @@ export default function MyPlanning() {
 
   return (
     <div className="p-4 space-y-5 animate-fadeIn">
-      <div>
-        <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Mon Planning</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Acceptez ou refusez vos missions</p>
+      <div className="bg-slate-800 rounded-xl px-5 py-3.5 shadow-lg">
+        <h1 className="text-lg font-bold text-white tracking-tight">Mon Planning</h1>
+        <p className="text-sm text-slate-300 mt-0.5">Acceptez ou refusez vos missions</p>
       </div>
 
       {/* Upcoming events */}

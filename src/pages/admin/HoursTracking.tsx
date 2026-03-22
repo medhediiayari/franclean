@@ -272,7 +272,8 @@ export default function HoursTracking() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Suivi Heures');
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const filterSuffix = dateFrom || dateTo ? `_${dateFrom || 'debut'}_${dateTo || 'fin'}` : '';
     XLSX.writeFile(wb, `FranClean_Suivi_Heures_${dateStr}${filterSuffix}.xlsx`);
   }, [filteredRows, totalPointed, dateFrom, dateTo]);
@@ -285,7 +286,7 @@ export default function HoursTracking() {
         action={
           <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-medium text-sm shadow-card transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-xl font-medium text-sm transition-colors"
           >
             <Download size={16} />
             Exporter Excel

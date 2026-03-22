@@ -59,7 +59,8 @@ export default function CheckIn() {
 
   if (!user) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayD = new Date();
+  const today = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
   const myEvents = events.filter(
     (e) =>
       e.assignedAgentIds.includes(user.id) &&
@@ -240,9 +241,9 @@ export default function CheckIn() {
   return (
     <div className="p-4 space-y-5 animate-fadeIn">
       {/* Header with visual stepper */}
-      <div>
-        <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Pointage</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Photo + GPS en temps réel</p>
+      <div className="bg-slate-800 rounded-xl px-5 py-3.5 shadow-lg">
+        <h1 className="text-lg font-bold text-white tracking-tight">Pointage</h1>
+        <p className="text-sm text-slate-300 mt-0.5">Photo + GPS en temps réel</p>
       </div>
 
       {/* Step indicator */}

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
+import { emitAttendanceChanged, emitToAdmins } from '../lib/socket.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -104,6 +105,11 @@ router.post('/', async (req: Request, res: Response) => {
   });
 
   res.status(201).json(formatRecord(record));
+  emitAttendanceChanged();
+  emitToAdmins('notification:newAttendance', {
+    agentId: req.auth!.userId,
+    eventId: parsed.data.eventId,
+  });
 });
 
 const updateSchema = z.object({
@@ -140,6 +146,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       data,
     });
     res.json(formatRecord(record));
+    emitAttendanceChanged();
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Pointage introuvable' });
@@ -173,6 +180,7 @@ router.post('/:id/validate', adminOnly, async (req: Request, res: Response) => {
       },
     });
     res.json(formatRecord(record));
+    emitAttendanceChanged();
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Pointage introuvable' });

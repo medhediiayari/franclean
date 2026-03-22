@@ -48,9 +48,9 @@ export default function MyHours() {
 
   return (
     <div className="p-4 space-y-5 animate-fadeIn">
-      <div>
-        <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Mes Heures</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Historique et suivi de vos pointages</p>
+      <div className="bg-slate-800 rounded-xl px-5 py-3.5 shadow-lg">
+        <h1 className="text-lg font-bold text-white tracking-tight">Mes Heures</h1>
+        <p className="text-sm text-slate-300 mt-0.5">Historique et suivi de vos pointages</p>
       </div>
 
       {/* Summary cards — gradient accent */}

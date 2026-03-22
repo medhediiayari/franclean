@@ -56,6 +56,7 @@ model Event {
   latitude    Float?
   longitude   Float?
   geoRadius   Int         @default(200)
+  hourlyRate  Float?      // Prix unitaire HT par heure
   status      EventStatus @default(planifie)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -170,4 +171,28 @@ model Attendance {
   agent User       @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@map("attendances")
+}
+
+// ── Clients ─────────────────────────────────────────────
+model Client {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("clients")
+}
+
+// ── Agent Payments (virements / acomptes) ───────────────
+model AgentPayment {
+  id        String   @id @default(cuid())
+  agentId   String
+  type      String   // 'virement' | 'acompte'
+  amount    Float
+  date      String   // YYYY-MM-DD (date du paiement)
+  periodStart String // YYYY-MM-DD (début période associée)
+  periodEnd   String // YYYY-MM-DD (fin période associée)
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@map("agent_payments")
 }

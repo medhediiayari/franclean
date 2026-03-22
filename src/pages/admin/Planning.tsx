@@ -11,6 +11,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../../utils/helpers';
 import type { PlanningEvent, EventStatus, EventShift } from '../../types';
 import LocationPicker from '../../components/common/LocationPicker';
+import ClientCombobox from '../../components/common/ClientCombobox';
+import { generatePlanningPDF } from '../../utils/pdfExport';
 import {
   Plus,
   MapPin,
@@ -19,6 +21,7 @@ import {
   UserCheck,
   UserX,
   UserMinus,
+  UserPlus,
   Calendar,
   Clock,
   Trash2,
@@ -36,6 +39,8 @@ import {
   Copy,
   Check,
   X,
+  Save,
+  FileDown,
 } from 'lucide-react';
 
 const EVENT_PALETTE = [
@@ -69,6 +74,8 @@ export default function Planning() {
   const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
   const calendarRef = useRef<FullCalendar>(null);
 
+
+
   const agents = users.filter((u) => u.role === 'agent' && u.isActive);
 
   // Form state
@@ -83,6 +90,7 @@ export default function Planning() {
     latitude: '',
     longitude: '',
     geoRadius: '200',
+    hourlyRate: '',
     assignedAgentIds: [] as string[],
     status: 'planifie' as EventStatus,
   });
@@ -103,6 +111,17 @@ export default function Planning() {
   const [agentSkipDays, setAgentSkipDays] = useState<number[]>([0, 6]);
   const [showResponsesWidget, setShowResponsesWidget] = useState(true);
   const [expandedResponseEventId, setExpandedResponseEventId] = useState<string | null>(null);
+
+  // Conflict detection for agent assignment
+  type PlanningConflictInfo = {
+    agentId: string;
+    agentName: string;
+    conflicts: { eventTitle: string; date: string; startTime: string; endTime: string }[];
+  };
+  const [conflictPopup, setConflictPopup] = useState<PlanningConflictInfo | null>(null);
+
+  // PDF export menu
+  const [showPdfMenu, setShowPdfMenu] = useState(false);
 
   // Compute agent responses grouped by event
   const eventResponsesGrouped = useMemo(() => {
@@ -217,12 +236,14 @@ export default function Planning() {
       latitude: '',
       longitude: '',
       geoRadius: '200',
+      hourlyRate: '',
       assignedAgentIds: [] as string[],
       status: 'planifie',
     });
     setAgentShiftAssignments({});
     setEditingAgentId(null);
     setFormTab('event');
+    setSelectedEvent(null);
   };
 
   const handleDateSelect = (info: { startStr: string; endStr: string }) => {
@@ -231,7 +252,7 @@ export default function Planning() {
     // FullCalendar endStr for day selection is exclusive, so subtract 1 day
     const endDate = new Date(info.endStr);
     endDate.setDate(endDate.getDate() - 1);
-    const end = endDate.toISOString().slice(0, 10);
+    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
     setForm((f) => ({
       ...f,
       startDate: start,
@@ -263,6 +284,7 @@ export default function Planning() {
       latitude: selectedEvent.latitude?.toString() || '',
       longitude: selectedEvent.longitude?.toString() || '',
       geoRadius: selectedEvent.geoRadius?.toString() || '200',
+      hourlyRate: selectedEvent.hourlyRate?.toString() || '',
       assignedAgentIds: selectedEvent.assignedAgentIds,
       status: selectedEvent.status,
     });
@@ -314,6 +336,7 @@ export default function Planning() {
       latitude: form.latitude ? parseFloat(form.latitude) : undefined,
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 200,
+      hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
       assignedAgentIds: allAgentIds,
       status: form.status,
     };
@@ -369,7 +392,7 @@ export default function Planning() {
     const d = new Date(form.startDate + 'T12:00:00');
     const endDate = new Date(form.endDate + 'T12:00:00');
     while (d <= endDate) {
-      const iso = d.toISOString().slice(0, 10);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (!skip.includes(d.getDay())) {
         dates.push(iso);
       }
@@ -379,9 +402,59 @@ export default function Planning() {
   };
 
   // Agent assignment helpers
+  const detectAgentConflicts = (agentId: string) => {
+    if (!form.startDate || !form.endDate) return [];
+    const eventId = selectedEvent?.id || '';
+    const shiftDates = getEventDatesInRange([]);
+    const conflicts: PlanningConflictInfo['conflicts'] = [];
+    for (const evt of events) {
+      if (evt.id === eventId) continue;
+      const agentAssigned = evt.assignedAgentIds.includes(agentId);
+      const agentSpecificShifts = (evt.shifts || []).filter(s => s.agentId === agentId);
+      if (!agentAssigned && agentSpecificShifts.length === 0) continue;
+      const relevantShifts = agentSpecificShifts.length > 0
+        ? agentSpecificShifts
+        : (evt.shifts || []).filter(s => !s.agentId);
+      if (relevantShifts.length > 0) {
+        for (const shift of relevantShifts) {
+          if (shiftDates.includes(shift.date)) {
+            conflicts.push({ eventTitle: evt.title, date: shift.date, startTime: shift.startTime, endTime: shift.endTime });
+          }
+        }
+      } else if (agentAssigned) {
+        const start = new Date(evt.startDate + 'T00:00:00');
+        const end = new Date(evt.endDate + 'T00:00:00');
+        const evtDates: string[] = [];
+        const d = new Date(start);
+        while (d <= end) { evtDates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`); d.setDate(d.getDate()+1); }
+        for (const dt of shiftDates) {
+          if (evtDates.includes(dt)) {
+            conflicts.push({ eventTitle: evt.title, date: dt, startTime: '', endTime: '' });
+          }
+        }
+      }
+    }
+    return conflicts;
+  };
+
   const addAgentToEvent = (agentId: string) => {
     if (agentShiftAssignments[agentId]) return;
+    const conflicts = detectAgentConflicts(agentId);
+    if (conflicts.length > 0) {
+      setConflictPopup({
+        agentId,
+        agentName: getAgentName(agentId),
+        conflicts,
+      });
+      return;
+    }
+    confirmAddAgentToEvent(agentId);
+    startEditingAgent(agentId);
+  };
+
+  const confirmAddAgentToEvent = (agentId: string) => {
     setAgentShiftAssignments((prev) => ({ ...prev, [agentId]: [] }));
+    setConflictPopup(null);
   };
 
   const removeAgentFromEvent = (agentId: string) => {
@@ -442,22 +515,60 @@ export default function Planning() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-slate-800 rounded-xl px-6 py-4 shadow-lg">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Planning</h1>
-          <p className="text-slate-500 mt-1">Gestion des événements et interventions</p>
+          <h1 className="text-xl font-bold text-white">Planification</h1>
+          <p className="text-slate-300 mt-0.5 text-sm">Gestion des événements et interventions</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setFormMode('create');
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
-        >
-          <Plus size={18} />
-          Nouvel événement
-        </button>
+        <div className="flex items-center gap-2">
+          {/* PDF Export */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPdfMenu(!showPdfMenu)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl font-medium text-sm transition-all"
+            >
+              <FileDown size={16} />
+              Exporter PDF
+              <ChevronDown size={14} />
+            </button>
+            {showPdfMenu && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
+                <button
+                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'day'); setShowPdfMenu(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
+                >
+                  <Calendar size={14} className="text-slate-400" />
+                  Aujourd'hui
+                </button>
+                <button
+                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'week'); setShowPdfMenu(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
+                >
+                  <CalendarDays size={14} className="text-slate-400" />
+                  Cette semaine
+                </button>
+                <button
+                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'month'); setShowPdfMenu(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
+                >
+                  <Grid3X3 size={14} className="text-slate-400" />
+                  Ce mois
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setFormMode('create');
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-primary-600/25 transition-all"
+          >
+            <Plus size={18} />
+            Nouvel événement
+          </button>
+        </div>
       </div>
 
       {/* Legend */}
@@ -625,7 +736,7 @@ export default function Planning() {
         {[
           { key: 'calendar' as const, label: 'Calendrier', icon: CalendarDays },
           { key: 'year' as const, label: 'Année', icon: Grid3X3 },
-          { key: 'heatmap' as const, label: 'Heatmap', icon: Flame },
+          { key: 'heatmap' as const, label: 'Activité annuelle', icon: Flame },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -679,6 +790,8 @@ export default function Planning() {
           }}
         />
       )}
+
+
 
       {calendarView === 'calendar' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
@@ -803,6 +916,16 @@ export default function Planning() {
                   )}
                 </div>
               </div>
+
+              {selectedEvent.hourlyRate != null && selectedEvent.hourlyRate > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+                  <span className="text-lg">💶</span>
+                  <div>
+                    <p className="text-xs text-slate-400">Prix unitaire HT</p>
+                    <p className="text-sm font-bold text-emerald-700">{selectedEvent.hourlyRate.toFixed(2)} € / heure</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Shifts display */}
@@ -940,29 +1063,23 @@ export default function Planning() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Client</label>
-                  <input
-                    type="text"
+                  <ClientCombobox
                     value={form.client}
-                    onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                    placeholder="Nom du client"
+                    onChange={(v) => setForm((f) => ({ ...f, client: v }))}
+                    existingClients={events.map((e) => e.client).filter(Boolean) as string[]}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Couleur</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {EVENT_PALETTE.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, color: c }))}
-                        className={`w-7 h-7 rounded-lg transition-all ${
-                          form.color === c ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={form.color}
+                      onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                      className="w-10 h-10 rounded-xl border-2 border-slate-200 cursor-pointer p-0.5 bg-white"
+                    />
+                    <span className="text-sm text-slate-500 font-mono uppercase">{form.color}</span>
                   </div>
                 </div>
 
@@ -994,15 +1111,29 @@ export default function Planning() {
                   onUpdate={(fields) => setForm((f) => ({ ...f, ...fields }))}
                 />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Rayon GPS (m)</label>
-                  <input
-                    type="number"
-                    value={form.geoRadius}
-                    onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                    placeholder="200"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Rayon GPS (m)</label>
+                    <input
+                      type="number"
+                      value={form.geoRadius}
+                      onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      placeholder="200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix HT / heure (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.hourlyRate}
+                      onChange={(e) => setForm((f) => ({ ...f, hourlyRate: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
 
                 {formMode === 'edit' && (
@@ -1083,7 +1214,6 @@ export default function Planning() {
                           type="button"
                           onClick={() => {
                             addAgentToEvent(agent.id);
-                            startEditingAgent(agent.id);
                           }}
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-primary-300 hover:bg-primary-50 transition-colors"
                         >
@@ -1361,6 +1491,63 @@ export default function Planning() {
           )}
         </form>
       </Modal>
+
+      {/* ── Conflict Confirmation Popup ── */}
+      {conflictPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConflictPopup(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 animate-fadeIn">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Conflit de planning détecté</h3>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  <span className="font-semibold text-slate-700">{conflictPopup.agentName}</span> est déjà affecté(e) à d’autres missions aux mêmes dates.
+                </p>
+              </div>
+              <button onClick={() => setConflictPopup(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg ml-auto">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 max-h-60 overflow-y-auto space-y-2">
+              {conflictPopup.conflicts.map((c, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <div className="flex items-center gap-1.5 text-amber-800 font-medium">
+                    <Calendar size={13} className="flex-shrink-0 text-amber-600" />
+                    <span>{formatDate(c.date)}</span>
+                  </div>
+                  <span className="text-amber-400">•</span>
+                  <div className="flex items-center gap-1.5 text-amber-700 truncate">
+                    <Briefcase size={13} className="flex-shrink-0 text-amber-500" />
+                    <span className="truncate font-medium">{c.eventTitle}</span>
+                  </div>
+                  {c.startTime && c.endTime && (
+                    <>
+                      <span className="text-amber-400">•</span>
+                      <span className="flex items-center gap-1 text-amber-700 text-xs font-semibold bg-amber-100/60 px-2 py-0.5 rounded-md flex-shrink-0">
+                        <Clock size={12} className="text-amber-500" />
+                        {c.startTime} → {c.endTime}
+                      </span>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setConflictPopup(null)}
+                className="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                Annuler
+              </button>
+              <button type="button" onClick={() => { confirmAddAgentToEvent(conflictPopup.agentId); startEditingAgent(conflictPopup.agentId); }}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors shadow-sm">
+                <AlertTriangle size={14} /> Affecter quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1580,7 +1767,7 @@ function HeatmapCalendar({
       const end = new Date(evt.endDate);
       const d = new Date(start);
       while (d <= end) {
-        const key = d.toISOString().slice(0, 10);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!map[key]) map[key] = [];
         map[key].push(evt.color || statusColors[evt.status]);
         d.setDate(d.getDate() + 1);
@@ -1597,7 +1784,7 @@ function HeatmapCalendar({
       const end = new Date(evt.endDate);
       const d = new Date(start);
       while (d <= end) {
-        const key = d.toISOString().slice(0, 10);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!map[key]) map[key] = [];
         map[key].push({
           id: evt.id,
@@ -1634,7 +1821,7 @@ function HeatmapCalendar({
           const dow = dateObj.getDay(); // 0=Sun
           const adjustedDow = dow === 0 ? 6 : dow - 1; // 0=Mon...6=Sun
           days.push({
-            date: dateObj.toISOString().slice(0, 10),
+            date: `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`,
             dayOfMonth: d,
             dayOfWeek: adjustedDow,
           });
@@ -1648,7 +1835,8 @@ function HeatmapCalendar({
     return result;
   }, [year]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date();
+  const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
 
   // Get color for a day cell
   const getCellStyle = (date: string): React.CSSProperties => {
@@ -1682,7 +1870,7 @@ function HeatmapCalendar({
           <h2 className="text-lg font-extrabold text-white tracking-tight">
             Sept {year - 1} → Août {year}
           </h2>
-          <p className="text-white/70 text-xs font-medium mt-0.5">Calendrier Heatmap</p>
+          <p className="text-white/70 text-xs font-medium mt-0.5">Activité annuelle</p>
         </div>
         <button
           onClick={() => onYearChange(year + 1)}
@@ -1853,3 +2041,4 @@ function HeatmapCalendar({
     </div>
   );
 }
+

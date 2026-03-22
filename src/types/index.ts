@@ -38,6 +38,7 @@ export interface PlanningEvent {
   latitude?: number;
   longitude?: number;
   geoRadius?: number;
+  hourlyRate?: number;
   assignedAgentIds: string[];
   status: EventStatus;
   agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>;
