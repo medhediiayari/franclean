@@ -40,5 +40,5 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 FranClean API running on http://localhost:${PORT}`);
+  console.log(`🚀 Bipbip API running on http://localhost:${PORT}`);
 });

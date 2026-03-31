@@ -15,6 +15,7 @@ import {
   TrendingUp,
   Briefcase,
   Sparkles,
+  Bell,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -135,12 +136,12 @@ export default function AgentDashboard() {
 
         <div className="group bg-white rounded-2xl border border-slate-100 p-4 shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5">
           <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 rounded-xl bg-orange-50 text-orange-500 group-hover:bg-orange-100 transition-colors">
-              <AlertTriangle size={16} strokeWidth={2.5} />
+            <div className={`p-2 rounded-xl ${user.canRefuseEvents ? 'bg-orange-50 text-orange-500 group-hover:bg-orange-100' : 'bg-primary-50 text-primary-500 group-hover:bg-primary-100'} transition-colors`}>
+              {user.canRefuseEvents ? <AlertTriangle size={16} strokeWidth={2.5} /> : <Bell size={16} strokeWidth={2.5} />}
             </div>
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">À répondre</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{user.canRefuseEvents ? 'À répondre' : 'Nouvelles'}</span>
           </div>
-          <p className="text-3xl font-extrabold text-orange-600 tracking-tight">{pendingEvents.length}</p>
+          <p className={`text-3xl font-extrabold tracking-tight ${user.canRefuseEvents ? 'text-orange-600' : 'text-primary-600'}`}>{pendingEvents.length}</p>
           <p className="text-[11px] text-slate-400 mt-0.5">{pendingEvents.length > 0 ? 'mission' + (pendingEvents.length > 1 ? 's' : '') : 'aucune'}</p>
         </div>
       </div>
@@ -234,18 +235,24 @@ export default function AgentDashboard() {
         )}
       </div>
 
-      {/* Pending responses */}
+      {/* Pending responses / New missions */}
       {pendingEvents.length > 0 && (
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200/60 shadow-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-amber-200/40">
-            <h2 className="text-sm font-bold text-amber-800 flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-amber-100">
-                <AlertTriangle size={14} className="text-amber-600" />
+        <div className={`rounded-2xl border shadow-card overflow-hidden ${
+          user.canRefuseEvents
+            ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/60'
+            : 'bg-gradient-to-br from-primary-50 to-blue-50 border-primary-200/60'
+        }`}>
+          <div className={`px-5 py-4 border-b ${user.canRefuseEvents ? 'border-amber-200/40' : 'border-primary-200/40'}`}>
+            <h2 className={`text-sm font-bold flex items-center gap-2 ${user.canRefuseEvents ? 'text-amber-800' : 'text-primary-800'}`}>
+              <div className={`p-1.5 rounded-lg ${user.canRefuseEvents ? 'bg-amber-100' : 'bg-primary-100'}`}>
+                {user.canRefuseEvents
+                  ? <AlertTriangle size={14} className="text-amber-600" />
+                  : <Bell size={14} className="text-primary-600" />}
               </div>
-              Missions en attente de réponse
+              {user.canRefuseEvents ? 'Missions en attente de réponse' : 'Nouvelles missions assignées'}
             </h2>
           </div>
-          <div className="divide-y divide-amber-100/60">
+          <div className={`divide-y ${user.canRefuseEvents ? 'divide-amber-100/60' : 'divide-primary-100/60'}`}>
             {pendingEvents.map((event) => (
               <div key={event.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -262,13 +269,23 @@ export default function AgentDashboard() {
                       </p>
                     )}
                   </div>
-                  <Link
-                    to="/agent/planning"
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center gap-1.5 flex-shrink-0"
-                  >
-                    Répondre
-                    <ArrowRight size={12} />
-                  </Link>
+                  {user.canRefuseEvents ? (
+                    <Link
+                      to="/agent/planning"
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      Répondre
+                      <ArrowRight size={12} />
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/agent/planning"
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold rounded-xl transition-all duration-200 shadow-sm active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      Voir
+                      <ArrowRight size={12} />
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

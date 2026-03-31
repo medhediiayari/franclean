@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
-import { emitUsersChanged } from '../lib/socket.js';
+import { emitUsersChanged, emitEventsChanged } from '../lib/socket.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -38,6 +38,7 @@ const createUserSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(['admin', 'agent']).optional(),
   isActive: z.boolean().optional(),
+  canRefuseEvents: z.boolean().optional(),
 });
 
 // POST /api/users (admin only)
@@ -75,7 +76,37 @@ const updateUserSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(['admin', 'agent']).optional(),
   isActive: z.boolean().optional(),
+  canRefuseEvents: z.boolean().optional(),
   avatar: z.string().nullable().optional(),
+});
+
+// PUT /api/users/bulk-refuse (admin only) — must be before /:id
+router.put('/bulk-refuse', adminOnly, async (req: Request, res: Response) => {
+  const schema = z.object({ canRefuseEvents: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Données invalides' });
+    return;
+  }
+  await prisma.user.updateMany({
+    where: { role: 'agent' },
+    data: { canRefuseEvents: parsed.data.canRefuseEvents },
+  });
+
+  // When disabling refuse, auto-accept all pending missions for agents
+  if (!parsed.data.canRefuseEvents) {
+    await prisma.eventAgent.updateMany({
+      where: {
+        response: 'pending',
+        agent: { role: 'agent' },
+      },
+      data: { response: 'accepted' },
+    });
+    emitEventsChanged();
+  }
+
+  res.json({ ok: true });
+  emitUsersChanged();
 });
 
 // PUT /api/users/:id (admin only)

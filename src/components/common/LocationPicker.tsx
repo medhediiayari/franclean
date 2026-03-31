@@ -120,6 +120,7 @@ export default function LocationPicker({ address, latitude, longitude, onUpdate 
       latitude: lat.toFixed(6),
       longitude: lng.toFixed(6),
     });
+    setSearching(true);
     try {
       const params = new URLSearchParams({ lat: lat.toString(), lon: lng.toString() });
       const resp = await fetch(`https://api-adresse.data.gouv.fr/reverse/?${params}`);
@@ -133,6 +134,8 @@ export default function LocationPicker({ address, latitude, longitude, onUpdate 
       }
     } catch {
       // keep coords even if reverse fails
+    } finally {
+      setSearching(false);
     }
   }, [onUpdate]);
 
@@ -163,7 +166,6 @@ export default function LocationPicker({ address, latitude, longitude, onUpdate 
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={() => results.length > 0 && setShowResults(true)}
-            required
             className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
             placeholder="Rechercher une adresse..."
           />

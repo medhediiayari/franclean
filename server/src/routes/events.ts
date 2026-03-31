@@ -14,6 +14,8 @@ function formatEvent(event: any) {
     title: event.title,
     description: event.description,
     client: event.client,
+    clientPhone: event.clientPhone,
+    site: event.site,
     color: event.color,
     startDate: event.startDate.toISOString().slice(0, 10),
     endDate: event.endDate.toISOString().slice(0, 10),
@@ -69,6 +71,22 @@ router.get('/', async (req: Request, res: Response) => {
   res.json(events.map(formatEvent));
 });
 
+// POST /api/events/mark-seen (agent marks all pending missions as seen/accepted)
+router.post('/mark-seen', async (req: Request, res: Response) => {
+  const agentId = req.auth!.userId;
+  const agent = await prisma.user.findUnique({ where: { id: agentId }, select: { canRefuseEvents: true } });
+  if (!agent || agent.canRefuseEvents) {
+    res.json({ ok: true, count: 0 });
+    return;
+  }
+  const result = await prisma.eventAgent.updateMany({
+    where: { agentId, response: 'pending' },
+    data: { response: 'accepted' },
+  });
+  if (result.count > 0) emitEventsChanged();
+  res.json({ ok: true, count: result.count });
+});
+
 // GET /api/events/:id
 router.get('/:id', async (req: Request, res: Response) => {
   const event = await prisma.event.findUnique({
@@ -93,6 +111,8 @@ const createEventSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   client: z.string().optional(),
+  clientPhone: z.string().optional(),
+  site: z.string().optional(),
   color: z.string().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -116,6 +136,16 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
 
   const { shifts, assignedAgentIds, startDate, endDate, ...rest } = parsed.data;
 
+  // Check which agents cannot refuse events (auto-accept)
+  let agentRefuseMap = new Map<string, boolean>();
+  if (assignedAgentIds && assignedAgentIds.length > 0) {
+    const agents = await prisma.user.findMany({
+      where: { id: { in: assignedAgentIds } },
+      select: { id: true, canRefuseEvents: true },
+    });
+    agentRefuseMap = new Map(agents.map((a) => [a.id, a.canRefuseEvents]));
+  }
+
   const event = await prisma.event.create({
     data: {
       ...rest,
@@ -125,7 +155,7 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
         ? { create: shifts.map((s) => ({ date: new Date(s.date), startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || null })) }
         : undefined,
       agents: assignedAgentIds
-        ? { create: assignedAgentIds.map((agentId) => ({ agentId, response: 'pending' })) }
+        ? { create: assignedAgentIds.map((agentId) => ({ agentId, response: agentRefuseMap.get(agentId) === false ? 'accepted' : 'pending' })) }
         : undefined,
       history: {
         create: {
@@ -145,6 +175,8 @@ const updateEventSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   client: z.string().nullable().optional(),
+  clientPhone: z.string().nullable().optional(),
+  site: z.string().nullable().optional(),
   color: z.string().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -195,12 +227,19 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
       const existing = await tx.eventAgent.findMany({ where: { eventId } });
       const existingMap = new Map(existing.map((ea) => [ea.agentId, ea.response]));
 
+      // Check which agents cannot refuse events
+      const agents = await tx.user.findMany({
+        where: { id: { in: assignedAgentIds } },
+        select: { id: true, canRefuseEvents: true },
+      });
+      const refuseMap = new Map(agents.map((a) => [a.id, a.canRefuseEvents]));
+
       await tx.eventAgent.deleteMany({ where: { eventId } });
       await tx.eventAgent.createMany({
         data: assignedAgentIds.map((agentId) => ({
           eventId,
           agentId,
-          response: existingMap.get(agentId) || 'pending',
+          response: existingMap.get(agentId) || (refuseMap.get(agentId) === false ? 'accepted' : 'pending'),
         })),
       });
     }

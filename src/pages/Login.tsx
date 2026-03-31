@@ -57,15 +57,15 @@ export default function Login() {
       {/* Left panel - Branding */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         {/* Full gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-500 via-primary-700 to-slate-900" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1B3A5C] via-[#122A44] to-[#0A192B]" />
 
         {/* Decorative shapes */}
         <div className="absolute inset-0">
           <div className="absolute -top-24 -left-24 w-[500px] h-[500px] bg-white/5 rounded-full" />
           <div className="absolute top-1/3 -right-32 w-[400px] h-[400px] bg-white/5 rounded-full" />
           <div className="absolute -bottom-20 left-1/4 w-[350px] h-[350px] bg-white/5 rounded-full" />
-          <div className="absolute top-20 right-20 w-72 h-72 bg-primary-400/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-32 left-16 w-64 h-64 bg-primary-300/10 rounded-full blur-3xl" />
+          <div className="absolute top-20 right-20 w-72 h-72 bg-blue-400/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-32 left-16 w-64 h-64 bg-blue-300/10 rounded-full blur-3xl" />
         </div>
 
         {/* Floating bubbles animation */}
@@ -97,23 +97,17 @@ export default function Login() {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Logo */}
-          <div className="flex items-center gap-4">
-            <img src="/CX.png" alt="FranClean" className="w-14 h-14 rounded-2xl object-contain drop-shadow-lg" />
-            <div>
-              <h1 className="text-white text-2xl font-extrabold tracking-tight">FranClean</h1>
-              <p className="text-primary-200 text-sm font-medium">Gestion des Ressources Humaines</p>
-            </div>
-          </div>
+          {/* Spacer for top */}
+          <div />
 
           {/* Hero text */}
           <div className="space-y-8 max-w-lg">
             <div>
               <h2 className="text-white text-5xl font-extrabold leading-[1.1] tracking-tight">
                 Gérez votre équipe<br />
-                <span className="bg-gradient-to-r from-white to-primary-200 bg-clip-text text-transparent">en toute simplicité</span>
+                <span className="bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">en toute simplicité</span>
               </h2>
-              <p className="text-primary-200/90 text-lg mt-5 leading-relaxed">
+              <p className="text-blue-200/90 text-lg mt-5 leading-relaxed">
                 Planning, pointage, suivi des heures — la propreté avant tout, la gestion en prime.
               </p>
             </div>
@@ -127,45 +121,36 @@ export default function Login() {
                 >
                   <div className="flex items-center gap-2.5 mb-1.5">
                     <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                      <Icon size={16} className="text-primary-200" />
+                      <Icon size={16} className="text-blue-200" />
                     </div>
                     <p className="text-white font-bold text-sm">{title}</p>
                   </div>
-                  <p className="text-primary-300/80 text-xs leading-relaxed">{desc}</p>
+                  <p className="text-blue-300/80 text-xs leading-relaxed">{desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Footer */}
-          <p className="text-primary-400/60 text-sm">
-            © {new Date().getFullYear()} FranClean — Tous droits réservés
+          <p className="text-blue-300/40 text-sm">
+            © {new Date().getFullYear()} Bipbip — Tous droits réservés
           </p>
         </div>
       </div>
 
       {/* Right panel - Login form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-[420px]">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex flex-col items-center mb-10">
-            <img src="/CX.png" alt="FranClean" className="w-16 h-16 rounded-2xl object-contain mb-3" />
-            <h1 className="text-slate-900 text-2xl font-extrabold">FranClean</h1>
-            <p className="text-slate-400 text-sm">Gestion des Ressources Humaines</p>
-          </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 overflow-y-auto">
+        <div className="w-full max-w-[440px] flex flex-col items-center">
+          {/* Logo */}
+          <img src="/logobipbip%20new.png" alt="Bipbip" className="h-24 sm:h-28 lg:h-32 w-auto object-contain mb-6" />
 
           {/* Welcome */}
-          <div className="hidden lg:block mb-8">
-            <p className="text-sm font-medium text-primary-600 mb-1">Bienvenue</p>
-            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Connexion</h2>
-            <p className="text-slate-500 mt-2">Accédez à votre espace de travail</p>
-          </div>
-          <div className="lg:hidden text-center mb-8">
-            <h2 className="text-2xl font-extrabold text-slate-900">Connexion</h2>
-            <p className="text-slate-500 mt-1">Accédez à votre espace de travail</p>
+          <div className="text-center mb-6">
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">Connexion</h2>
+            <p className="text-slate-500 mt-1.5 text-sm">Accédez à votre espace de travail</p>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/[0.04] border border-slate-200/60 p-8 sm:p-9">
+          <div className="w-full bg-white rounded-2xl shadow-lg shadow-slate-900/[0.05] border border-slate-200/60 p-7 sm:p-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
               <div>
@@ -218,7 +203,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold rounded-xl shadow-lg shadow-primary-600/30 hover:shadow-xl hover:shadow-primary-600/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-gradient-to-r from-[#1B3A5C] to-[#122A44] hover:from-[#122A44] hover:to-[#0E2137] text-white font-bold rounded-xl shadow-lg shadow-[#1B3A5C]/30 hover:shadow-xl hover:shadow-[#1B3A5C]/40 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm active:scale-[0.98]"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -232,9 +217,9 @@ export default function Login() {
             </form>
           </div>
 
-          {/* Footer for desktop */}
-          <p className="hidden lg:block text-center text-xs text-slate-400 mt-8">
-            © {new Date().getFullYear()} FranClean · Plateforme sécurisée
+          {/* Footer */}
+          <p className="text-center text-xs text-slate-400 mt-6">
+            © {new Date().getFullYear()} Bipbip · Plateforme sécurisée
           </p>
         </div>
       </div>

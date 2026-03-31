@@ -18,12 +18,14 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   BarChart3,
+  Building2,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
   { to: '/admin/planning', icon: CalendarDays, label: 'Planification' },
   { to: '/admin/pointage', icon: Clock, label: 'Pointage' },
+  { to: '/admin/clients', icon: Building2, label: 'Clients' },
   { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
   { to: '/admin/heures', icon: FileSpreadsheet, label: 'Suivi Heures' },
   { to: '/admin/recap', icon: BarChart3, label: 'Récap' },
@@ -60,18 +62,18 @@ export default function AdminLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-slate-900 transform transition-all duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed inset-y-0 left-0 z-50 bg-[#0E2137] transform transition-all duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto ${
           collapsed ? 'w-[72px]' : 'w-64'
         } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className={`flex items-center gap-3 px-4 py-5 border-b border-slate-700/50 ${collapsed ? 'justify-center' : ''}`}>
-            <img src="/CX.png" alt="FranClean" className={`rounded-xl object-contain ${collapsed ? 'w-10 h-10' : 'w-14 h-14'}`} />
+          <div className="flex items-center justify-center px-4 py-5 border-b border-[#1B3A5C]/50">
+            <img src="/newfavicon.png" alt="Bipbip" className={`rounded-lg object-contain ${collapsed ? 'w-9 h-9' : 'h-12 w-auto max-w-[140px]'}`} />
             {!collapsed && (
-              <div>
-                <h1 className="text-white font-bold text-lg leading-tight">FranClean</h1>
-                <p className="text-slate-400 text-xs">Gestion RH</p>
+              <div className="ml-3">
+                <h1 className="text-white font-extrabold text-[22px] leading-tight tracking-tight">Bipbip</h1>
+                <p className="text-slate-400 text-[13px] mt-0.5">Gestion RH</p>
               </div>
             )}
             {!collapsed && (
@@ -85,7 +87,7 @@ export default function AdminLayout() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+          <nav className="flex-1 px-2 py-5 space-y-1.5 overflow-y-auto">
             {navItems.map(({ to, icon: Icon, label, end }) => (
               <NavLink
                 key={to}
@@ -93,12 +95,12 @@ export default function AdminLayout() {
                 end={end}
                 title={collapsed ? label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                  `flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150 ${
                     collapsed ? 'justify-center' : ''
                   } ${
                     isActive
-                      ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/25'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#1B3A5C] text-white shadow-lg shadow-[#1B3A5C]/25'
+                      : 'text-slate-300 hover:bg-[#122A44] hover:text-white'
                   }`
                 }
                 onClick={() => setSidebarOpen(false)}
@@ -110,11 +112,11 @@ export default function AdminLayout() {
           </nav>
 
           {/* Collapse toggle (desktop only) */}
-          <div className="hidden lg:block px-2 py-2">
+          <div className="hidden lg:block px-2 py-3">
             <button
               onClick={() => setCollapsed(!collapsed)}
               title={collapsed ? 'Agrandir' : 'Réduire'}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-all duration-150 justify-center"
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-[#122A44] hover:text-white transition-all duration-150 justify-center"
             >
               {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
               {!collapsed && <span>Réduire</span>}
@@ -122,13 +124,13 @@ export default function AdminLayout() {
           </div>
 
           {/* User section */}
-          <div className={`px-2 py-4 border-t border-slate-700/50 space-y-1`}>
+          <div className={`px-2 py-5 border-t border-[#1B3A5C]/50 space-y-1.5`}>
             {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
                 title={collapsed ? 'Notifications' : undefined}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-[#122A44] hover:text-white transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
               >
                 <div className="relative">
                   <Bell size={20} />

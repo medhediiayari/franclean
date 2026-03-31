@@ -13,6 +13,7 @@ import {
   Shield,
   Phone,
   Mail,
+  CheckCircle2,
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
@@ -21,6 +22,20 @@ export default function Users() {
   const { users, addUser, updateUser, deleteUser, fetchUsers } = useAuthStore();
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const handleBulkRefuse = async (value: boolean) => {
+    try {
+      const { api } = await import('../../lib/api');
+      await api.put('/users/bulk-refuse', { canRefuseEvents: value });
+      await fetchUsers();
+      setBulkMsg(value ? 'Tous les agents peuvent refuser les missions' : 'Tous les agents sont forcés d\'accepter les missions');
+      setTimeout(() => setBulkMsg(null), 3000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
@@ -36,6 +51,7 @@ export default function Users() {
     password: '',
     role: 'agent' as Role,
     isActive: true,
+    canRefuseEvents: true,
   });
 
   const filteredUsers = users.filter((u) => {
@@ -60,6 +76,7 @@ export default function Users() {
       password: '',
       role: 'agent',
       isActive: true,
+      canRefuseEvents: true,
     });
 
   const handleEdit = (user: User) => {
@@ -71,6 +88,7 @@ export default function Users() {
       password: '',
       role: user.role,
       isActive: user.isActive,
+      canRefuseEvents: user.canRefuseEvents,
     });
     setSelectedUserId(user.id);
     setFormMode('edit');
@@ -89,6 +107,7 @@ export default function Users() {
           password: form.password,
           role: form.role,
           isActive: form.isActive,
+          canRefuseEvents: form.canRefuseEvents,
         });
       } else if (selectedUserId) {
         const data: Record<string, unknown> = { ...form };
@@ -111,6 +130,8 @@ export default function Users() {
   const adminCount = users.filter((u) => u.role === 'admin').length;
   const agentCount = users.filter((u) => u.role === 'agent').length;
   const activeCount = users.filter((u) => u.isActive).length;
+  const agents = users.filter((u) => u.role === 'agent');
+  const allCanRefuse = agents.length > 0 && agents.every((a) => a.canRefuseEvents);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -160,7 +181,31 @@ export default function Users() {
           <option value="admin">Admin</option>
           <option value="agent">Agent</option>
         </select>
+        <div className="flex items-center gap-3 ml-auto">
+          <span className="text-xs font-medium text-slate-500 hidden sm:inline">Refus missions</span>
+          <button
+            type="button"
+            onClick={() => handleBulkRefuse(!allCanRefuse)}
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+              allCanRefuse ? 'bg-primary-600' : 'bg-slate-300'
+            }`}
+            title={allCanRefuse ? 'Désactiver le refus pour tous les agents' : 'Activer le refus pour tous les agents'}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                allCanRefuse ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
       </div>
+
+      {bulkMsg && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary-50 border border-primary-100 text-primary-700 text-sm font-medium animate-fadeIn">
+          <CheckCircle2 size={16} />
+          {bulkMsg}
+        </div>
+      )}
 
       {/* User cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -348,6 +393,28 @@ export default function Users() {
               </select>
             </div>
           </div>
+
+          {form.role === 'agent' && (
+            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Peut refuser des missions</label>
+                <p className="text-xs text-slate-500">Si désactivé, l'agent est forcé d'accepter les missions assignées</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, canRefuseEvents: !f.canRefuseEvents }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  form.canRefuseEvents ? 'bg-primary-600' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    form.canRefuseEvents ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
             <button

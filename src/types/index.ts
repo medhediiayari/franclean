@@ -11,6 +11,7 @@ export interface User {
   role: Role;
   avatar?: string;
   isActive: boolean;
+  canRefuseEvents: boolean;
   createdAt: string;
 }
 
@@ -30,6 +31,8 @@ export interface PlanningEvent {
   title: string;
   description: string;
   client?: string;
+  clientPhone?: string;
+  site?: string;
   color: string;
   startDate: string;   // YYYY-MM-DD (date début de l'événement)
   endDate: string;     // YYYY-MM-DD (date fin de l'événement)
@@ -118,4 +121,40 @@ export interface HoursSummary {
   hoursBilled: number;
   validationStatus: 'complete' | 'partielle' | 'en_attente';
   gap: number; // difference pointed - billed
+}
+
+// ── Clients & Sites ─────────────────────────────────────
+export interface ClientSite {
+  id: string;
+  clientId: string;
+  name: string;
+  address: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  geoRadius: number;
+  hourlyRate?: number | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientData {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  siret?: string | null;
+  siren?: string | null;
+  formeJuridique?: string | null;
+  tvaNumber?: string | null;
+  representantLegal?: string | null;
+  representantRole?: string | null;
+  codeApe?: string | null;
+  capitalSocial?: string | null;
+  rcs?: string | null;
+  sites: ClientSite[];
+  createdAt: string;
+  updatedAt: string;
 }

@@ -12,6 +12,7 @@ import { formatDateTime, formatDate } from '../../utils/helpers';
 import type { PlanningEvent, EventStatus, EventShift } from '../../types';
 import LocationPicker from '../../components/common/LocationPicker';
 import ClientCombobox from '../../components/common/ClientCombobox';
+import { useClientStore } from '../../store/clientStore';
 import { generatePlanningPDF } from '../../utils/pdfExport';
 import {
   Plus,
@@ -61,9 +62,11 @@ const statusColors: Record<EventStatus, string> = {
 export default function Planning() {
   const { events, addEvent, updateEvent, deleteEvent, fetchEvents } = useEventStore();
   const { users, fetchUsers } = useAuthStore();
+  const { clients: dbClients, fetchClients } = useClientStore();
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => { fetchClients(); }, [fetchClients]);
 
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
@@ -83,19 +86,22 @@ export default function Planning() {
     title: '',
     description: '',
     client: '',
+    clientPhone: '',
+    site: '',
     color: EVENT_PALETTE[0],
     startDate: '',
     endDate: '',
     address: '',
     latitude: '',
     longitude: '',
-    geoRadius: '200',
+    geoRadius: '500',
     hourlyRate: '',
     assignedAgentIds: [] as string[],
     status: 'planifie' as EventStatus,
   });
 
   const [formTab, setFormTab] = useState<'event' | 'agents'>('event');
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Per-agent shift assignments: agentId -> array of shifts
   const [agentShiftAssignments, setAgentShiftAssignments] = useState<
@@ -196,17 +202,29 @@ export default function Planning() {
       allDay?: boolean;
       backgroundColor: string;
       borderColor: string;
+      extendedProps?: { shiftsInfo: string };
     }> = [];
     for (const evt of events) {
       if (evt.shifts && evt.shifts.length > 0) {
+        // Group shifts by date to show one entry per event per day
+        const shiftsByDate: Record<string, EventShift[]> = {};
         for (const shift of evt.shifts) {
+          const d = shift.date;
+          if (!shiftsByDate[d]) shiftsByDate[d] = [];
+          shiftsByDate[d].push(shift);
+        }
+        for (const [date, dayShifts] of Object.entries(shiftsByDate)) {
+          const earliest = dayShifts.reduce((a, b) => (a.startTime < b.startTime ? a : b));
+          const latest = dayShifts.reduce((a, b) => (a.endTime > b.endTime ? a : b));
+          const shiftsInfo = dayShifts.map(s => `${s.startTime}-${s.endTime}`).join(' / ');
           result.push({
-            id: `${evt.id}__${shift.id}`,
+            id: `${evt.id}__${date}`,
             title: evt.title,
-            start: `${shift.date}T${shift.startTime}:00`,
-            end: `${shift.date}T${shift.endTime}:00`,
+            start: `${date}T${earliest.startTime}:00`,
+            end: `${date}T${latest.endTime}:00`,
             backgroundColor: evt.color || statusColors[evt.status],
             borderColor: evt.color || statusColors[evt.status],
+            extendedProps: { shiftsInfo },
           });
         }
       } else {
@@ -224,18 +242,51 @@ export default function Planning() {
     return result;
   }, [events]);
 
+  // ── Alertes événements non attribués ──────────────────
+  const alertData = useMemo(() => {
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 86400000);
+    const in7Str = in7Days.toISOString().slice(0, 10);
+
+    const activeUpcoming = events.filter((e) =>
+      e.status !== 'termine' && e.status !== 'annule' && e.startDate <= in7Str
+    );
+
+    const fullyUnassigned = activeUpcoming.filter((e) => {
+      if (e.assignedAgentIds.length > 0) return false;
+      const shifts = e.shifts || [];
+      return shifts.length === 0 || shifts.every((s) => !s.agentId);
+    });
+
+    const partiallyUnassigned = activeUpcoming.filter((e) => {
+      const shifts = e.shifts || [];
+      if (shifts.length <= 1) return false;
+      const withAgent = shifts.filter((s) => s.agentId);
+      return withAgent.length > 0 && withAgent.length < shifts.length;
+    }).map((e) => {
+      const unassignedDates = [...new Set(
+        (e.shifts || []).filter((s) => !s.agentId).map((s) => s.date)
+      )].sort();
+      return { event: e, unassignedDates };
+    });
+
+    return { fullyUnassigned, partiallyUnassigned };
+  }, [events]);
+
   const resetForm = () => {
     setForm({
       title: '',
       description: '',
       client: '',
+      clientPhone: '',
+      site: '',
       color: EVENT_PALETTE[Math.floor(Math.random() * EVENT_PALETTE.length)],
       startDate: '',
       endDate: '',
       address: '',
       latitude: '',
       longitude: '',
-      geoRadius: '200',
+      geoRadius: '500',
       hourlyRate: '',
       assignedAgentIds: [] as string[],
       status: 'planifie',
@@ -243,6 +294,7 @@ export default function Planning() {
     setAgentShiftAssignments({});
     setEditingAgentId(null);
     setFormTab('event');
+    setFormError(null);
     setSelectedEvent(null);
   };
 
@@ -277,13 +329,15 @@ export default function Planning() {
       title: selectedEvent.title,
       description: selectedEvent.description,
       client: selectedEvent.client || '',
+      clientPhone: selectedEvent.clientPhone || '',
+      site: selectedEvent.site || '',
       color: selectedEvent.color || EVENT_PALETTE[0],
       startDate: selectedEvent.startDate,
       endDate: selectedEvent.endDate,
       address: selectedEvent.address,
       latitude: selectedEvent.latitude?.toString() || '',
       longitude: selectedEvent.longitude?.toString() || '',
-      geoRadius: selectedEvent.geoRadius?.toString() || '200',
+      geoRadius: selectedEvent.geoRadius?.toString() || '500',
       hourlyRate: selectedEvent.hourlyRate?.toString() || '',
       assignedAgentIds: selectedEvent.assignedAgentIds,
       status: selectedEvent.status,
@@ -314,6 +368,12 @@ export default function Planning() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      setFormError('La date de fin ne peut pas être avant la date de début.');
+      return;
+    }
 
     // Build flat shifts array from per-agent assignments
     const allShifts: { date: string; startTime: string; endTime: string; agentId?: string }[] = [];
@@ -328,6 +388,8 @@ export default function Planning() {
       title: form.title,
       description: form.description,
       client: form.client || undefined,
+      clientPhone: form.clientPhone || undefined,
+      site: form.site || undefined,
       color: form.color,
       startDate: form.startDate,
       endDate: form.endDate,
@@ -335,7 +397,7 @@ export default function Planning() {
       address: form.address,
       latitude: form.latitude ? parseFloat(form.latitude) : undefined,
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
-      geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 200,
+      geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 500,
       hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
       assignedAgentIds: allAgentIds,
       status: form.status,
@@ -349,6 +411,8 @@ export default function Planning() {
       }
     } catch (err) {
       console.error('Failed to save event', err);
+      setFormError('Erreur lors de la sauvegarde de l\'événement.');
+      return;
     }
 
     setShowForm(false);
@@ -368,15 +432,28 @@ export default function Planning() {
     }
   };
 
-  const handleEventDrop = async (info: { event: { id: string; startStr: string; endStr: string } }) => {
+  const handleEventDrop = async (info: any) => {
     const evtId = info.event.id.includes('__') ? info.event.id.split('__')[0] : info.event.id;
+    const evt = events.find((e) => e.id === evtId);
     const startDate = info.event.startStr.slice(0, 10);
     const endDate = info.event.endStr ? info.event.endStr.slice(0, 10) : startDate;
     try {
-      await updateEvent(evtId, { startDate, endDate });
+      const updateData: any = { startDate, endDate };
+      if (evt && evt.shifts && evt.shifts.length > 0 && evt.startDate) {
+        const oldStart = new Date(evt.startDate + 'T12:00:00');
+        const newStart = new Date(startDate + 'T12:00:00');
+        const dayOffset = Math.round((newStart.getTime() - oldStart.getTime()) / 86400000);
+        updateData.shifts = evt.shifts.map((s) => {
+          const d = new Date(s.date + 'T12:00:00');
+          d.setDate(d.getDate() + dayOffset);
+          const newDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return { date: newDate, startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || undefined };
+        });
+      }
+      await updateEvent(evtId, updateData);
     } catch (err) {
       console.error('Failed to update event', err);
-      info.event.id; // FullCalendar handles revert via info.revert() if needed
+      info.revert();
     }
   };
 
@@ -515,7 +592,7 @@ export default function Planning() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between bg-slate-800 rounded-xl px-6 py-4 shadow-lg">
+      <div className="flex items-center justify-between bg-[#0E2137] rounded-xl px-6 py-4 shadow-lg">
         <div>
           <h1 className="text-xl font-bold text-white">Planification</h1>
           <p className="text-slate-300 mt-0.5 text-sm">Gestion des événements et interventions</p>
@@ -794,6 +871,61 @@ export default function Planning() {
 
 
       {calendarView === 'calendar' && (
+        <>
+        {/* Alertes attribution */}
+        {(alertData.fullyUnassigned.length > 0 || alertData.partiallyUnassigned.length > 0) && (
+          <div className="space-y-2">
+            {alertData.fullyUnassigned.length > 0 && (
+              <div className="bg-red-50/60 border border-red-100 rounded-lg px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <UserX className="text-red-400 flex-shrink-0" size={16} />
+                  <p className="text-xs text-red-600 font-medium">
+                    {alertData.fullyUnassigned.length} événement(s) sans agent attribué à moins de 7 jours
+                  </p>
+                </div>
+                <div className="mt-2 space-y-1 pl-7">
+                  {alertData.fullyUnassigned.map((e) => {
+                    const daysLeft = Math.ceil((new Date(e.startDate).getTime() - Date.now()) / 86400000);
+                    return (
+                      <button
+                        key={e.id}
+                        className="text-xs text-red-500 flex items-center gap-2 hover:text-red-700 transition-colors cursor-pointer"
+                        onClick={() => { setSelectedEvent(e); setShowDetail(true); }}
+                      >
+                        <span className="font-semibold underline">{e.title}</span>
+                        <span className="text-red-400">—</span>
+                        <span>{daysLeft <= 0 ? 'Déjà commencé' : daysLeft === 1 ? 'Demain' : `Dans ${daysLeft}j`} ({e.startDate})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {alertData.partiallyUnassigned.length > 0 && (
+              <div className="bg-amber-50/60 border border-amber-100 rounded-lg px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="text-amber-500 flex-shrink-0" size={16} />
+                  <p className="text-xs text-amber-700 font-medium">
+                    {alertData.partiallyUnassigned.length} événement(s) avec des créneaux non attribués
+                  </p>
+                </div>
+                <div className="mt-2 space-y-1 pl-7">
+                  {alertData.partiallyUnassigned.map(({ event: e, unassignedDates }) => (
+                    <button
+                      key={e.id}
+                      className="text-xs text-amber-600 flex items-center gap-2 hover:text-amber-800 transition-colors cursor-pointer flex-wrap"
+                      onClick={() => { setSelectedEvent(e); setShowDetail(true); }}
+                    >
+                      <span className="font-semibold underline">{e.title}</span>
+                      <span className="text-amber-400">—</span>
+                      <span>{unassignedDates.length} jour(s) : {unassignedDates.join(', ')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -824,13 +956,13 @@ export default function Planning() {
               select={handleDateSelect}
               eventClick={handleEventClick}
               eventContent={(arg) => {
-                const timeText = arg.timeText;
+                const shiftsInfo = arg.event.extendedProps?.shiftsInfo;
                 const color = arg.event.backgroundColor || '#6366F1';
                 return (
                   <div className="fc-event-inner" style={{ backgroundColor: color }}>
                     <span className="fc-event-dot" style={{ background: 'rgba(255,255,255,0.8)' }} />
                     <span className="fc-event-label">{arg.event.title}</span>
-                    {timeText && <span className="fc-event-time-label">{timeText}</span>}
+                    {shiftsInfo && <span className="fc-event-time-label">{shiftsInfo}</span>}
                   </div>
                 );
               }}
@@ -843,9 +975,8 @@ export default function Planning() {
             />
           </div>
         </div>
+        </>
       )}
-
-      {/* Event detail modal */}
       <Modal
         isOpen={showDetail}
         onClose={() => setShowDetail(false)}
@@ -889,7 +1020,24 @@ export default function Planning() {
                   <Calendar size={18} className="text-slate-400" />
                   <div>
                     <p className="text-xs text-slate-400">Client</p>
-                    <p className="text-sm font-medium text-slate-900">{selectedEvent.client}</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      {selectedEvent.client}
+                      {selectedEvent.clientPhone && (
+                        <a href={`tel:${selectedEvent.clientPhone}`} className="ml-2 text-primary-600 hover:text-primary-700 font-normal text-xs">
+                          📞 {selectedEvent.clientPhone}
+                        </a>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedEvent.site && (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <MapPin size={18} className="text-slate-400" />
+                  <div>
+                    <p className="text-xs text-slate-400">Site</p>
+                    <p className="text-sm font-medium text-slate-900">{selectedEvent.site}</p>
                   </div>
                 </div>
               )}
@@ -1034,6 +1182,13 @@ export default function Planning() {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {formError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
+              {formError}
+            </div>
+          )}
+
           {/* TAB 1: Event info */}
           {formTab === 'event' && (
             <div className="space-y-5">
@@ -1065,9 +1220,74 @@ export default function Planning() {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Client</label>
                   <ClientCombobox
                     value={form.client}
-                    onChange={(v) => setForm((f) => ({ ...f, client: v }))}
+                    onChange={(v) => {
+                      const matchedClient = dbClients.find((c) => c.name === v);
+                      setForm((f) => ({
+                        ...f,
+                        client: v,
+                        clientPhone: matchedClient?.phone || '',
+                        site: '',
+                      }));
+                    }}
                     existingClients={events.map((e) => e.client).filter(Boolean) as string[]}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Tél. Client</label>
+                  <input
+                    type="tel"
+                    value={form.clientPhone}
+                    onChange={(e) => setForm((f) => ({ ...f, clientPhone: e.target.value }))}
+                    placeholder="Rempli automatiquement ou saisir"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Site</label>
+                  {(() => {
+                    const selectedClient = dbClients.find((c) => c.name === form.client);
+                    const sites = selectedClient?.sites || [];
+                    if (sites.length > 0) {
+                      return (
+                        <select
+                          value={form.site}
+                          onChange={(e) => {
+                            const siteName = e.target.value;
+                            setForm((f) => ({ ...f, site: siteName }));
+                            const site = sites.find((s) => s.name === siteName);
+                            if (site) {
+                              setForm((f) => ({
+                                ...f,
+                                site: siteName,
+                                address: site.address || f.address,
+                                latitude: site.latitude != null ? String(site.latitude) : f.latitude,
+                                longitude: site.longitude != null ? String(site.longitude) : f.longitude,
+                                geoRadius: site.geoRadius ? String(site.geoRadius) : f.geoRadius,
+                                hourlyRate: site.hourlyRate != null ? String(site.hourlyRate) : f.hourlyRate,
+                              }));
+                            }
+                          }}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+                        >
+                          <option value="">Sélectionner un site</option>
+                          {sites.map((s) => (
+                            <option key={s.id} value={s.name}>{s.name}</option>
+                          ))}
+                        </select>
+                      );
+                    }
+                    return (
+                      <input
+                        type="text"
+                        value={form.site}
+                        onChange={(e) => setForm((f) => ({ ...f, site: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                        placeholder="Nom du site"
+                      />
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -1100,6 +1320,7 @@ export default function Planning() {
                     value={form.endDate}
                     onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
                     required
+                    min={form.startDate}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   />
                 </div>
@@ -1147,7 +1368,7 @@ export default function Planning() {
                       <option value="planifie">Planifié</option>
                       <option value="en_cours">En cours</option>
                       <option value="termine">Terminé</option>
-                      <option value="a_reattribuer">ì réattribuer</option>
+                      <option value="a_reattribuer">À réattribuer</option>
                       <option value="annule">Annulé</option>
                     </select>
                   </div>

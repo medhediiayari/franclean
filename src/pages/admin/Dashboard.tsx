@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   Hourglass,
   CalendarX2,
+  UserX,
+  CalendarClock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -79,6 +81,36 @@ export default function AdminDashboard() {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
+  // ── Alertes événements non attribués ──────────────────
+  const in7Days = new Date(now.getTime() + 7 * 86400000);
+  const todayStr = now.toISOString().slice(0, 10);
+
+  // Events that are NOT terminated/cancelled and have start date within 7 days (or past but still active)
+  const activeUpcoming = events.filter((e) =>
+    e.status !== 'termine' && e.status !== 'annule' && e.startDate <= in7Days.toISOString().slice(0, 10)
+  );
+
+  // Fully unassigned: no agents assigned at event level AND no per-shift agents
+  const fullyUnassigned = activeUpcoming.filter((e) => {
+    if (e.assignedAgentIds.length > 0) return false;
+    const shifts = e.shifts || [];
+    return shifts.length === 0 || shifts.every((s) => !s.agentId);
+  });
+
+  // Partially unassigned: event has agents, but some shifts still lack a per-shift agentId
+  const partiallyUnassigned = activeUpcoming.filter((e) => {
+    const shifts = e.shifts || [];
+    if (shifts.length <= 1) return false;
+    const withAgent = shifts.filter((s) => s.agentId);
+    // Only flag if some shifts have agentId and some don't (per-shift granularity)
+    return withAgent.length > 0 && withAgent.length < shifts.length;
+  }).map((e) => {
+    const unassignedDates = [...new Set(
+      (e.shifts || []).filter((s) => !s.agentId).map((s) => s.date)
+    )].sort();
+    return { event: e, unassignedDates };
+  });
+
   const getAgentName = (agentId: string) => {
     const agent = users.find((u) => u.id === agentId);
     return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assigné';
@@ -89,34 +121,96 @@ export default function AdminDashboard() {
       <PageHeader title="Tableau de bord" subtitle="Vue d'ensemble de vos activités" />
 
       {/* Alerts */}
-      {(suspectAttendance.length > 0 || toReassign.length > 0) && (
-        <div className="space-y-3">
+      {(suspectAttendance.length > 0 || toReassign.length > 0 || fullyUnassigned.length > 0 || partiallyUnassigned.length > 0) && (
+        <div className="space-y-2">
           {suspectAttendance.length > 0 && (
-            <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
-              <AlertTriangle className="text-orange-500 flex-shrink-0" size={20} />
-              <p className="text-sm text-orange-700 font-medium">
+            <div className="flex items-center gap-3 bg-orange-50/60 border border-orange-100 rounded-lg px-4 py-2.5">
+              <AlertTriangle className="text-orange-400 flex-shrink-0" size={16} />
+              <p className="text-xs text-orange-600 font-medium">
                 {suspectAttendance.length} pointage(s) suspect(s) nécessitent votre attention
               </p>
               <Link
                 to="/admin/pointage"
-                className="ml-auto text-sm text-orange-600 hover:text-orange-700 font-semibold flex items-center gap-1"
+                className="ml-auto text-xs text-orange-500 hover:text-orange-600 font-medium flex items-center gap-1"
               >
-                Voir <ArrowRight size={14} />
+                Voir <ArrowRight size={12} />
               </Link>
             </div>
           )}
           {toReassign.length > 0 && (
-            <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
-              <AlertTriangle className="text-rose-500 flex-shrink-0" size={20} />
-              <p className="text-sm text-rose-700 font-medium">
+            <div className="flex items-center gap-3 bg-rose-50/60 border border-rose-100 rounded-lg px-4 py-2.5">
+              <AlertTriangle className="text-rose-400 flex-shrink-0" size={16} />
+              <p className="text-xs text-rose-600 font-medium">
                 {toReassign.length} événement(s) à réattribuer
               </p>
               <Link
                 to="/admin/planning"
-                className="ml-auto text-sm text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1"
+                className="ml-auto text-xs text-rose-500 hover:text-rose-600 font-medium flex items-center gap-1"
               >
-                Voir <ArrowRight size={14} />
+                Voir <ArrowRight size={12} />
               </Link>
+            </div>
+          )}
+          {fullyUnassigned.length > 0 && (
+            <div className="bg-red-50/60 border border-red-100 rounded-lg px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <UserX className="text-red-400 flex-shrink-0" size={16} />
+                <p className="text-xs text-red-600 font-medium">
+                  {fullyUnassigned.length} événement(s) sans agent attribué à moins de 7 jours
+                </p>
+                <Link
+                  to="/admin/planning"
+                  className="ml-auto text-xs text-red-500 hover:text-red-600 font-medium flex items-center gap-1 flex-shrink-0"
+                >
+                  Voir <ArrowRight size={12} />
+                </Link>
+              </div>
+              <div className="mt-2 space-y-1 pl-7">
+                {fullyUnassigned.map((e) => {
+                  const daysLeft = Math.ceil((new Date(e.startDate).getTime() - now.getTime()) / 86400000);
+                  return (
+                    <div key={e.id} className="text-xs text-red-500 flex items-center gap-2">
+                      <span className="font-semibold">{e.title}</span>
+                      <span className="text-red-400">—</span>
+                      <span>
+                        {daysLeft <= 0
+                          ? 'Déjà commencé !'
+                          : daysLeft === 1
+                            ? 'Demain'
+                            : `Dans ${daysLeft} jours`}
+                        {' '}({formatDate(e.startDate)})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {partiallyUnassigned.length > 0 && (
+            <div className="bg-amber-50/60 border border-amber-100 rounded-lg px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <CalendarClock className="text-amber-500 flex-shrink-0" size={16} />
+                <p className="text-xs text-amber-700 font-medium">
+                  {partiallyUnassigned.length} événement(s) avec des jours/créneaux non attribués
+                </p>
+                <Link
+                  to="/admin/planning"
+                  className="ml-auto text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1 flex-shrink-0"
+                >
+                  Voir <ArrowRight size={12} />
+                </Link>
+              </div>
+              <div className="mt-2 space-y-1 pl-7">
+                {partiallyUnassigned.map(({ event: e, unassignedDates }) => (
+                  <div key={e.id} className="text-xs text-amber-600 flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold">{e.title}</span>
+                    <span className="text-amber-400">—</span>
+                    <span>
+                      {unassignedDates.length} jour(s) non attribué(s) : {unassignedDates.map(d => formatDate(d)).join(', ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -204,13 +298,13 @@ export default function AdminDashboard() {
               <div key={event.id} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-normal text-slate-900 truncate">{event.title}</p>
+                    <p className="text-sm font-medium text-slate-900 truncate">{event.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-600">
                         {event.assignedAgentIds.map((id) => getAgentName(id)).join(', ')}
                       </span>
                       <span className="text-slate-300">•</span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
                         <MapPin size={10} />
                         {event.address.split(',')[0]}
                       </span>
@@ -246,15 +340,15 @@ export default function AdminDashboard() {
                 <div key={record.id} className="px-5 py-3.5 hover:bg-slate-50 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-normal text-slate-900 truncate">
+                      <p className="text-sm font-medium text-slate-900 truncate">
                         {getAgentName(record.agentId)}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-600">
                           {event?.title || 'Événement inconnu'}
                         </span>
                         <span className="text-slate-300">•</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-500">
                           {record.checkInTime && formatTime(record.checkInTime)}
                           {record.checkOutTime && ` → ${formatTime(record.checkOutTime)}`}
                         </span>

@@ -2,89 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Plus, Search, X, Building2, Loader2 } from 'lucide-react';
 import { useClientStore } from '../../store/clientStore';
 
-const DEFAULT_CLIENTS = [
-  'COREDIF NOISY',
-  'EIFFAGE ST GERMAIN',
-  'PARIS DEMOLITION HOTEL',
-  'PARIS DEMOLITION ST LAZARE',
-  'COREDIF DRANCY',
-  'SACR AUBERVILLIERS',
-  'SPCR EVRY',
-  'COREDIF SERRIS 136',
-  'LCF LEVALLOIS',
-  'COREDIF CORBEIL BV',
-  'COREDIF ORLY BV',
-  'COREDIF BLANC MESNIL BV',
-  'COREDIF BONNEUIL BV',
-  'COREDIF NOISY BV',
-  'COREDIF PIERREFITE BV',
-  'COPRO MONTREUIL',
-  'COPRO BONNEUIL',
-  'SACR BLANC MESNIL BV',
-  'CLOS EMERAINVILLE',
-  'NURDAN MAISON',
-  'LEYLA MAISON',
-  'SCI YAVUZ ET FILS',
-  'COREDIF BOIS COLOMBES BUREAU',
-  'DOMAINE CHAUFFOUR',
-  'AGANDIRA BUREAU',
-  'COEUR DE FORET BUREAU',
-  'LCF KREMLIN',
-  'KEVSER MAISON',
-  'BUREAU VALENTON',
-  'COREDIF EVRY',
-  'MAITRE CUBE DAMMARTIN',
-  'MAISON MAMAN',
-  'SNP VSD BUREAU',
-  'MCP BAT BRETIGNY',
-  'MAIRIE FONTENAY',
-  'COREDIF BAGNEUX BV',
-  'COREDIF SERRIS BV',
-  'HARMONIE AUDITION',
-  'POISSY S2D',
-  'RCM BONNEUIL',
-  'CARPETCARE',
-  'FUNDA MAISON',
-  'COREDIF DRANCY FC',
-  'UMC SAINT OUEN BUREAU',
-  'UMC FONTENAY BV',
-  'UMC AUBERGENVILLE BV',
-  'FCR FORMATION',
-  'MEANET',
-  'MEANET MASSY PALAISEAU',
-  'LA BELLE VIANDE',
-  'LCF NOISY LE ROI',
-  'EIFFAGE FC',
-  'MEANET RUNGIS',
-  'PARIS DEMOLITION VOLTAIRE',
-  'EIFFAGE CHATENAY',
-  'SCI THELI',
-  'HUGO RIS ORANGIS BV',
-  'HUGO CERGY BV',
-  'HUGO LOGES EN JOSAS',
-  'HUGO SAVIGNY LE TEMPLE BV',
-  'HUGO VERT ST DENIS BV',
-  'HUGO MELUN',
-  'HUGO CHENNEVIERES BV',
-  'HUGO ST MAUR DES FOSSES BV',
-  'HUGO AULNAY SS BOIS BV',
-  'HUGO EPINAY SUR SEINE ICADE BV',
-  'HUGO VILLIERS SUR MARNE BV',
-  'HUGO EPINAY SUR SEINE INLI BV',
-  'COREDIF CORBEIL',
-  'GAMZE MAISON',
-  'MTPB BAT LEUVILLE SR ORGE',
-  'SACR ASNIERES',
-  'LCF BOISSY ST LEGER',
-  'HUGO BOIS COLOMBES BV',
-  'HUGO NONVILLE BV',
-  'LCF CACHAN',
-  'LCF DRAVEIL',
-  'HUGO LOGES EN JOSAS BV',
-  'HUGO MELUN BV',
-  'COREDIF BONNEUIL',
-];
-
 interface ClientComboboxProps {
   value: string;
   onChange: (value: string) => void;
@@ -105,10 +22,9 @@ export default function ClientCombobox({ value, onChange, existingClients = [] }
     fetchClients();
   }, [fetchClients]);
 
-  // Merge: defaults + DB clients + existing event clients (deduplicated)
+  // Use DB clients + existing event clients (deduplicated)
   const dbClientNames = dbClients.map((c) => c.name);
   const allClients = [...new Set([
-    ...DEFAULT_CLIENTS,
     ...dbClientNames,
     ...existingClients.filter(Boolean),
   ])].sort((a, b) =>
@@ -145,7 +61,7 @@ export default function ClientCombobox({ value, onChange, existingClients = [] }
     if (!name || creating) return;
     setCreating(true);
     try {
-      await addClient(name);
+      await addClient({ name });
       onChange(name);
       setSearch('');
       setOpen(false);
@@ -242,11 +158,6 @@ export default function ClientCombobox({ value, onChange, existingClients = [] }
             >
               <Building2 size={14} className={client === value ? 'text-primary-500' : 'text-slate-300'} />
               <span className="truncate">{client}</span>
-              {dbClientNames.includes(client) && !DEFAULT_CLIENTS.includes(client) && (
-                <span className="ml-auto text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                  ajouté
-                </span>
-              )}
             </button>
           ))}
 

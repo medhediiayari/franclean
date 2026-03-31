@@ -230,6 +230,15 @@ export default function MyPlanning() {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+  // Auto-mark pending missions as seen when agent can't refuse
+  useEffect(() => {
+    if (user && !user.canRefuseEvents) {
+      import('../../lib/api').then(({ api }) => {
+        api.post('/events/mark-seen', {}).then(() => fetchEvents());
+      });
+    }
+  }, [user, fetchEvents]);
+
   if (!user) return null;
 
   const todayD = new Date();
@@ -278,7 +287,7 @@ export default function MyPlanning() {
     <div className="p-4 space-y-5 animate-fadeIn">
       <div className="bg-slate-800 rounded-xl px-5 py-3.5 shadow-lg">
         <h1 className="text-lg font-bold text-white tracking-tight">Mon Planning</h1>
-        <p className="text-sm text-slate-300 mt-0.5">Acceptez ou refusez vos missions</p>
+        <p className="text-sm text-slate-300 mt-0.5">{user?.canRefuseEvents ? 'Acceptez ou refusez vos missions' : 'Vos missions assignées'}</p>
       </div>
 
       {/* Upcoming events */}
@@ -309,7 +318,9 @@ export default function MyPlanning() {
                   >
                     <div
                       className={`w-1 self-stretch rounded-full flex-shrink-0 ${
-                        agentResponse === 'accepted'
+                        !user?.canRefuseEvents
+                          ? 'bg-primary-400'
+                          : agentResponse === 'accepted'
                           ? 'bg-emerald-400'
                           : agentResponse === 'refused'
                           ? 'bg-rose-400'
@@ -324,7 +335,12 @@ export default function MyPlanning() {
                           {event.title}
                         </p>
                         <div className="flex items-center gap-1.5">
-                          {agentResponse && agentResponse !== 'pending' && (
+                          {!user?.canRefuseEvents && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-100">
+                              Assignée
+                            </span>
+                          )}
+                          {user?.canRefuseEvents && agentResponse && agentResponse !== 'pending' && (
                             <StatusBadge status={agentResponse} />
                           )}
                           <StatusBadge status={event.status} />
@@ -376,6 +392,11 @@ export default function MyPlanning() {
                         {event.client && (
                           <p className="text-xs text-slate-400">
                             Client : <span className="font-medium text-slate-600">{event.client}</span>
+                            {event.clientPhone && (
+                              <a href={`tel:${event.clientPhone}`} className="ml-2 text-primary-600 hover:text-primary-700">
+                                📞 {event.clientPhone}
+                              </a>
+                            )}
                           </p>
                         )}
                         <p className="text-xs text-slate-400">
@@ -395,7 +416,7 @@ export default function MyPlanning() {
                       </div>
 
                       {/* Agent response buttons */}
-                      {agentResponse === 'pending' && (
+                      {agentResponse === 'pending' && user?.canRefuseEvents && (
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => handleResponse(event.id, 'accepted')}
@@ -412,7 +433,7 @@ export default function MyPlanning() {
                         </div>
                       )}
 
-                      {agentResponse && agentResponse !== 'pending' && (
+                      {agentResponse && agentResponse !== 'pending' && user?.canRefuseEvents && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400">Votre réponse :</span>
                           <StatusBadge status={agentResponse} />
@@ -434,40 +455,6 @@ export default function MyPlanning() {
           </div>
         )}
       </div>
-
-      {/* Past events */}
-      {pastEvents.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              Missions passées
-            </h2>
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{pastEvents.length}</span>
-          </div>
-          <div className="space-y-2">
-            {pastEvents.map((event) => {
-              return (
-                <div
-                  key={event.id}
-                  className="bg-white rounded-2xl border border-slate-100 px-5 py-4 opacity-60 hover:opacity-80 transition-opacity shadow-card"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">
-                        {event.title}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {formatDate(event.startDate)} — {event.client || event.address.split(',')[0]}
-                      </p>
-                    </div>
-                    <StatusBadge status={event.status} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

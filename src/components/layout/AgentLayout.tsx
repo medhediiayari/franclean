@@ -56,7 +56,7 @@ export default function AgentLayout() {
               {user?.firstName} {user?.lastName}
             </h1>
             <p className="text-[11px] text-slate-400 font-medium">
-              FranClean — Agent de terrain
+              Bipbip — Agent de terrain
             </p>
           </div>
         </div>

@@ -13,6 +13,7 @@ import Users from './pages/admin/Users';
 import HoursTracking from './pages/admin/HoursTracking';
 import Gestion from './pages/admin/Gestion';
 import Recap from './pages/admin/Recap';
+import Clients from './pages/admin/Clients';
 
 import AgentDashboard from './pages/agent/AgentDashboard';
 import MyPlanning from './pages/agent/MyPlanning';
@@ -58,6 +59,7 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="planning" element={<Planning />} />
         <Route path="pointage" element={<AdminAttendance />} />
+        <Route path="clients" element={<Clients />} />
         <Route path="utilisateurs" element={<Users />} />
         <Route path="heures" element={<HoursTracking />} />
         <Route path="gestion" element={<Gestion />} />
