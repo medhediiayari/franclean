@@ -7,6 +7,7 @@ import { useClientStore } from '../../store/clientStore';
 import { usePaymentStore, type AgentPaymentEntry } from '../../store/paymentStore';
 import PageHeader from '../../components/common/PageHeader';
 import { formatDuration } from '../../utils/helpers';
+import { generatePointagesPDF, type PointageRow } from '../../utils/pdfExport';
 import Modal from '../../components/common/Modal';
 import {
   Users,
@@ -29,6 +30,7 @@ import {
   Plus,
   Trash2,
   Banknote,
+  MapPin,
 } from 'lucide-react';
 
 type TabView = 'tableau' | 'agents' | 'clients';
@@ -62,6 +64,10 @@ export default function Recap() {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [txHoraire, setTxHoraire] = useState(8.75);
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
+  const [filterSite, setFilterSite] = useState('');
+  const [filterAgent, setFilterAgent] = useState('');
 
   // Fetch payments when period changes
   useEffect(() => {
@@ -198,6 +204,7 @@ export default function Recap() {
         agentName: agent ? agent.firstName.toUpperCase() : rec.agentId,
         agentFullName: agent ? `${agent.firstName} ${agent.lastName}`.toUpperCase() : rec.agentId,
         client: evt?.client || 'Sans client',
+        site: evt?.site || evt?.title || '',
         checkIn: checkInStr,
         checkOut: checkOutStr,
         totalStr,
@@ -269,6 +276,39 @@ export default function Recap() {
     groups.sort((a, b) => a.agentName.localeCompare(b.agentName));
     return groups;
   }, [tableauRows, events, startDate, endDate]);
+
+  // ─── Available sites & agents for filter dropdowns ─
+  const availableSites = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of tableauRows) {
+      if (row.site) set.add(row.site);
+      if (row.client) set.add(row.client);
+    }
+    return Array.from(set).sort();
+  }, [tableauRows]);
+
+  const availableAgents = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of tableauRows) {
+      if (!map.has(row.agentId)) map.set(row.agentId, row.agentFullName);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [tableauRows]);
+
+  // ─── Filtered tableau rows for PDF export ─────────
+  const pdfFilteredRows = useMemo(() => {
+    let rows = tableauRows;
+    if (filterSite) {
+      const lower = filterSite.toLowerCase();
+      rows = rows.filter((r) =>
+        r.site.toLowerCase().includes(lower) || r.client.toLowerCase().includes(lower),
+      );
+    }
+    if (filterAgent) {
+      rows = rows.filter((r) => r.agentId === filterAgent);
+    }
+    return rows;
+  }, [tableauRows, filterSite, filterAgent]);
 
   // ─── Récap Agents ─────────────────────────────────
   const agentRecap = useMemo(() => {
@@ -351,74 +391,106 @@ export default function Recap() {
     return arr;
   }, [filteredRecords, users, events, sortField, sortDir]);
 
-  // ─── Récap Clients ─────────────────────────────────
-  const clientRecap = useMemo(() => {
-    // Group records by event's client
-    const map = new Map<string, {
-      client: string;
-      totalHours: number;
-      validatedHours: number;
-      hourlyRate: number;
-      totalHT: number;
-      totalTTC: number;
-      totalRecords: number;
-      validatedRecords: number;
-    }>();
+  // ─── Récap Clients (with site + agent breakdown) ────
+  type AgentDetail = {
+    agentId: string;
+    totalHours: number;
+    validatedHours: number;
+    totalRecords: number;
+  };
+  type SiteDetail = {
+    site: string;
+    totalHours: number;
+    validatedHours: number;
+    hourlyRate: number;
+    totalHT: number;
+    totalRecords: number;
+    agents: AgentDetail[];
+  };
+  type ClientDetail = {
+    client: string;
+    totalHours: number;
+    validatedHours: number;
+    totalHT: number;
+    totalTTC: number;
+    totalRecords: number;
+    validatedRecords: number;
+    sites: SiteDetail[];
+  };
+
+  const clientRecap = useMemo((): ClientDetail[] => {
+    // client → site → agent
+    const map = new Map<string, Map<string, Map<string, { hours: number; validated: number; count: number; rate: number }>>>();
 
     for (const rec of filteredRecords) {
       const evt = events.find((e) => e.id === rec.eventId);
       const clientName = evt?.client || 'Sans client';
-      const hourlyRate = evt?.hourlyRate || 0;
-
-      let entry = map.get(clientName);
-      if (!entry) {
-        entry = {
-          client: clientName,
-          totalHours: 0,
-          validatedHours: 0,
-          hourlyRate,
-          totalHT: 0,
-          totalTTC: 0,
-          totalRecords: 0,
-          validatedRecords: 0,
-        };
-        map.set(clientName, entry);
-      }
-
+      const siteName = evt?.site || evt?.title || 'Sans site';
+      const agentId = rec.agentId;
       const hw = rec.hoursWorked || 0;
-      entry.totalRecords++;
-      entry.totalHours += hw;
-      if (rec.status === 'valide') {
-        entry.validatedRecords++;
-        entry.validatedHours += hw;
-      }
-      // Use the highest hourlyRate if multiple events have the same client
-      if (hourlyRate > entry.hourlyRate) entry.hourlyRate = hourlyRate;
+      const rate = evt?.hourlyRate || 0;
+
+      if (!map.has(clientName)) map.set(clientName, new Map());
+      const siteMap = map.get(clientName)!;
+      if (!siteMap.has(siteName)) siteMap.set(siteName, new Map());
+      const agentMap = siteMap.get(siteName)!;
+      if (!agentMap.has(agentId)) agentMap.set(agentId, { hours: 0, validated: 0, count: 0, rate: 0 });
+      const entry = agentMap.get(agentId)!;
+      entry.hours += hw;
+      entry.count++;
+      if (rec.status === 'valide') entry.validated += hw;
+      if (rate > entry.rate) entry.rate = rate;
     }
 
-    // Calculate totals
-    for (const entry of map.values()) {
-      entry.totalHT = entry.validatedHours * entry.hourlyRate;
-      entry.totalTTC = entry.totalHT * 1.2; // TVA 20%
+    const result: ClientDetail[] = [];
+    for (const [clientName, siteMap] of map) {
+      const sites: SiteDetail[] = [];
+      let clientTotal = 0, clientValidated = 0, clientHT = 0, clientRecords = 0, clientValRecords = 0;
+
+      for (const [siteName, agentMap] of siteMap) {
+        const agents: AgentDetail[] = [];
+        let siteTotal = 0, siteValidated = 0, siteRecords = 0, maxRate = 0;
+
+        for (const [agentId, data] of agentMap) {
+          agents.push({ agentId, totalHours: data.hours, validatedHours: data.validated, totalRecords: data.count });
+          siteTotal += data.hours;
+          siteValidated += data.validated;
+          siteRecords += data.count;
+          if (data.rate > maxRate) maxRate = data.rate;
+        }
+
+        agents.sort((a, b) => b.totalHours - a.totalHours);
+        const siteHT = siteValidated * maxRate;
+        sites.push({ site: siteName, totalHours: siteTotal, validatedHours: siteValidated, hourlyRate: maxRate, totalHT: siteHT, totalRecords: siteRecords, agents });
+
+        clientTotal += siteTotal;
+        clientValidated += siteValidated;
+        clientHT += siteHT;
+        clientRecords += siteRecords;
+        clientValRecords += agents.reduce((s, a) => s + (a.validatedHours > 0 ? 1 : 0), 0);
+      }
+
+      sites.sort((a, b) => b.totalHours - a.totalHours);
+      result.push({
+        client: clientName,
+        totalHours: clientTotal,
+        validatedHours: clientValidated,
+        totalHT: clientHT,
+        totalTTC: clientHT * 1.2,
+        totalRecords: clientRecords,
+        validatedRecords: clientValRecords,
+        sites,
+      });
     }
 
-    const arr = Array.from(map.values());
-
-    // Sort
-    arr.sort((a, b) => {
-      if (sortField === 'name') {
-        return sortDir === 'asc' ? a.client.localeCompare(b.client) : b.client.localeCompare(a.client);
-      }
-      if (sortField === 'hours') {
-        return sortDir === 'asc' ? a.totalHours - b.totalHours : b.totalHours - a.totalHours;
-      }
-      if (sortField === 'total') {
-        return sortDir === 'asc' ? a.totalHT - b.totalHT : b.totalHT - a.totalHT;
-      }
+    result.sort((a, b) => {
+      if (sortField === 'name') return sortDir === 'asc' ? a.client.localeCompare(b.client) : b.client.localeCompare(a.client);
+      if (sortField === 'hours') return sortDir === 'asc' ? a.totalHours - b.totalHours : b.totalHours - a.totalHours;
+      if (sortField === 'total') return sortDir === 'asc' ? a.totalHT - b.totalHT : b.totalHT - a.totalHT;
       return 0;
     });
 
-    return arr;
+    return result;
   }, [filteredRecords, events, sortField, sortDir]);
 
   // ─── Summary stats ─────────────────────────────────
@@ -463,6 +535,39 @@ export default function Recap() {
     }
     return `${startDate} → ${endDate}`;
   })();
+
+  const handleExportPDF = useCallback(() => {
+    const rows: PointageRow[] = pdfFilteredRows.map((r) => ({
+      day: r.day,
+      agentName: r.agentFullName,
+      client: r.client,
+      site: r.site,
+      checkIn: r.checkIn,
+      checkOut: r.checkOut,
+      totalStr: r.totalStr,
+      validatedStr: r.validatedStr,
+      hoursWorked: r.hoursWorked,
+      validatedHours: r.validatedHours,
+      status: r.status,
+    }));
+
+    const agentLabel = filterAgent
+      ? (users.find((u) => u.id === filterAgent)
+          ? `${users.find((u) => u.id === filterAgent)!.firstName} ${users.find((u) => u.id === filterAgent)!.lastName}`.toUpperCase()
+          : filterAgent)
+      : undefined;
+
+    generatePointagesPDF({
+      rows,
+      periodLabel,
+      startDate,
+      endDate,
+      siteFilter: filterSite || undefined,
+      agentFilter: agentLabel,
+      totalHours: rows.reduce((s, r) => s + r.hoursWorked, 0),
+      totalValidated: rows.reduce((s, r) => s + r.validatedHours, 0),
+    });
+  }, [pdfFilteredRows, periodLabel, startDate, endDate, filterSite, filterAgent, users]);
 
   return (
     <div className="space-y-6">
@@ -573,17 +678,6 @@ export default function Recap() {
         >
           <Table2 size={16} /> Tableau
         </button>
-        {/* Récap agents et clients masqués temporairement
-        <button
-          onClick={() => setTab('agents')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            tab === 'agents'
-              ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-slate-500 hover:bg-slate-50'
-          }`}
-        >
-          <Users size={16} /> Récap agents
-        </button>
         <button
           onClick={() => setTab('clients')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -594,7 +688,73 @@ export default function Recap() {
         >
           <Building2 size={16} /> Récap clients
         </button>
-        */}
+      </div>
+
+      {/* Export filters + button */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex items-center gap-2">
+            <Download size={16} className="text-slate-400" />
+            <span className="text-sm font-medium text-slate-700">Export PDF :</span>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Client / Site</label>
+            <input
+              type="text"
+              value={filterSite}
+              onChange={(e) => setFilterSite(e.target.value)}
+              placeholder="Ex: Drancy, Société Générale..."
+              list="site-suggestions"
+              className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-56"
+            />
+            <datalist id="site-suggestions">
+              {availableSites.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Agent</label>
+            <select
+              value={filterAgent}
+              onChange={(e) => setFilterAgent(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            >
+              <option value="">Tous les agents</option>
+              {availableAgents.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            {(filterSite || filterAgent) && (
+              <button
+                onClick={() => { setFilterSite(''); setFilterAgent(''); }}
+                className="px-3 py-2 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Réinitialiser
+              </button>
+            )}
+            <button
+              onClick={handleExportPDF}
+              disabled={pdfFilteredRows.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              <Download size={15} />
+              Exporter PDF
+              {pdfFilteredRows.length !== tableauRows.length && (
+                <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">
+                  {pdfFilteredRows.length} lignes
+                </span>
+              )}
+            </button>
+          </div>
+          {(filterSite || filterAgent) && (
+            <div className="ml-auto text-xs text-slate-400">
+              {pdfFilteredRows.length} / {tableauRows.length} pointages filtrés
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─── Tableau (grouped by agent) ─────────────── */}
@@ -913,129 +1073,174 @@ export default function Recap() {
         </div>
       )}
 
-      {/* ─── Récap Clients table ──────────────────── */}
+      {/* ─── Récap Clients (client → site → agent) ──── */}
       {tab === 'clients' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th
-                      className="text-left px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:text-primary-600"
-                      onClick={() => toggleSort('name')}
+          {/* Expand/collapse all */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const allKeys = new Set<string>();
+                const allSiteKeys = new Set<string>();
+                clientRecap.forEach(c => { allKeys.add(c.client); c.sites.forEach(s => allSiteKeys.add(`${c.client}::${s.site}`)); });
+                setExpandedClients(allKeys);
+                setExpandedSites(allSiteKeys);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              Tout déplier
+            </button>
+            <button
+              onClick={() => { setExpandedClients(new Set()); setExpandedSites(new Set()); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+            >
+              Tout replier
+            </button>
+            <span className="ml-auto text-xs text-slate-400">{clientRecap.length} client{clientRecap.length > 1 ? 's' : ''}</span>
+          </div>
+
+          {clientRecap.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-sm text-slate-400">
+              Aucun pointage sur cette période
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {clientRecap.map((c) => {
+                const isExpanded = expandedClients.has(c.client);
+                return (
+                  <div key={c.client} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    {/* Client header */}
+                    <button
+                      onClick={() => {
+                        const next = new Set(expandedClients);
+                        if (next.has(c.client)) next.delete(c.client); else next.add(c.client);
+                        setExpandedClients(next);
+                      }}
+                      className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors text-left"
                     >
-                      Client / Site <SortIcon field="name" />
-                    </th>
-                    <th
-                      className="text-right px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:text-primary-600"
-                      onClick={() => toggleSort('hours')}
-                    >
-                      Heures totales <SortIcon field="hours" />
-                    </th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-700">Heures validées</th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-700">Prix unitaire HT</th>
-                    <th
-                      className="text-right px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:text-primary-600"
-                      onClick={() => toggleSort('total')}
-                    >
-                      Total HT <SortIcon field="total" />
-                    </th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-700">Total TTC</th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-700">Pointages</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientRecap.map((c, idx) => (
-                    <tr
-                      key={c.client}
-                      className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${
-                        idx % 2 === 0 ? '' : 'bg-slate-25'
-                      }`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 size={14} className="text-slate-400 flex-shrink-0" />
-                          <span className="font-medium text-slate-900">{c.client}</span>
+                      <div className="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center text-white flex-shrink-0">
+                        <Building2 size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900">{c.client}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {c.sites.length} site{c.sites.length > 1 ? 's' : ''} · {c.totalRecords} pointage{c.totalRecords > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Heures</p>
+                          <p className="text-sm font-bold text-slate-900">{formatDuration(c.totalHours)}</p>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                        {formatDuration(c.totalHours)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-emerald-600 font-medium">
-                        {formatDuration(c.validatedHours)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-600">
-                        {c.hourlyRate > 0 ? `${c.hourlyRate.toFixed(2)} €` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-blue-600">
-                        {c.totalHT > 0 ? `${c.totalHT.toFixed(2)} €` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-indigo-600">
-                        {c.totalTTC > 0 ? `${c.totalTTC.toFixed(2)} €` : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-600">{c.totalRecords}</td>
-                    </tr>
-                  ))}
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Validées</p>
+                          <p className="text-sm font-bold text-emerald-600">{formatDuration(c.validatedHours)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Total HT</p>
+                          <p className="text-sm font-bold text-blue-600">{c.totalHT > 0 ? `${c.totalHT.toFixed(2)} €` : '—'}</p>
+                        </div>
+                        {isExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                      </div>
+                    </button>
 
-                  {clientRecap.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-400">
-                        Aucun pointage sur cette période
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                {clientRecap.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold">
-                      <td className="px-4 py-3 text-slate-700">
-                        TOTAL ({clientRecap.length} clients)
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-900">
-                        {formatDuration(clientRecap.reduce((s, c) => s + c.totalHours, 0))}
-                      </td>
-                      <td className="px-4 py-3 text-right text-emerald-600">
-                        {formatDuration(clientRecap.reduce((s, c) => s + c.validatedHours, 0))}
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-400">—</td>
-                      <td className="px-4 py-3 text-right text-blue-600">{totalHT.toFixed(2)} €</td>
-                      <td className="px-4 py-3 text-right text-indigo-600">{totalTTC.toFixed(2)} €</td>
-                      <td className="px-4 py-3 text-right text-slate-600">
-                        {clientRecap.reduce((s, c) => s + c.totalRecords, 0)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
+                    {/* Sites */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100">
+                        {c.sites.map((site) => {
+                          const siteKey = `${c.client}::${site.site}`;
+                          const siteExpanded = expandedSites.has(siteKey);
+                          return (
+                            <div key={siteKey} className="border-b border-slate-50 last:border-b-0">
+                              {/* Site header */}
+                              <button
+                                onClick={() => {
+                                  const next = new Set(expandedSites);
+                                  if (next.has(siteKey)) next.delete(siteKey); else next.add(siteKey);
+                                  setExpandedSites(next);
+                                }}
+                                className="w-full flex items-center gap-3 pl-10 pr-5 py-3 hover:bg-blue-50/40 transition-colors text-left"
+                              >
+                                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                  <MapPin size={13} className="text-primary-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-slate-800">{site.site}</p>
+                                  <p className="text-[11px] text-slate-400">{site.agents.length} agent{site.agents.length > 1 ? 's' : ''}</p>
+                                </div>
+                                <div className="flex items-center gap-5 flex-shrink-0">
+                                  <div className="text-right">
+                                    <p className="text-[10px] text-slate-400">Heures</p>
+                                    <p className="text-xs font-bold text-slate-800">{formatDuration(site.totalHours)}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-[10px] text-slate-400">Validées</p>
+                                    <p className="text-xs font-bold text-emerald-600">{formatDuration(site.validatedHours)}</p>
+                                  </div>
+                                  <div className="text-right min-w-[70px]">
+                                    <p className="text-[10px] text-slate-400">HT</p>
+                                    <p className="text-xs font-bold text-blue-600">{site.totalHT > 0 ? `${site.totalHT.toFixed(2)} €` : '—'}</p>
+                                  </div>
+                                  {site.hourlyRate > 0 && (
+                                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                      {site.hourlyRate.toFixed(2)} €/h
+                                    </span>
+                                  )}
+                                  {siteExpanded ? <ChevronUp size={14} className="text-slate-300" /> : <ChevronDown size={14} className="text-slate-300" />}
+                                </div>
+                              </button>
 
-          {/* Financial summary sidebar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
-              <p className="text-xs text-blue-500 font-medium">TOTAL FACTURES HT</p>
-              <p className="text-xl font-bold text-blue-700 mt-1">{totalHT.toFixed(2)} €</p>
+                              {/* Agents */}
+                              {siteExpanded && (
+                                <div className="pl-20 pr-5 pb-3 pt-1 space-y-1">
+                                  {site.agents.map((ag) => (
+                                    <div key={ag.agentId} className="flex items-center gap-3 py-1.5 px-3 rounded-lg bg-slate-50/80">
+                                      <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                        <Users size={11} className="text-primary-600" />
+                                      </div>
+                                      <span className="text-xs font-medium text-slate-700 flex-1">{getAgentName(ag.agentId)}</span>
+                                      <span className="text-xs font-bold text-slate-800 w-16 text-right">{formatDuration(ag.totalHours)}</span>
+                                      <span className="text-xs font-bold text-emerald-600 w-16 text-right">{formatDuration(ag.validatedHours)}</span>
+                                      <span className="text-[10px] text-slate-400 w-16 text-right">{ag.totalRecords} pts</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-4">
-              <p className="text-xs text-indigo-500 font-medium">TOTAL FACTURES TTC</p>
-              <p className="text-xl font-bold text-indigo-700 mt-1">{totalTTC.toFixed(2)} €</p>
+          )}
+
+          {/* Grand total footer */}
+          {clientRecap.length > 0 && (
+            <div className="bg-slate-800 rounded-xl p-4 flex items-center gap-6 text-white">
+              <span className="text-xs font-bold uppercase">TOTAL ({clientRecap.length} clients)</span>
+              <div className="ml-auto flex items-center gap-8">
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-400">Heures totales</p>
+                  <p className="text-sm font-bold">{formatDuration(clientRecap.reduce((s, c) => s + c.totalHours, 0))}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-emerald-300">Heures validées</p>
+                  <p className="text-sm font-bold text-emerald-300">{formatDuration(clientRecap.reduce((s, c) => s + c.validatedHours, 0))}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-blue-300">Total HT</p>
+                  <p className="text-sm font-bold text-blue-300">{totalHT.toFixed(2)} €</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-indigo-300">Total TTC</p>
+                  <p className="text-sm font-bold text-indigo-300">{totalTTC.toFixed(2)} €</p>
+                </div>
+              </div>
             </div>
-            <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
-              <p className="text-xs text-amber-500 font-medium">DÉPENSE SALAIRES</p>
-              <p className="text-xl font-bold text-amber-700 mt-1">{totalSalaires.toFixed(2)} €</p>
-              <p className="text-[10px] text-amber-400 mt-0.5">TX horaire : 8.75 €/h</p>
-            </div>
-            <div className={`rounded-xl border p-4 ${ratioMarge >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-              <p className={`text-xs font-medium ${ratioMarge >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>RESTE BRUT</p>
-              <p className={`text-xl font-bold mt-1 ${ratioMarge >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                {(totalHT - totalSalaires).toFixed(2)} €
-              </p>
-              <p className={`text-[10px] mt-0.5 ${ratioMarge >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                Marge : {ratioMarge.toFixed(1)}%
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       )}
 

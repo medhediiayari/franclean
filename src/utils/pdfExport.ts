@@ -287,3 +287,183 @@ export function generatePlanningPDF(
   const dateLabel = format(refDate, 'yyyy-MM-dd');
   doc.save(`planning-${periodLabel}-${dateLabel}.pdf`);
 }
+
+// ─── Pointages PDF Export ───────────────────────────────
+export interface PointageRow {
+  day: number;
+  agentName: string;
+  client: string;
+  site: string;
+  checkIn: string;
+  checkOut: string;
+  totalStr: string;
+  validatedStr: string;
+  hoursWorked: number;
+  validatedHours: number;
+  status: string;
+}
+
+export interface PointageExportOptions {
+  rows: PointageRow[];
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  siteFilter?: string;
+  agentFilter?: string;
+  totalHours: number;
+  totalValidated: number;
+}
+
+export function generatePointagesPDF(opts: PointageExportOptions) {
+  const {
+    rows, periodLabel, startDate, endDate,
+    siteFilter, agentFilter,
+    totalHours, totalValidated,
+  } = opts;
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // ── Header ──
+  doc.setFillColor(27, 58, 92); // primary navy
+  doc.rect(0, 0, pageWidth, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Bipbip - Recapitulatif Pointages', 14, 13);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+
+  const filters: string[] = [stripAccents(periodLabel)];
+  if (siteFilter) filters.push(`Site: ${stripAccents(siteFilter)}`);
+  if (agentFilter) filters.push(`Agent: ${stripAccents(agentFilter)}`);
+  doc.text(filters.join('  |  '), 14, 22);
+
+  doc.setFontSize(8);
+  doc.text(
+    `${format(new Date(), 'dd/MM/yyyy')} a ${format(new Date(), 'HH:mm')}`,
+    pageWidth - 14, 22, { align: 'right' },
+  );
+  doc.setTextColor(0, 0, 0);
+
+  // ── Summary ──
+  const y = 36;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+
+  const fmtH = (h: number) => {
+    const hh = Math.floor(h);
+    const mm = Math.round((h - hh) * 60);
+    return `${hh}h${String(mm).padStart(2, '0')}`;
+  };
+
+  const summaryText = `${rows.length} pointage${rows.length > 1 ? 's' : ''}  |  Heures totales: ${fmtH(totalHours)}  |  Heures validees: ${fmtH(totalValidated)}`;
+  doc.text(summaryText, 14, y);
+  doc.setFont('helvetica', 'normal');
+
+  // ── Group rows by agent ──
+  const agentGroups = new Map<string, PointageRow[]>();
+  for (const row of rows) {
+    if (!agentGroups.has(row.agentName)) agentGroups.set(row.agentName, []);
+    agentGroups.get(row.agentName)!.push(row);
+  }
+
+  const STATUS_MAP: Record<string, string> = {
+    'valide': 'Valide',
+    'en_attente': 'En attente',
+    'suspect': 'Suspect',
+    'refuse': 'Refuse',
+  };
+
+  const tableBody: (string | number)[][] = [];
+  const groupHeaderRows: number[] = []; // row indices that are group headers
+
+  for (const [agentName, agentRows] of agentGroups) {
+    // Group header row
+    const agentTotal = agentRows.reduce((s, r) => s + r.hoursWorked, 0);
+    const agentValidated = agentRows.reduce((s, r) => s + r.validatedHours, 0);
+    groupHeaderRows.push(tableBody.length);
+    tableBody.push([
+      stripAccents(agentName),
+      '',
+      '',
+      '',
+      '',
+      fmtH(agentTotal),
+      fmtH(agentValidated),
+      `${agentRows.length} pts`,
+    ]);
+
+    // Detail rows
+    for (const row of agentRows) {
+      tableBody.push([
+        String(row.day),
+        stripAccents(row.client),
+        stripAccents(row.site),
+        row.checkIn || '-',
+        row.checkOut || '-',
+        row.totalStr || '0:00',
+        row.validatedStr || '-',
+        STATUS_MAP[row.status] || row.status,
+      ]);
+    }
+  }
+
+  autoTable(doc, {
+    startY: y + 6,
+    head: [['Jour / Agent', 'Client', 'Site', 'Entree', 'Sortie', 'Total', 'Valide', 'Statut']],
+    body: tableBody,
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2.5,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: [27, 58, 92],
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      0: { cellWidth: 35 },
+      1: { cellWidth: 45 },
+      2: { cellWidth: 50 },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 22, halign: 'center' },
+      5: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+      6: { cellWidth: 22, halign: 'center' },
+      7: { cellWidth: 25, halign: 'center' },
+    },
+    margin: { left: 14, right: 14 },
+    didParseCell: (data) => {
+      // Style group header rows
+      if (data.section === 'body' && groupHeaderRows.includes(data.row.index)) {
+        data.cell.styles.fillColor = [241, 245, 249]; // slate-100
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 8.5;
+        data.cell.styles.textColor = [27, 58, 92];
+      }
+    },
+    didDrawPage: () => {
+      const pageCount = doc.getNumberOfPages();
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        `Page ${doc.getCurrentPageInfo().pageNumber} / ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 8,
+        { align: 'center' },
+      );
+    },
+  });
+
+  // ── Save ──
+  const safeFilter = siteFilter ? `-${stripAccents(siteFilter).replace(/\s+/g, '_')}` : '';
+  const safeAgent = agentFilter ? `-${stripAccents(agentFilter).replace(/\s+/g, '_')}` : '';
+  doc.save(`pointages-${startDate}-${endDate}${safeFilter}${safeAgent}.pdf`);
+}
