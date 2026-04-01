@@ -253,7 +253,7 @@ export default function MyPlanning() {
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   const upcomingEvents = myEvents.filter(
-    (e) => e.status === 'planifie' || e.status === 'en_cours',
+    (e) => (e.status === 'planifie' || e.status === 'en_cours') && e.endDate.slice(0, 10) >= today,
   );
   const pastEvents = myEvents.filter(
     (e) => e.status === 'termine' || e.status === 'annule',

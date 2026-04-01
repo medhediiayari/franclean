@@ -17,12 +17,15 @@ import {
   Shield,
   Zap,
   RotateCcw,
+  ImagePlus,
+  X,
+  Download,
 } from 'lucide-react';
 
 export default function CheckIn() {
   const { user } = useAuthStore();
   const { events, fetchEvents } = useEventStore();
-  const { records, addRecord, updateRecord, fetchRecords } = useAttendanceStore();
+  const { records, addRecord, updateRecord, fetchRecords, addWorkPhoto, deleteWorkPhoto } = useAttendanceStore();
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
@@ -41,6 +44,11 @@ export default function CheckIn() {
   const [cameraActive, setCameraActive] = useState(false);
   const [autoSelected, setAutoSelected] = useState(false);
 
+  // Work photos state
+  const [workPhotoUploading, setWorkPhotoUploading] = useState(false);
+  const workFileRef = useRef<HTMLInputElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   // When cameraActive becomes true and the video element is rendered, attach the stream
   useEffect(() => {
     if (cameraActive && videoRef.current && streamRef.current) {
@@ -48,7 +56,7 @@ export default function CheckIn() {
     }
   }, [cameraActive]);
 
-  // Cleanup stream on unmount
+  // Cleanup streams on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -212,6 +220,7 @@ export default function CheckIn() {
           status: suspectReasons.length > 0 ? 'suspect' : 'en_attente',
           isSuspect: suspectReasons.length > 0,
           suspectReasons,
+          photos: [],
         });
         setSuccess('Pointage d\'entrée enregistré avec succès !');
       } else if (existingRecord) {
@@ -253,6 +262,49 @@ export default function CheckIn() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Work photo functions (gallery picker) ──────────
+  const pendingRecordIdRef = useRef<string | null>(null);
+
+  const openGalleryForRecord = (recordId: string) => {
+    pendingRecordIdRef.current = recordId;
+    workFileRef.current?.click();
+  };
+
+  const handleWorkPhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const recordId = pendingRecordIdRef.current;
+    if (!files || files.length === 0 || !recordId) return;
+
+    setWorkPhotoUploading(true);
+    setError('');
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        await addWorkPhoto(recordId, dataUrl);
+      }
+    } catch {
+      setError('Erreur lors de l\'envoi de la photo.');
+    } finally {
+      setWorkPhotoUploading(false);
+      if (workFileRef.current) workFileRef.current.value = '';
+      pendingRecordIdRef.current = null;
+    }
+  };
+
+  const handleDeleteWorkPhoto = async (attendanceId: string, photoId: string) => {
+    try {
+      await deleteWorkPhoto(attendanceId, photoId);
+    } catch {
+      setError('Erreur lors de la suppression de la photo.');
     }
   };
 
@@ -312,6 +364,55 @@ export default function CheckIn() {
                     <span className="font-bold text-slate-700">{formatTime(rec.checkInTime!)}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Work photos section */}
+              <div className="border-t border-slate-100 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus size={14} className="text-violet-500" />
+                    <span className="text-xs font-bold text-slate-700">Photos de travail</span>
+                    {(rec.photos || []).length > 0 && (
+                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">
+                        {rec.photos.length}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => openGalleryForRecord(rec.id)}
+                    disabled={workPhotoUploading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {workPhotoUploading ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <ImagePlus size={12} />
+                    )}
+                    Ajouter
+                  </button>
+                </div>
+
+                {/* Existing photos gallery */}
+                {(rec.photos || []).length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {rec.photos.map((photo) => (
+                      <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-slate-200 cursor-pointer" onClick={() => setLightboxUrl(photo.photoUrl)}>
+                        <img src={photo.photoUrl} alt="Travail" className="w-full h-20 object-cover" />
+                        <button
+                          onClick={() => handleDeleteWorkPhoto(rec.id, photo.id)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} className="text-white" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-1.5 py-0.5">
+                          <span className="text-[9px] text-white">
+                            {new Date(photo.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {!isActive ? (
@@ -513,168 +614,215 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* New check-in — only for missions without any record */}
+      {/* Missions en attente de pointage */}
       {eventsWithoutRecord.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 space-y-5">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-primary-50">
-              <Camera size={16} className="text-primary-500" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <div className="p-1.5 rounded-lg bg-blue-50">
+              <Clock size={14} className="text-blue-500" />
             </div>
-            <h2 className="text-sm font-bold text-slate-900">
-              Nouveau pointage
-            </h2>
+            <h2 className="text-sm font-bold text-slate-900">En attente de pointage</h2>
+            <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{eventsWithoutRecord.length}</span>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-              Sélectionner la mission
-            </label>
-            <select
-              value={mode === 'check-in' ? selectedEventId : ''}
-              onChange={(e) => {
-                stopCamera();
-                setSelectedEventId(e.target.value);
-                setMode('check-in');
-                setCapturedPhoto(null);
-                setGeoData(null);
-                setError('');
-                setSuccess('');
-              }}
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-slate-50 hover:bg-white transition-colors appearance-none cursor-pointer"
-            >
-              <option value="">Choisir une mission...</option>
-              {eventsWithoutRecord.map((evt) => (
-                <option key={evt.id} value={evt.id}>{evt.title}</option>
-              ))}
-            </select>
-          </div>
+          {eventsWithoutRecord.map((evt) => {
+            const isActive = selectedEventId === evt.id && mode === 'check-in';
+            const todayShifts = evt.shifts?.filter((s: any) => s.date === today && (!s.agentId || s.agentId === user!.id)) || [];
+            return (
+              <div key={evt.id} className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100/80 bg-gradient-to-r from-blue-50/50 to-slate-50/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: evt.color || '#6366F1' }} />
+                    <p className="text-sm font-bold text-slate-900 truncate">{evt.title}</p>
+                  </div>
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full flex-shrink-0">
+                    <Clock size={11} />
+                    En attente
+                  </span>
+                </div>
+                <div className="p-5 space-y-4">
+                  {/* Mission info */}
+                  <div className="space-y-2">
+                    {evt.address && (
+                      <p className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                        <MapPin size={13} className="text-primary-400 flex-shrink-0" />
+                        <span className="truncate">{evt.address}</span>
+                      </p>
+                    )}
+                    {todayShifts.length > 0 && (
+                      <p className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+                        <Clock size={13} className="text-primary-400 flex-shrink-0" />
+                        {todayShifts.map((s: any) => `${s.startTime} → ${s.endTime}`).join(' | ')}
+                      </p>
+                    )}
+                    {evt.geoRadius && (
+                      <p className="flex items-center gap-2 text-[11px] text-slate-400">
+                        <Shield size={12} className="text-slate-400 flex-shrink-0" />
+                        Zone GPS : rayon de {evt.geoRadius}m
+                      </p>
+                    )}
+                  </div>
 
-          {selectedEventId && mode === 'check-in' && selectedEvent && (
-            <>
-              {/* Mission info card */}
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-2xl p-4 space-y-2.5 border border-slate-100">
-                <p className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                  <MapPin size={13} className="text-primary-400" />
-                  {selectedEvent.address}
-                </p>
-                {selectedEvent.shifts?.filter(s => s.date === today).length > 0 ? (
-                  <p className="flex items-center gap-2 text-xs text-slate-600 font-medium">
-                    <Clock size={13} className="text-primary-400" />
-                    {selectedEvent.shifts.filter(s => s.date === today).map(s => `${s.startTime} → ${s.endTime}`).join(' | ')}
-                  </p>
-                ) : (
-                  <p className="flex items-center gap-2 text-xs text-slate-500">
-                    <Clock size={13} className="text-primary-400" />
-                    {selectedEvent.shifts?.length || 0} créneau{(selectedEvent.shifts?.length || 0) > 1 ? 'x' : ''}
-                  </p>
-                )}
-                {selectedEvent.geoRadius && (
-                  <p className="flex items-center gap-2 text-[11px] text-slate-400">
-                    <Shield size={12} className="text-slate-400" />
-                    Zone de validation GPS : rayon de {selectedEvent.geoRadius}m
-                  </p>
-                )}
-              </div>
-
-              {/* Mode indicator */}
-              <div className="text-center py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-200">
-                <ArrowDown size={16} strokeWidth={2.5} />
-                Pointage d'entrée
-              </div>
-
-              {/* Camera */}
-              {!capturedPhoto ? (
-                <div>
-                  {cameraActive ? (
-                    <div className="relative rounded-2xl overflow-hidden bg-black shadow-xl">
-                      <video
-                        ref={(el) => {
-                          (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-                          if (el && streamRef.current && !el.srcObject) {
-                            el.srcObject = streamRef.current;
-                          }
-                        }}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-64 object-cover"
-                      />
-                      <div className="absolute inset-0 pointer-events-none">
-                        <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-white/50 rounded-tl-lg" />
-                        <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/50 rounded-tr-lg" />
-                        <div className="absolute bottom-16 left-3 w-8 h-8 border-b-2 border-l-2 border-white/50 rounded-bl-lg" />
-                        <div className="absolute bottom-16 right-3 w-8 h-8 border-b-2 border-r-2 border-white/50 rounded-br-lg" />
-                      </div>
-                      <button
-                        onClick={capturePhoto}
-                        className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white rounded-full shadow-2xl flex items-center justify-center border-4 border-slate-200/50 active:scale-90 transition-transform hover:scale-105"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-emerald-500" />
-                      </button>
-                    </div>
-                  ) : (
+                  {!isActive ? (
                     <button
-                      onClick={startCamera}
-                      className="w-full flex flex-col items-center gap-3 py-8 bg-gradient-to-br from-slate-50 to-slate-100 hover:from-primary-50 hover:to-primary-100/50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-primary-300 transition-all duration-200 group"
+                      onClick={() => {
+                        stopCamera();
+                        setSelectedEventId(evt.id);
+                        setMode('check-in');
+                        setCapturedPhoto(null);
+                        setGeoData(null);
+                        setError('');
+                        setSuccess('');
+                      }}
+                      className="w-full py-3.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 hover:from-emerald-600 hover:to-emerald-700 transition-all active:scale-[0.98]"
                     >
-                      <div className="p-3 rounded-2xl bg-white shadow-sm group-hover:shadow-md group-hover:bg-primary-50 transition-all">
-                        <Camera size={24} className="text-slate-400 group-hover:text-primary-500 transition-colors" />
-                      </div>
-                      <div className="text-center">
-                        <span className="text-sm font-bold text-slate-600 group-hover:text-primary-600 transition-colors">
-                          Ouvrir la caméra
-                        </span>
-                        <span className="block text-[11px] text-slate-400 mt-0.5">
-                          Photo temps réel obligatoire
-                        </span>
-                      </div>
+                      <Camera size={16} />
+                      Pointer l'entrée
                     </button>
+                  ) : (
+                    <div className="space-y-4 border-t border-slate-100 pt-4">
+                      {/* Mode indicator */}
+                      <div className="text-center py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border border-emerald-200">
+                        <ArrowDown size={16} strokeWidth={2.5} />
+                        Pointage d'entrée
+                      </div>
+
+                      {/* Camera */}
+                      {!capturedPhoto ? (
+                        <div>
+                          {cameraActive ? (
+                            <div className="relative rounded-2xl overflow-hidden bg-black shadow-xl">
+                              <video
+                                ref={(el) => {
+                                  (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                                  if (el && streamRef.current && !el.srcObject) {
+                                    el.srcObject = streamRef.current;
+                                  }
+                                }}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-64 object-cover"
+                              />
+                              <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-white/50 rounded-tl-lg" />
+                                <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-white/50 rounded-tr-lg" />
+                                <div className="absolute bottom-16 left-3 w-8 h-8 border-b-2 border-l-2 border-white/50 rounded-bl-lg" />
+                                <div className="absolute bottom-16 right-3 w-8 h-8 border-b-2 border-r-2 border-white/50 rounded-br-lg" />
+                              </div>
+                              <button
+                                onClick={capturePhoto}
+                                className="absolute bottom-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-white rounded-full shadow-2xl flex items-center justify-center border-4 border-slate-200/50 active:scale-90 transition-transform hover:scale-105"
+                              >
+                                <div className="w-12 h-12 rounded-full bg-emerald-500" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={startCamera}
+                              className="w-full flex flex-col items-center gap-3 py-8 bg-gradient-to-br from-slate-50 to-slate-100 hover:from-primary-50 hover:to-primary-100/50 rounded-2xl border-2 border-dashed border-slate-200 hover:border-primary-300 transition-all duration-200 group"
+                            >
+                              <div className="p-3 rounded-2xl bg-white shadow-sm group-hover:shadow-md group-hover:bg-primary-50 transition-all">
+                                <Camera size={24} className="text-slate-400 group-hover:text-primary-500 transition-colors" />
+                              </div>
+                              <div className="text-center">
+                                <span className="text-sm font-bold text-slate-600 group-hover:text-primary-600 transition-colors">
+                                  Ouvrir la caméra
+                                </span>
+                                <span className="block text-[11px] text-slate-400 mt-0.5">
+                                  Photo temps réel obligatoire
+                                </span>
+                              </div>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                            <img src={capturedPhoto} alt="Justificatif" className="w-full h-48 object-cover" />
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => { setCapturedPhoto(null); startCamera(); }}
+                              className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold text-slate-600 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-[0.98]"
+                            >
+                              <RotateCcw size={15} />
+                              Reprendre
+                            </button>
+                            <button
+                              onClick={handleCheckInOut}
+                              disabled={loading}
+                              className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-white rounded-2xl shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-emerald-600/25 disabled:opacity-50 transition-all active:scale-[0.98]"
+                            >
+                              {loading ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle2 size={16} />
+                                  Confirmer entrée
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* GPS info */}
+                      {geoData && (
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-50 rounded-xl px-3 py-2">
+                          <MapPin size={12} className="text-slate-400" />
+                          GPS : {geoData.lat.toFixed(6)}, {geoData.lon.toFixed(6)}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-                    <img src={capturedPhoto} alt="Justificatif" className="w-full h-48 object-cover" />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => { setCapturedPhoto(null); startCamera(); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold text-slate-600 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-[0.98]"
-                    >
-                      <RotateCcw size={15} />
-                      Reprendre
-                    </button>
-                    <button
-                      onClick={handleCheckInOut}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold text-white rounded-2xl shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 shadow-emerald-600/25 disabled:opacity-50 transition-all active:scale-[0.98]"
-                    >
-                      {loading ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <>
-                          <CheckCircle2 size={16} />
-                          Confirmer entrée
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* GPS info */}
-              {geoData && (
-                <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-50 rounded-xl px-3 py-2">
-                  <MapPin size={12} className="text-slate-400" />
-                  GPS : {geoData.lat.toFixed(6)}, {geoData.lon.toFixed(6)}
-                </div>
-              )}
-            </>
-          )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       <canvas ref={canvasRef} className="hidden" />
+      <input
+        ref={workFileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleWorkPhotoSelected}
+      />
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <a
+              href={lightboxUrl}
+              download={`photo-${Date.now()}.jpg`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition-colors"
+            >
+              <Download size={20} className="text-white" />
+            </a>
+            <button
+              className="w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition-colors"
+              onClick={() => setLightboxUrl(null)}
+            >
+              <X size={24} className="text-white" />
+            </button>
+          </div>
+          <img
+            src={lightboxUrl}
+            alt="Agrandie"
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useAttendanceStore } from '../../store/attendanceStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAuthStore } from '../../store/authStore';
@@ -7,10 +7,13 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate, formatTime, formatDuration } from '../../utils/helpers';
 import type { Attendance } from '../../types';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Search,
   ArrowUpDown,
   Download,
+  FileText,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -24,6 +27,7 @@ import {
   Camera,
   ExternalLink,
   Navigation,
+  ImagePlus,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -105,9 +109,55 @@ export default function HoursTracking() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [filterAgent, setFilterAgent] = useState('');
+  const [filterClient, setFilterClient] = useState('');
+  const [filterSite, setFilterSite] = useState('');
+  const [filterMission, setFilterMission] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<Attendance | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [refusalReason, setRefusalReason] = useState('');
+  const [billedHours, setBilledHours] = useState<number | null>(null);
+  const [showQuickValidate, setShowQuickValidate] = useState(false);
+  const [quickRecord, setQuickRecord] = useState<Attendance | null>(null);
+  const [quickAction, setQuickAction] = useState<'valide' | 'refuse'>('valide');
+  const [quickBilledHours, setQuickBilledHours] = useState<number | null>(null);
+  const [quickRefusalReason, setQuickRefusalReason] = useState('');
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // ── Column resize (Excel-like drag) ─────────────────
+  const defaultColWidths: Record<string, number> = {
+    agentName: 8.5, date: 6.5, event: 13, plannedIn: 5.5, plannedOut: 5.5,
+    actualIn: 6, actualOut: 6, totalPlanned: 5.5, totalReal: 5.5,
+    hoursWorked: 5.5, billedHours: 5.5, gps: 5, status: 7, actions: 14.5,
+  };
+  const [colWidths, setColWidths] = useState<Record<string, number>>(defaultColWidths);
+  const resizingRef = useRef<{ key: string; startX: number; startW: number } | null>(null);
+
+  const onResizeStart = useCallback((key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = { key, startX: e.clientX, startW: colWidths[key] };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const tableEl = document.querySelector('[data-hours-table]') as HTMLElement | null;
+      const tableW = tableEl?.offsetWidth || 1400;
+      const diffPct = ((ev.clientX - resizingRef.current.startX) / tableW) * 100;
+      const newW = Math.max(3, resizingRef.current.startW + diffPct);
+      setColWidths((prev) => ({ ...prev, [resizingRef.current!.key]: newW }));
+    };
+    const onUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [colWidths]);
 
   const agents = users.filter((u) => u.role === 'agent');
 
@@ -137,8 +187,30 @@ export default function HoursTracking() {
       });
   }, [records, events, agents, dateFrom, dateTo]);
 
+  // Unique lists for filter dropdowns
+  const uniqueAgents = useMemo(() => {
+    const names = [...new Set(tableRows.map((r) => r.agentName))].filter(Boolean).sort();
+    return names;
+  }, [tableRows]);
+  const uniqueClients = useMemo(() => {
+    const clients = [...new Set(tableRows.map((r) => r.client))].filter((c) => c && c !== 'N/A').sort();
+    return clients;
+  }, [tableRows]);
+  const uniqueMissions = useMemo(() => {
+    const missions = [...new Set(tableRows.map((r) => r.eventTitle))].filter((m) => m && m !== 'N/A').sort();
+    return missions;
+  }, [tableRows]);
+  const uniqueSites = useMemo(() => {
+    const sites = [...new Set(tableRows.map((r) => r.eventAddress))].filter(Boolean).sort();
+    return sites;
+  }, [tableRows]);
+
   const filteredRows = tableRows
     .filter((r) => {
+      if (filterAgent && r.agentName !== filterAgent) return false;
+      if (filterClient && r.client !== filterClient) return false;
+      if (filterMission && r.eventTitle !== filterMission) return false;
+      if (filterSite && r.eventAddress !== filterSite) return false;
       if (!searchText) return true;
       const q = searchText.toLowerCase();
       return (
@@ -173,8 +245,25 @@ export default function HoursTracking() {
 
   const totalPointed = filteredRows.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const totalValidated = filteredRows.filter((r) => r.status === 'valide').reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
-  const totalBilled = totalValidated * 0.9;
+  const totalBilled = filteredRows.filter((r) => r.status === 'valide').reduce((sum, r) => sum + (r.billedHours || 0), 0);
   const totalGap = totalPointed - totalBilled;
+
+  // Heures prévues (from planned shifts) & heures réelles (from check-in/check-out)
+  const totalPlanned = filteredRows.reduce((sum, r) => {
+    if (r.plannedStart && r.plannedEnd) {
+      const [sh, sm] = r.plannedStart.split(':').map(Number);
+      const [eh, em] = r.plannedEnd.split(':').map(Number);
+      return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+    }
+    return sum;
+  }, 0);
+  const totalReal = filteredRows.reduce((sum, r) => {
+    if (r.checkInTime && r.checkOutTime) {
+      const diff = (new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 3600000;
+      return sum + Math.max(0, diff);
+    }
+    return sum;
+  }, 0);
 
   const getGapColor = (gap: number) => {
     if (Math.abs(gap) < 0.5) return 'text-emerald-600';
@@ -190,12 +279,42 @@ export default function HoursTracking() {
         status,
         currentUser.id,
         status === 'refuse' ? refusalReason : undefined,
+        status === 'valide' && billedHours != null ? billedHours : undefined,
       );
     } catch (err) {
       console.error('Failed to validate', err);
     }
     setShowDetail(false);
     setRefusalReason('');
+    setBilledHours(null);
+  };
+
+  const handleQuickValidate = async () => {
+    if (!quickRecord || !currentUser) return;
+    const status = quickAction;
+    try {
+      await validateRecord(
+        quickRecord.id,
+        status,
+        currentUser.id,
+        status === 'refuse' ? quickRefusalReason : undefined,
+        status === 'valide' && quickBilledHours != null ? quickBilledHours : undefined,
+      );
+    } catch (err) {
+      console.error('Failed to validate', err);
+    }
+    setShowQuickValidate(false);
+    setQuickRecord(null);
+    setQuickBilledHours(null);
+    setQuickRefusalReason('');
+  };
+
+  const openQuickValidate = (row: Attendance, action: 'valide' | 'refuse') => {
+    setQuickRecord(row);
+    setQuickAction(action);
+    setQuickBilledHours(null);
+    setQuickRefusalReason('');
+    setShowQuickValidate(true);
   };
 
   const statusLabel = (s: string) => {
@@ -278,24 +397,180 @@ export default function HoursTracking() {
     XLSX.writeFile(wb, `FranClean_Suivi_Heures_${dateStr}${filterSuffix}.xlsx`);
   }, [filteredRows, totalPointed, dateFrom, dateTo]);
 
+  const exportToPdf = useCallback(() => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // ── Header band ──
+    doc.setFillColor(27, 58, 92); // primary navy
+    doc.rect(0, 0, pageW, 26, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bipbip - Suivi des Heures', 14, 12);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    // Filter summary line
+    const filterParts: string[] = [];
+    if (dateFrom || dateTo) filterParts.push(`Periode: ${dateFrom || '...'} au ${dateTo || '...'}`);
+    if (filterAgent) filterParts.push(`Agent: ${filterAgent}`);
+    if (filterClient) filterParts.push(`Client: ${filterClient}`);
+    if (filterMission) filterParts.push(`Mission: ${filterMission}`);
+    if (filterSite) filterParts.push(`Site: ${filterSite}`);
+    const filterLine = filterParts.length > 0 ? filterParts.join(' | ') : 'Tous les pointages';
+    doc.text(filterLine, 14, 20);
+
+    // Generation date
+    const now = new Date();
+    doc.text(
+      `Genere le ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} a ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      pageW - 14, 20, { align: 'right' },
+    );
+
+    doc.setTextColor(0, 0, 0);
+
+    // ── Table ──
+    const head = [[
+      'Agent', 'Date', 'Mission', 'Client',
+      'Entree prevue', 'Sortie prevue', 'Entree reelle', 'Sortie reelle',
+      'H. Prevues', 'H. Reelles', 'Duree', 'H. Facturees',
+      'GPS E', 'GPS S', 'Statut',
+    ]];
+
+    const body = filteredRows.map((r) => {
+      let plannedH = '';
+      if (r.plannedStart && r.plannedEnd) {
+        const [sh, sm] = r.plannedStart.split(':').map(Number);
+        const [eh, em] = r.plannedEnd.split(':').map(Number);
+        plannedH = formatDuration((eh * 60 + em - (sh * 60 + sm)) / 60);
+      }
+      let realH = '';
+      if (r.checkInTime && r.checkOutTime) {
+        realH = formatDuration(Math.max(0, (new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 3600000));
+      }
+      const sLabel: Record<string, string> = { valide: 'Valide', en_attente: 'En attente', suspect: 'Suspect', refuse: 'Refuse' };
+
+      return [
+        r.agentName,
+        formatDate(r.date),
+        r.eventTitle,
+        r.client,
+        r.plannedStart || '-',
+        r.plannedEnd || '-',
+        r.checkInTime ? formatTime(r.checkInTime) : '-',
+        r.checkOutTime ? formatTime(r.checkOutTime) : '-',
+        plannedH || '-',
+        realH || '-',
+        r.hoursWorked ? formatDuration(r.hoursWorked) : '-',
+        r.status === 'valide' && r.billedHours ? formatDuration(r.billedHours) : '-',
+        r.checkInLocationValid === true ? 'OK' : r.checkInLocationValid === false ? 'Hors zone' : '-',
+        r.checkOutLocationValid === true ? 'OK' : r.checkOutLocationValid === false ? 'Hors zone' : '-',
+        sLabel[r.status] || r.status,
+      ];
+    });
+
+    // Totals row
+    body.push([
+      `TOTAL (${filteredRows.length})`, '', '', '',
+      '', '', '', '',
+      formatDuration(totalPlanned), formatDuration(totalReal), formatDuration(totalPointed), formatDuration(totalBilled),
+      '', '', '',
+    ]);
+
+    autoTable(doc, {
+      startY: 30,
+      head,
+      body,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+      headStyles: { fillColor: [27, 58, 92], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 14 },
+        5: { cellWidth: 14 },
+        6: { cellWidth: 14 },
+        7: { cellWidth: 14 },
+        8: { cellWidth: 16 },
+        9: { cellWidth: 16 },
+        10: { cellWidth: 14 },
+        11: { cellWidth: 16 },
+        12: { cellWidth: 14 },
+        13: { cellWidth: 14 },
+        14: { cellWidth: 18 },
+      },
+      didParseCell: (data) => {
+        // Style totals row
+        if (data.row.index === body.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [241, 245, 249];
+        }
+        // Color GPS cells
+        if (data.section === 'body' && (data.column.index === 12 || data.column.index === 13)) {
+          const val = String(data.cell.raw);
+          if (val === 'Hors zone') { data.cell.styles.textColor = [220, 38, 38]; data.cell.styles.fontStyle = 'bold'; }
+          else if (val === 'OK') { data.cell.styles.textColor = [22, 163, 74]; }
+        }
+        // Color status
+        if (data.section === 'body' && data.column.index === 14) {
+          const val = String(data.cell.raw);
+          if (val === 'Valide') data.cell.styles.textColor = [22, 163, 74];
+          else if (val === 'Suspect') data.cell.styles.textColor = [234, 88, 12];
+          else if (val === 'Refuse') data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+    });
+
+    // ── Footer summary ──
+    const finalY = (doc as any).lastAutoTable?.finalY || 200;
+    if (finalY + 20 < doc.internal.pageSize.getHeight()) {
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `H. Prevues: ${formatDuration(totalPlanned)} | H. Reelles: ${formatDuration(totalReal)} | Duree pointee: ${formatDuration(totalPointed)} | H. Facturees: ${formatDuration(totalBilled)}`,
+        14, finalY + 8,
+      );
+    }
+
+    const d2 = new Date();
+    const dateStr2 = `${d2.getFullYear()}-${String(d2.getMonth() + 1).padStart(2, '0')}-${String(d2.getDate()).padStart(2, '0')}`;
+    const filterSuffix2 = dateFrom || dateTo ? `_${dateFrom || 'debut'}_${dateTo || 'fin'}` : '';
+    doc.save(`Bipbip_Suivi_Heures_${dateStr2}${filterSuffix2}.pdf`);
+  }, [filteredRows, totalPlanned, totalReal, totalPointed, totalBilled, dateFrom, dateTo, filterAgent, filterClient, filterMission, filterSite]);
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title="Suivi des Heures"
         subtitle="Heures prévues vs réelles — photos & GPS — validation"
         action={
-          <button
-            onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-xl font-medium text-sm transition-colors"
-          >
-            <Download size={16} />
-            Exporter Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportToPdf}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-xl font-medium text-sm transition-colors"
+            >
+              <FileText size={16} />
+              Exporter PDF
+            </button>
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-xl font-medium text-sm transition-colors"
+            >
+              <Download size={16} />
+              Exporter Excel
+            </button>
+          </div>
         }
       />
 
       {/* Summary row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <StatCard label="H. Prévues" value={formatDuration(totalPlanned)} icon={Calendar} iconBg="bg-indigo-50" iconColor="text-indigo-600" />
+        <StatCard label="H. Réelles" value={formatDuration(totalReal)} icon={Clock} iconBg="bg-cyan-50" iconColor="text-cyan-600" />
         <StatCard label="H. Pointées" value={formatDuration(totalPointed)} icon={Clock} iconBg="bg-slate-50" iconColor="text-slate-600" />
         <StatCard label="H. Validées" value={formatDuration(totalValidated)} icon={FileCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
         <StatCard label="H. Facturées" value={formatDuration(totalBilled)} icon={Receipt} iconBg="bg-blue-50" iconColor="text-blue-600" />
@@ -332,22 +607,61 @@ export default function HoursTracking() {
               className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               title="Date fin"
             />
-            {(dateFrom || dateTo) && (
-              <button
-                onClick={() => { setDateFrom(''); setDateTo(''); }}
-                className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
-              >
-                Tout
-              </button>
-            )}
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-3">
+          <select
+            value={filterAgent}
+            onChange={(e) => setFilterAgent(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none min-w-[160px]"
+          >
+            <option value="">Tous les agents</option>
+            {uniqueAgents.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select
+            value={filterClient}
+            onChange={(e) => setFilterClient(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none min-w-[160px]"
+          >
+            <option value="">Tous les clients</option>
+            {uniqueClients.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select
+            value={filterMission}
+            onChange={(e) => setFilterMission(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none min-w-[180px]"
+          >
+            <option value="">Toutes les missions</option>
+            {uniqueMissions.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select
+            value={filterSite}
+            onChange={(e) => setFilterSite(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none min-w-[200px]"
+          >
+            <option value="">Tous les sites</option>
+            {uniqueSites.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {(dateFrom || dateTo || filterAgent || filterClient || filterMission || filterSite) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo(''); setFilterAgent(''); setFilterClient(''); setFilterMission(''); setFilterSite(''); }}
+              className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              Réinitialiser
+            </button>
+          )}
         </div>
       </div>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table data-hours-table style={{ tableLayout: 'fixed', width: '100%' }} className="text-xs">
+            <colgroup>
+              {Object.entries(colWidths).map(([key, w]) => (
+                <col key={key} style={{ width: `${w}%` }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 {[
@@ -358,15 +672,20 @@ export default function HoursTracking() {
                   { key: 'plannedOut', label: 'Sortie prévue', sortable: false },
                   { key: 'actualIn', label: 'Entrée réelle', sortable: false },
                   { key: 'actualOut', label: 'Sortie réelle', sortable: false },
+                  { key: 'totalPlanned', label: 'Total prévu', sortable: true },
+                  { key: 'totalReal', label: 'Total réel', sortable: true },
                   { key: 'hoursWorked', label: 'Durée', sortable: true },
+                  { key: 'billedHours', label: 'H. Facturées', sortable: true },
+                  { key: 'gps', label: 'GPS', sortable: false },
                   { key: 'status', label: 'Statut', sortable: true },
+                  { key: 'actions', label: 'Actions', sortable: false },
                 ].map((col) => (
                   <th
                     key={col.key}
                     onClick={() => col.sortable ? toggleSort(col.key) : undefined}
-                    className={`text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 select-none ${col.sortable ? 'cursor-pointer hover:text-slate-700' : ''}`}
+                    className={`relative text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2 py-2.5 select-none overflow-hidden ${col.sortable ? 'cursor-pointer hover:text-slate-700' : ''} ${col.key === 'actions' ? 'text-right' : ''}`}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 truncate">
                       {col.label}
                       {col.sortable && (
                         <ArrowUpDown
@@ -375,11 +694,13 @@ export default function HoursTracking() {
                         />
                       )}
                     </div>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={(e) => onResizeStart(col.key, e)}
+                      className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-primary-400/40 active:bg-primary-500/50 z-10"
+                    />
                   </th>
                 ))}
-                <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -387,89 +708,110 @@ export default function HoursTracking() {
                 const hasDelay = row.checkInTime && row.plannedStart && formatTime(row.checkInTime) > row.plannedStart;
                 return (
                   <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900 whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs font-medium text-slate-900 truncate">
                       {row.agentName}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs text-slate-600 truncate">
                       {formatDate(row.date)}
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-slate-900 font-medium truncate max-w-[160px]">{row.eventTitle}</p>
-                      <p className="text-[11px] text-slate-400">{row.client}</p>
+                    <td className="px-2 py-2.5 overflow-hidden">
+                      <p className="text-xs text-slate-900 font-medium truncate">{row.eventTitle}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{row.client}</p>
                     </td>
-                    {/* Planned entry */}
-                    <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs text-slate-500 truncate">
                       {row.plannedStart ? (
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} className="text-blue-400" />
+                        <span className="flex items-center gap-0.5">
+                          <Clock size={11} className="text-blue-400 shrink-0" />
                           {row.plannedStart}
                         </span>
                       ) : <span className="text-slate-300">—</span>}
                     </td>
-                    {/* Planned exit */}
-                    <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs text-slate-500 truncate">
                       {row.plannedEnd ? (
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} className="text-blue-400" />
+                        <span className="flex items-center gap-0.5">
+                          <Clock size={11} className="text-blue-400 shrink-0" />
                           {row.plannedEnd}
                         </span>
                       ) : <span className="text-slate-300">—</span>}
                     </td>
-                    {/* Actual entry */}
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-2 py-2.5 truncate">
                       {row.checkInTime ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-sm font-semibold ${hasDelay ? 'text-orange-600' : 'text-emerald-600'}`}>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs font-semibold ${hasDelay ? 'text-orange-600' : 'text-emerald-600'}`}>
                             {formatTime(row.checkInTime)}
                           </span>
-                          {row.checkInPhotoUrl && <Camera size={12} className="text-emerald-400" />}
-                          {row.checkInLocationValid === false && <MapPin size={12} className="text-rose-400" />}
+                          {row.checkInPhotoUrl && <Camera size={11} className="text-emerald-400 shrink-0" />}
                         </div>
-                      ) : <span className="text-sm text-slate-300">—</span>}
+                      ) : <span className="text-xs text-slate-300">—</span>}
                     </td>
-                    {/* Actual exit */}
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-2 py-2.5 truncate">
                       {row.checkOutTime ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-semibold text-slate-900">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-semibold text-slate-900">
                             {formatTime(row.checkOutTime)}
                           </span>
-                          {row.checkOutPhotoUrl && <Camera size={12} className="text-rose-400" />}
-                          {row.checkOutLocationValid === false && <MapPin size={12} className="text-rose-400" />}
+                          {row.checkOutPhotoUrl && <Camera size={11} className="text-rose-400 shrink-0" />}
                         </div>
-                      ) : <span className="text-sm text-slate-300">—</span>}
+                      ) : <span className="text-xs text-slate-300">—</span>}
                     </td>
-                    {/* Duration */}
-                    <td className="px-4 py-3 text-sm font-bold text-primary-600 whitespace-nowrap">
+                    <td className="px-2 py-2.5 text-xs font-semibold text-indigo-600 truncate">
+                      {row.plannedStart && row.plannedEnd ? (() => {
+                        const [sh, sm] = row.plannedStart!.split(':').map(Number);
+                        const [eh, em] = row.plannedEnd!.split(':').map(Number);
+                        return formatDuration((eh * 60 + em - (sh * 60 + sm)) / 60);
+                      })() : '—'}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs font-semibold text-cyan-600 truncate">
+                      {row.checkInTime && row.checkOutTime ? formatDuration(
+                        Math.max(0, (new Date(row.checkOutTime).getTime() - new Date(row.checkInTime).getTime()) / 3600000)
+                      ) : '—'}
+                    </td>
+                    <td className="px-2 py-2.5 text-xs font-bold text-primary-600 truncate">
                       {row.hoursWorked ? formatDuration(row.hoursWorked) : '—'}
                     </td>
-                    {/* Status */}
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-2.5 text-xs font-semibold text-amber-600 truncate">
+                      {row.status === 'valide' && row.billedHours ? formatDuration(row.billedHours) : '—'}
+                    </td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex items-center gap-1">
+                        <span title="Entrée" className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-bold ${
+                          row.checkInLocationValid === true ? 'bg-emerald-100 text-emerald-700' :
+                          row.checkInLocationValid === false ? 'bg-rose-100 text-rose-700' :
+                          'bg-slate-100 text-slate-400'
+                        }`}>E</span>
+                        <span title="Sortie" className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-bold ${
+                          row.checkOutLocationValid === true ? 'bg-emerald-100 text-emerald-700' :
+                          row.checkOutLocationValid === false ? 'bg-rose-100 text-rose-700' :
+                          'bg-slate-100 text-slate-400'
+                        }`}>S</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5">
                       <div className="flex items-center gap-1">
                         <StatusBadge status={row.status} />
-                        {row.isSuspect && <AlertTriangle size={13} className="text-orange-500" />}
+                        {row.isSuspect && <AlertTriangle size={12} className="text-orange-500" />}
                       </div>
                     </td>
                     {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-2 py-2.5">
+                      <div className="flex items-center justify-end gap-0.5">
                         <button
                           onClick={() => { setSelectedRecord(row); setShowDetail(true); }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 transition-colors"
                         >
                           <Eye size={13} /> Détails
                         </button>
                         {(row.status === 'en_attente' || row.status === 'suspect') && (
                           <>
                             <button
-                              onClick={() => { if (currentUser) validateRecord(row.id, 'valide', currentUser.id); }}
+                              onClick={() => openQuickValidate(row, 'valide')}
                               className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 transition-colors"
                               title="Valider"
                             >
                               <CheckCircle2 size={16} />
                             </button>
                             <button
-                              onClick={() => { setSelectedRecord(row); setShowDetail(true); }}
+                              onClick={() => openQuickValidate(row, 'refuse')}
                               className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
                               title="Refuser"
                             >
@@ -484,7 +826,7 @@ export default function HoursTracking() {
               })}
               {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-5 py-12 text-center text-sm text-slate-400">
+                  <td colSpan={14} className="px-4 py-10 text-center text-xs text-slate-400">
                     Aucune donnée trouvée
                   </td>
                 </tr>
@@ -493,13 +835,22 @@ export default function HoursTracking() {
             {filteredRows.length > 0 && (
               <tfoot>
                 <tr className="bg-slate-50 border-t-2 border-slate-200">
-                  <td className="px-4 py-3 text-sm font-bold text-slate-900" colSpan={7}>
+                  <td className="px-2 py-2.5 text-xs font-bold text-slate-900" colSpan={7}>
                     TOTAL ({filteredRows.length} pointage{filteredRows.length > 1 ? 's' : ''})
                   </td>
-                  <td className="px-4 py-3 text-sm font-bold text-primary-700">
+                  <td className="px-2 py-2.5 text-xs font-bold text-indigo-700 truncate">
+                    {formatDuration(totalPlanned)}
+                  </td>
+                  <td className="px-2 py-2.5 text-xs font-bold text-cyan-700 truncate">
+                    {formatDuration(totalReal)}
+                  </td>
+                  <td className="px-2 py-2.5 text-xs font-bold text-primary-700 truncate">
                     {formatDuration(totalPointed)}
                   </td>
-                  <td className="px-4 py-3" colSpan={2} />
+                  <td className="px-2 py-2.5 text-xs font-bold text-amber-700 truncate">
+                    {formatDuration(totalBilled)}
+                  </td>
+                  <td className="px-2 py-2.5" colSpan={3} />
                 </tr>
               </tfoot>
             )}
@@ -507,10 +858,209 @@ export default function HoursTracking() {
         </div>
       </div>
 
+      {/* Quick validation popup */}
+      <Modal
+        isOpen={showQuickValidate}
+        onClose={() => { setShowQuickValidate(false); setQuickRecord(null); setQuickBilledHours(null); setQuickRefusalReason(''); }}
+        title={quickAction === 'valide' ? 'Valider le pointage' : 'Refuser le pointage'}
+        size="md"
+      >
+        {quickRecord && (() => {
+          const ev = events.find((e) => e.id === quickRecord.eventId);
+          const ag = users.find((u) => u.id === quickRecord.agentId);
+          const sh = ev?.shifts?.find((s) => s.date === quickRecord.date);
+
+          let qPlanned = 0;
+          if (sh?.startTime && sh?.endTime) {
+            const [sH, sM] = sh.startTime.split(':').map(Number);
+            const [eH, eM] = sh.endTime.split(':').map(Number);
+            qPlanned = (eH * 60 + eM - (sH * 60 + sM)) / 60;
+          }
+          let qReal = 0;
+          if (quickRecord.checkInTime && quickRecord.checkOutTime) {
+            qReal = Math.max(0, (new Date(quickRecord.checkOutTime).getTime() - new Date(quickRecord.checkInTime).getTime()) / 3600000);
+          }
+          const qWorked = quickRecord.hoursWorked || 0;
+
+          let delayMin = 0;
+          if (sh?.startTime && quickRecord.checkInTime) {
+            const [pH2, pM2] = sh.startTime.split(':').map(Number);
+            const ci = new Date(quickRecord.checkInTime);
+            delayMin = ci.getHours() * 60 + ci.getMinutes() - (pH2 * 60 + pM2);
+          }
+          const isLate = delayMin > 0;
+
+          const gpsInBad = quickRecord.checkInLocationValid === false;
+          const gpsOutBad = quickRecord.checkOutLocationValid === false;
+          const hasGpsIssue = gpsInBad || gpsOutBad;
+
+          return (
+            <div className="space-y-4">
+              {/* Agent + Mission */}
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-bold text-slate-900">{ag ? `${ag.firstName} ${ag.lastName}` : 'Inconnu'}</span>
+                <span className="text-slate-400">—</span>
+                <span className="text-slate-600 break-words">{ev?.title || '—'}</span>
+              </div>
+
+              {/* Alerts: Late + GPS */}
+              {(isLate || hasGpsIssue || quickRecord.isSuspect) && (
+                <div className="flex flex-wrap gap-2">
+                  {isLate && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold">
+                      <AlertTriangle size={12} />
+                      Retard {delayMin >= 60 ? `${Math.floor(delayMin / 60)}h${String(delayMin % 60).padStart(2, '0')}` : `${delayMin} min`}
+                    </span>
+                  )}
+                  {gpsInBad && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">
+                      <MapPin size={12} /> Entrée hors zone
+                    </span>
+                  )}
+                  {gpsOutBad && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">
+                      <MapPin size={12} /> Sortie hors zone
+                    </span>
+                  )}
+                  {quickRecord.isSuspect && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
+                      <AlertTriangle size={12} /> Suspect
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Duration indicators */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-indigo-50 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-indigo-500 font-bold uppercase">H. Prévues</p>
+                  <p className="text-lg font-bold text-indigo-700">{qPlanned > 0 ? formatDuration(qPlanned) : '—'}</p>
+                </div>
+                <div className="bg-cyan-50 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-cyan-500 font-bold uppercase">H. Réelles</p>
+                  <p className="text-lg font-bold text-cyan-700">{qReal > 0 ? formatDuration(qReal) : '—'}</p>
+                </div>
+                <div className="bg-primary-50 rounded-xl p-2.5 text-center">
+                  <p className="text-[10px] text-primary-500 font-bold uppercase">Durée</p>
+                  <p className="text-lg font-bold text-primary-700">{qWorked > 0 ? formatDuration(qWorked) : '—'}</p>
+                </div>
+              </div>
+
+              {/* Billed hours chooser (only for validation) */}
+              {quickAction === 'valide' && (
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Heures à facturer</label>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    {qPlanned > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setQuickBilledHours(Math.round(qPlanned * 100) / 100)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                          quickBilledHours != null && Math.abs(quickBilledHours - qPlanned) < 0.01
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                        }`}
+                      >
+                        Prévues — {formatDuration(qPlanned)}
+                      </button>
+                    )}
+                    {qReal > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setQuickBilledHours(Math.round(qReal * 100) / 100)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                          quickBilledHours != null && Math.abs(quickBilledHours - qReal) < 0.01
+                            ? 'bg-cyan-600 text-white border-cyan-600'
+                            : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'
+                        }`}
+                      >
+                        Réelles — {formatDuration(qReal)}
+                      </button>
+                    )}
+                    {qWorked > 0 && Math.abs(qWorked - qReal) > 0.02 && (
+                      <button
+                        type="button"
+                        onClick={() => setQuickBilledHours(Math.round(qWorked * 100) / 100)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                          quickBilledHours != null && Math.abs(quickBilledHours - qWorked) < 0.01
+                            ? 'bg-primary-600 text-white border-primary-600'
+                            : 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100'
+                        }`}
+                      >
+                        Durée — {formatDuration(qWorked)}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      value={quickBilledHours ?? ''}
+                      onChange={(e) => setQuickBilledHours(e.target.value ? parseFloat(e.target.value) : null)}
+                      className="w-28 px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      placeholder="0.00"
+                    />
+                    <span className="text-xs text-slate-500">heures</span>
+                    {quickBilledHours != null && (
+                      <span className="text-sm font-bold text-primary-700 ml-1">= {formatDuration(quickBilledHours)}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Refusal reason (only for refuse) */}
+              {quickAction === 'refuse' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Motif de refus</label>
+                  <textarea
+                    value={quickRefusalReason}
+                    onChange={(e) => setQuickRefusalReason(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
+                    placeholder="Indiquer un motif..."
+                  />
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-2">
+                {quickAction === 'valide' ? (
+                  <button
+                    onClick={handleQuickValidate}
+                    disabled={quickBilledHours == null}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                      quickBilledHours != null
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <CheckCircle2 size={16} /> Valider ({quickBilledHours != null ? formatDuration(quickBilledHours) : '—'})
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleQuickValidate}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium text-sm transition-all"
+                  >
+                    <XCircle size={16} /> Refuser
+                  </button>
+                )}
+                <button
+                  onClick={() => { setShowQuickValidate(false); setQuickRecord(null); setQuickBilledHours(null); setQuickRefusalReason(''); }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-all"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
       {/* Detail modal */}
       <Modal
         isOpen={showDetail}
-        onClose={() => { setShowDetail(false); setRefusalReason(''); }}
+        onClose={() => { setShowDetail(false); setRefusalReason(''); setBilledHours(null); }}
         title="Détail du pointage"
         size="xl"
       >
@@ -531,7 +1081,7 @@ export default function HoursTracking() {
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3">
                   <p className="text-[10px] text-slate-400 uppercase font-bold">Mission</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-0.5 truncate">{event?.title || '—'}</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-0.5 break-words">{event?.title || '—'}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3">
                   <p className="text-[10px] text-slate-400 uppercase font-bold">Date</p>
@@ -569,35 +1119,77 @@ export default function HoursTracking() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-emerald-700 uppercase mb-3 flex items-center gap-1.5">
-                    <Clock size={13} /> Horaires réels
-                  </h4>
-                  <div className="flex items-center gap-6">
-                    <div>
-                      <p className="text-[10px] text-emerald-500 font-bold uppercase">Entrée</p>
-                      <p className="text-lg font-bold text-emerald-700">
-                        {selectedRecord.checkInTime ? formatTime(selectedRecord.checkInTime) : '—'}
-                      </p>
+                {(() => {
+                  // Compute delay (local time)
+                  let delayMin = 0;
+                  if (shift?.startTime && selectedRecord.checkInTime) {
+                    const [ph, pm] = shift.startTime.split(':').map(Number);
+                    const ci = new Date(selectedRecord.checkInTime);
+                    const actualMin = ci.getHours() * 60 + ci.getMinutes();
+                    delayMin = actualMin - (ph * 60 + pm);
+                  }
+                  const isLate = delayMin > 0;
+                  const borderColor = isLate ? 'border-orange-200' : 'border-emerald-100';
+                  const bgColor = isLate ? 'bg-orange-50/60' : 'bg-emerald-50/60';
+
+                  return (
+                    <div className={`${bgColor} border ${borderColor} rounded-xl p-4`}>
+                      <h4 className={`text-xs font-bold uppercase mb-3 flex items-center gap-1.5 ${isLate ? 'text-orange-700' : 'text-emerald-700'}`}>
+                        <Clock size={13} /> Horaires réels
+                        {isLate && (
+                          <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[11px] font-bold">
+                            <AlertTriangle size={11} />
+                            Retard {delayMin >= 60 ? `${Math.floor(delayMin / 60)}h${String(delayMin % 60).padStart(2, '0')}` : `${delayMin} min`}
+                          </span>
+                        )}
+                      </h4>
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase ${isLate ? 'text-orange-500' : 'text-emerald-500'}`}>Entrée</p>
+                          <p className={`text-lg font-bold ${isLate ? 'text-orange-700' : 'text-emerald-700'}`}>
+                            {selectedRecord.checkInTime ? formatTime(selectedRecord.checkInTime) : '—'}
+                          </p>
+                        </div>
+                        <div className={isLate ? 'text-orange-300' : 'text-emerald-300'}>→</div>
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase ${isLate ? 'text-orange-500' : 'text-emerald-500'}`}>Sortie</p>
+                          <p className={`text-lg font-bold ${isLate ? 'text-orange-700' : 'text-emerald-700'}`}>
+                            {selectedRecord.checkOutTime ? formatTime(selectedRecord.checkOutTime) : '—'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-emerald-300">→</div>
-                    <div>
-                      <p className="text-[10px] text-emerald-500 font-bold uppercase">Sortie</p>
-                      <p className="text-lg font-bold text-emerald-700">
-                        {selectedRecord.checkOutTime ? formatTime(selectedRecord.checkOutTime) : '—'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
-              {/* Duration */}
-              {selectedRecord.hoursWorked != null && (
+              {/* Duration indicators */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-indigo-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-indigo-600 font-medium">H. Prévues</p>
+                  <p className="text-2xl font-bold text-indigo-700 mt-0.5">
+                    {shift?.startTime && shift?.endTime ? (() => {
+                      const [sh, sm] = shift.startTime.split(':').map(Number);
+                      const [eh, em] = shift.endTime.split(':').map(Number);
+                      return formatDuration((eh * 60 + em - (sh * 60 + sm)) / 60);
+                    })() : '—'}
+                  </p>
+                </div>
+                <div className="bg-cyan-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-cyan-600 font-medium">H. Réelles</p>
+                  <p className="text-2xl font-bold text-cyan-700 mt-0.5">
+                    {selectedRecord.checkInTime && selectedRecord.checkOutTime
+                      ? formatDuration(Math.max(0, (new Date(selectedRecord.checkOutTime).getTime() - new Date(selectedRecord.checkInTime).getTime()) / 3600000))
+                      : '—'}
+                  </p>
+                </div>
                 <div className="bg-primary-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-primary-600 font-medium">Durée travaillée</p>
-                  <p className="text-2xl font-bold text-primary-700 mt-0.5">{formatDuration(selectedRecord.hoursWorked)}</p>
+                  <p className="text-2xl font-bold text-primary-700 mt-0.5">
+                    {selectedRecord.hoursWorked != null ? formatDuration(selectedRecord.hoursWorked) : '—'}
+                  </p>
                 </div>
-              )}
+              </div>
 
               {/* Suspect warnings */}
               {selectedRecord.isSuspect && selectedRecord.suspectReasons.length > 0 && (
@@ -620,7 +1212,7 @@ export default function HoursTracking() {
                   </h4>
                   {selectedRecord.checkInPhotoUrl ? (
                     <div className="space-y-2">
-                      <div className="rounded-xl overflow-hidden border border-slate-200">
+                      <div className="rounded-xl overflow-hidden border border-slate-200 cursor-pointer" onClick={() => setLightboxUrl(selectedRecord.checkInPhotoUrl!)}>
                         <img src={selectedRecord.checkInPhotoUrl} alt="Entrée" className="w-full h-44 object-cover bg-slate-100" />
                       </div>
                       <div className="flex items-center justify-between text-xs">
@@ -654,7 +1246,7 @@ export default function HoursTracking() {
                   </h4>
                   {selectedRecord.checkOutPhotoUrl ? (
                     <div className="space-y-2">
-                      <div className="rounded-xl overflow-hidden border border-slate-200">
+                      <div className="rounded-xl overflow-hidden border border-slate-200 cursor-pointer" onClick={() => setLightboxUrl(selectedRecord.checkOutPhotoUrl!)}>
                         <img src={selectedRecord.checkOutPhotoUrl} alt="Sortie" className="w-full h-44 object-cover bg-slate-100" />
                       </div>
                       <div className="flex items-center justify-between text-xs">
@@ -682,41 +1274,187 @@ export default function HoursTracking() {
                 </div>
               </div>
 
-              {/* Validation actions */}
-              {(selectedRecord.status === 'en_attente' || selectedRecord.status === 'suspect') && (
-                <div className="space-y-3 pt-4 border-t border-slate-200">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Motif de refus (optionnel)
-                    </label>
-                    <textarea
-                      value={refusalReason}
-                      onChange={(e) => setRefusalReason(e.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
-                      placeholder="Indiquer un motif en cas de refus..."
-                    />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleValidate('valide')}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium text-sm transition-all"
-                    >
-                      <CheckCircle2 size={16} /> Valider
-                    </button>
-                    <button
-                      onClick={() => handleValidate('refuse')}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium text-sm transition-all"
-                    >
-                      <XCircle size={16} /> Refuser
-                    </button>
+              {/* Work photos */}
+              {(selectedRecord.photos || []).length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <ImagePlus size={14} className="text-violet-500" /> Photos de travail
+                    <span className="text-[11px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
+                      {selectedRecord.photos.length}
+                    </span>
+                  </h4>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {selectedRecord.photos.map((photo) => (
+                      <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-slate-200 cursor-pointer" onClick={() => setLightboxUrl(photo.photoUrl)}>
+                        <img src={photo.photoUrl} alt="Travail" className="w-full h-24 object-cover" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1">
+                          <span className="text-[10px] text-white font-medium">
+                            {new Date(photo.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {photo.caption && (
+                            <span className="text-[9px] text-white/80 block truncate">{photo.caption}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
+
+              {/* Validation actions */}
+              {(selectedRecord.status === 'en_attente' || selectedRecord.status === 'suspect') && (() => {
+                // Compute planned & real hours for quick-pick
+                let plannedHrs = 0;
+                if (shift?.startTime && shift?.endTime) {
+                  const [sh, sm] = shift.startTime.split(':').map(Number);
+                  const [eh, em] = shift.endTime.split(':').map(Number);
+                  plannedHrs = (eh * 60 + em - (sh * 60 + sm)) / 60;
+                }
+                let realHrs = 0;
+                if (selectedRecord.checkInTime && selectedRecord.checkOutTime) {
+                  realHrs = Math.max(0, (new Date(selectedRecord.checkOutTime).getTime() - new Date(selectedRecord.checkInTime).getTime()) / 3600000);
+                }
+                const workedHrs = selectedRecord.hoursWorked || 0;
+
+                return (
+                  <div className="space-y-4 pt-4 border-t border-slate-200">
+                    {/* Hours to bill chooser */}
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">
+                        Heures à facturer pour cet agent
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {plannedHrs > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setBilledHours(Math.round(plannedHrs * 100) / 100)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              billedHours != null && Math.abs(billedHours - plannedHrs) < 0.01
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                            }`}
+                          >
+                            H. Prévues — {formatDuration(plannedHrs)}
+                          </button>
+                        )}
+                        {realHrs > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setBilledHours(Math.round(realHrs * 100) / 100)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              billedHours != null && Math.abs(billedHours - realHrs) < 0.01
+                                ? 'bg-cyan-600 text-white border-cyan-600'
+                                : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100'
+                            }`}
+                          >
+                            H. Réelles — {formatDuration(realHrs)}
+                          </button>
+                        )}
+                        {workedHrs > 0 && Math.abs(workedHrs - realHrs) > 0.02 && (
+                          <button
+                            type="button"
+                            onClick={() => setBilledHours(Math.round(workedHrs * 100) / 100)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                              billedHours != null && Math.abs(billedHours - workedHrs) < 0.01
+                                ? 'bg-primary-600 text-white border-primary-600'
+                                : 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100'
+                            }`}
+                          >
+                            Durée travaillée — {formatDuration(workedHrs)}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.25"
+                          value={billedHours ?? ''}
+                          onChange={(e) => setBilledHours(e.target.value ? parseFloat(e.target.value) : null)}
+                          className="w-32 px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                          placeholder="0.00"
+                        />
+                        <span className="text-xs text-slate-500">heures (personnalisé)</span>
+                        {billedHours != null && (
+                          <span className="text-sm font-bold text-primary-700 ml-2">
+                            = {formatDuration(billedHours)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Refusal reason */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Motif de refus (optionnel)
+                      </label>
+                      <textarea
+                        value={refusalReason}
+                        onChange={(e) => setRefusalReason(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
+                        placeholder="Indiquer un motif en cas de refus..."
+                      />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleValidate('valide')}
+                        disabled={billedHours == null}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                          billedHours != null
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        <CheckCircle2 size={16} /> Valider ({billedHours != null ? formatDuration(billedHours) : '—'})
+                      </button>
+                      <button
+                        onClick={() => handleValidate('refuse')}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium text-sm transition-all"
+                      >
+                        <XCircle size={16} /> Refuser
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
       </Modal>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <a
+              href={lightboxUrl}
+              download={`photo-${Date.now()}.jpg`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition-colors"
+            >
+              <Download size={20} className="text-white" />
+            </a>
+            <button
+              className="w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition-colors"
+              onClick={() => setLightboxUrl(null)}
+            >
+              <XCircle size={24} className="text-white" />
+            </button>
+          </div>
+          <img
+            src={lightboxUrl}
+            alt="Agrandie"
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

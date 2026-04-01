@@ -96,7 +96,7 @@ export default function NotificationPanel({ open, onClose, sidebarCollapsed }: N
   return (
     <div
       ref={panelRef}
-      className={`fixed bottom-4 w-[420px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200 z-[70] flex flex-col animate-scaleIn origin-bottom-left ${sidebarCollapsed ? 'left-[80px]' : 'left-[264px]'}`}
+      className={`fixed bottom-4 w-[420px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9990] flex flex-col animate-scaleIn origin-bottom-left ${sidebarCollapsed ? 'left-[80px]' : 'left-[264px]'}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">

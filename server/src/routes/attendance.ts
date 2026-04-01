@@ -25,12 +25,19 @@ function formatRecord(r: any) {
     checkOutLongitude: r.checkOutLongitude,
     checkOutLocationValid: r.checkOutLocationValid,
     hoursWorked: r.hoursWorked,
+    billedHours: r.billedHours,
     status: r.status,
     validatedBy: r.validatedBy,
     validatedAt: r.validatedAt?.toISOString() ?? null,
     refusalReason: r.refusalReason,
     isSuspect: r.isSuspect,
     suspectReasons: r.suspectReasons,
+    photos: (r.photos || []).map((p: any) => ({
+      id: p.id,
+      photoUrl: p.photoUrl,
+      caption: p.caption,
+      createdAt: p.createdAt.toISOString(),
+    })),
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -58,6 +65,7 @@ router.get('/', async (req: Request, res: Response) => {
   const records = await prisma.attendance.findMany({
     where,
     orderBy: { date: 'desc' },
+    include: { photos: { orderBy: { createdAt: 'asc' } } },
   });
 
   res.json(records.map(formatRecord));
@@ -67,6 +75,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   const record = await prisma.attendance.findUnique({
     where: { id: req.params.id },
+    include: { photos: { orderBy: { createdAt: 'asc' } } },
   });
   if (!record) {
     res.status(404).json({ error: 'Pointage introuvable' });
@@ -102,13 +111,7 @@ router.post('/', async (req: Request, res: Response) => {
       date: new Date(date),
       checkInTime: checkInTime ? new Date(checkInTime) : undefined,
     },
-  });
-
-  res.status(201).json(formatRecord(record));
-  emitAttendanceChanged();
-  emitToAdmins('notification:newAttendance', {
-    agentId: req.auth!.userId,
-    eventId: parsed.data.eventId,
+    include: { photos: true },
   });
 });
 
@@ -144,6 +147,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const record = await prisma.attendance.update({
       where: { id: req.params.id },
       data,
+      include: { photos: { orderBy: { createdAt: 'asc' } } },
     });
     res.json(formatRecord(record));
     emitAttendanceChanged();
@@ -159,6 +163,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 const validateSchema = z.object({
   status: z.enum(['valide', 'refuse', 'suspect']),
   refusalReason: z.string().optional(),
+  billedHours: z.number().min(0).optional(),
 });
 
 // POST /api/attendance/:id/validate (admin only)
@@ -175,9 +180,11 @@ router.post('/:id/validate', adminOnly, async (req: Request, res: Response) => {
       data: {
         status: parsed.data.status,
         refusalReason: parsed.data.refusalReason,
+        billedHours: parsed.data.billedHours,
         validatedBy: req.auth!.userId,
         validatedAt: new Date(),
       },
+      include: { photos: { orderBy: { createdAt: 'asc' } } },
     });
     res.json(formatRecord(record));
     emitAttendanceChanged();
@@ -188,6 +195,69 @@ router.post('/:id/validate', adminOnly, async (req: Request, res: Response) => {
     }
     throw e;
   }
+});
+
+// ── Work Photos ─────────────────────────────────────────
+
+const photoSchema = z.object({
+  photoUrl: z.string().min(1),
+  caption: z.string().optional(),
+});
+
+// POST /api/attendance/:id/photos (agent adds work photo)
+router.post('/:id/photos', async (req: Request, res: Response) => {
+  const parsed = photoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Données invalides' });
+    return;
+  }
+
+  // Verify attendance exists and belongs to agent
+  const attendance = await prisma.attendance.findUnique({ where: { id: req.params.id } });
+  if (!attendance) {
+    res.status(404).json({ error: 'Pointage introuvable' });
+    return;
+  }
+  if (attendance.agentId !== req.auth!.userId && req.auth!.role !== 'admin') {
+    res.status(403).json({ error: 'Non autorisé' });
+    return;
+  }
+
+  const photo = await prisma.attendancePhoto.create({
+    data: {
+      attendanceId: req.params.id,
+      photoUrl: parsed.data.photoUrl,
+      caption: parsed.data.caption,
+    },
+  });
+
+  res.status(201).json({
+    id: photo.id,
+    photoUrl: photo.photoUrl,
+    caption: photo.caption,
+    createdAt: photo.createdAt.toISOString(),
+  });
+  emitAttendanceChanged();
+});
+
+// DELETE /api/attendance/:id/photos/:photoId
+router.delete('/:id/photos/:photoId', async (req: Request, res: Response) => {
+  const photo = await prisma.attendancePhoto.findUnique({
+    where: { id: req.params.photoId },
+    include: { attendance: true },
+  });
+  if (!photo) {
+    res.status(404).json({ error: 'Photo introuvable' });
+    return;
+  }
+  if (photo.attendance.agentId !== req.auth!.userId && req.auth!.role !== 'admin') {
+    res.status(403).json({ error: 'Non autorisé' });
+    return;
+  }
+
+  await prisma.attendancePhoto.delete({ where: { id: req.params.photoId } });
+  res.json({ success: true });
+  emitAttendanceChanged();
 });
 
 export default router;

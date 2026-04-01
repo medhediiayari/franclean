@@ -1,5 +1,5 @@
 // ── Rôles ───────────────────────────────────────────────
-export type Role = 'admin' | 'agent';
+export type Role = 'admin' | 'agent' | 'client';
 
 // ── Utilisateur ─────────────────────────────────────────
 export interface User {
@@ -12,6 +12,7 @@ export interface User {
   avatar?: string;
   isActive: boolean;
   canRefuseEvents: boolean;
+  clientId?: string | null;
   createdAt: string;
 }
 
@@ -83,6 +84,7 @@ export interface Attendance {
 
   // Calculated
   hoursWorked?: number;
+  billedHours?: number;
 
   // Validation
   status: AttendanceStatus;
@@ -94,8 +96,18 @@ export interface Attendance {
   isSuspect: boolean;
   suspectReasons: string[];
 
+  // Work photos
+  photos: AttendancePhoto[];
+
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AttendancePhoto {
+  id: string;
+  photoUrl: string;
+  caption?: string;
+  createdAt: string;
 }
 
 // ── Notification ────────────────────────────────────────
@@ -155,6 +167,7 @@ export interface ClientData {
   capitalSocial?: string | null;
   rcs?: string | null;
   sites: ClientSite[];
+  user?: { id: string; email: string; isActive: boolean } | null;
   createdAt: string;
   updatedAt: string;
 }

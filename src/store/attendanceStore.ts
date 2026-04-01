@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
-import type { Attendance, AttendanceStatus } from '../types';
+import type { Attendance, AttendanceStatus, AttendancePhoto } from '../types';
 
 interface AttendanceState {
   records: Attendance[];
   fetchRecords: () => Promise<void>;
   addRecord: (record: Omit<Attendance, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Attendance>;
   updateRecord: (id: string, data: Partial<Attendance>) => Promise<void>;
-  validateRecord: (id: string, status: AttendanceStatus, adminId: string, reason?: string) => Promise<void>;
+  validateRecord: (id: string, status: AttendanceStatus, adminId: string, reason?: string, billedHours?: number) => Promise<void>;
+  addWorkPhoto: (attendanceId: string, photoUrl: string, caption?: string) => Promise<AttendancePhoto>;
+  deleteWorkPhoto: (attendanceId: string, photoId: string) => Promise<void>;
   getRecordsByAgent: (agentId: string) => Attendance[];
   getRecordsByDate: (date: string) => Attendance[];
   getTodayRecord: (agentId: string, eventId: string) => Attendance | undefined;
@@ -34,10 +36,29 @@ export const useAttendanceStore = create<AttendanceState>()((set, get) => ({
     }));
   },
 
-  validateRecord: async (id, status, _adminId, reason) => {
-    const updated = await api.post<Attendance>(`/attendance/${id}/validate`, { status, reason });
+  validateRecord: async (id, status, _adminId, reason, billedHours) => {
+    const updated = await api.post<Attendance>(`/attendance/${id}/validate`, { status, refusalReason: reason, billedHours });
     set((state) => ({
       records: state.records.map((r) => (r.id === id ? updated : r)),
+    }));
+  },
+
+  addWorkPhoto: async (attendanceId, photoUrl, caption) => {
+    const photo = await api.post<AttendancePhoto>(`/attendance/${attendanceId}/photos`, { photoUrl, caption });
+    set((state) => ({
+      records: state.records.map((r) =>
+        r.id === attendanceId ? { ...r, photos: [...(r.photos || []), photo] } : r,
+      ),
+    }));
+    return photo;
+  },
+
+  deleteWorkPhoto: async (attendanceId, photoId) => {
+    await api.delete(`/attendance/${attendanceId}/photos/${photoId}`);
+    set((state) => ({
+      records: state.records.map((r) =>
+        r.id === attendanceId ? { ...r, photos: (r.photos || []).filter((p) => p.id !== photoId) } : r,
+      ),
     }));
   },
 

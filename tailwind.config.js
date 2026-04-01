@@ -42,11 +42,56 @@ export default {
           from: { opacity: '0', transform: 'scale(0.95)' },
           to: { opacity: '1', transform: 'scale(1)' },
         },
+        slideUp: {
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideDown: {
+          from: { opacity: '0', transform: 'translateY(-10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        pulse2: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.5' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+        countUp: {
+          from: { opacity: '0', transform: 'translateY(10px) scale(0.8)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        glow: {
+          '0%, 100%': { boxShadow: '0 0 15px rgba(16, 185, 129, 0.15)' },
+          '50%': { boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)' },
+        },
+        progressBar: {
+          from: { width: '0%' },
+          to: { width: 'var(--progress)' },
+        },
+        revealRight: {
+          from: { opacity: '0', transform: 'translateX(-20px)', clipPath: 'inset(0 100% 0 0)' },
+          to: { opacity: '1', transform: 'translateX(0)', clipPath: 'inset(0 0 0 0)' },
+        },
       },
       animation: {
         fadeIn: 'fadeIn 0.3s ease-out',
         slideIn: 'slideIn 0.3s ease-out',
         scaleIn: 'scaleIn 0.2s ease-out',
+        slideUp: 'slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both',
+        slideDown: 'slideDown 0.3s ease-out both',
+        shimmer: 'shimmer 2s linear infinite',
+        pulse2: 'pulse2 2s ease-in-out infinite',
+        float: 'float 3s ease-in-out infinite',
+        countUp: 'countUp 0.6s cubic-bezier(0.16,1,0.3,1) both',
+        glow: 'glow 2s ease-in-out infinite',
+        progressBar: 'progressBar 1s cubic-bezier(0.16,1,0.3,1) both',
+        revealRight: 'revealRight 0.5s cubic-bezier(0.16,1,0.3,1) both',
       },
       boxShadow: {
         card: '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',

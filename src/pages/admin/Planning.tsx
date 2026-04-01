@@ -115,6 +115,7 @@ export default function Planning() {
     { startTime: '08:00', endTime: '17:00' },
   ]);
   const [agentSkipDays, setAgentSkipDays] = useState<number[]>([0, 6]);
+  const [perDateSlots, setPerDateSlots] = useState<Record<string, { startTime: string; endTime: string }[]>>({});
   const [showResponsesWidget, setShowResponsesWidget] = useState(true);
   const [expandedResponseEventId, setExpandedResponseEventId] = useState<string | null>(null);
 
@@ -292,6 +293,7 @@ export default function Planning() {
       status: 'planifie',
     });
     setAgentShiftAssignments({});
+    setPerDateSlots({});
     setEditingAgentId(null);
     setFormTab('event');
     setFormError(null);
@@ -544,22 +546,37 @@ export default function Planning() {
   };
 
   const applyAgentShifts = (agentId: string) => {
-    const dates = Array.from(agentShiftDates).sort();
-    if (dates.length === 0 || agentTemplateSlots.length === 0) return;
     const shifts: { date: string; startTime: string; endTime: string }[] = [];
-    for (const date of dates) {
-      for (const tpl of agentTemplateSlots) {
-        shifts.push({ date, startTime: tpl.startTime, endTime: tpl.endTime });
+    for (const [date, slots] of Object.entries(perDateSlots)) {
+      for (const slot of slots) {
+        shifts.push({ date, startTime: slot.startTime, endTime: slot.endTime });
       }
     }
+    if (shifts.length === 0) return;
     setAgentShiftAssignments((prev) => ({ ...prev, [agentId]: shifts }));
     setEditingAgentId(null);
+  };
+
+  const applyTemplateToSelectedDates = () => {
+    const dates = Array.from(agentShiftDates).sort();
+    const newPerDateSlots: Record<string, { startTime: string; endTime: string }[]> = {};
+    for (const date of dates) {
+      newPerDateSlots[date] = agentTemplateSlots.map(s => ({ ...s }));
+    }
+    setPerDateSlots(newPerDateSlots);
   };
 
   const startEditingAgent = (agentId: string) => {
     setEditingAgentId(agentId);
     const existing = agentShiftAssignments[agentId] || [];
     setAgentShiftDates(new Set(existing.map((s) => s.date)));
+    // Build per-date slots from existing assignments
+    const dateSlots: Record<string, { startTime: string; endTime: string }[]> = {};
+    for (const s of existing) {
+      if (!dateSlots[s.date]) dateSlots[s.date] = [];
+      dateSlots[s.date].push({ startTime: s.startTime, endTime: s.endTime });
+    }
+    setPerDateSlots(dateSlots);
     // Infer template from first date's shifts
     const firstDate = existing[0]?.date;
     if (firstDate) {
@@ -574,10 +591,20 @@ export default function Planning() {
   const selectAllDatesForAgent = () => {
     const dates = getEventDatesInRange(agentSkipDays);
     setAgentShiftDates(new Set(dates));
+    setPerDateSlots(prev => {
+      const next = { ...prev };
+      for (const date of dates) {
+        if (!next[date]) {
+          next[date] = agentTemplateSlots.map(s => ({ ...s }));
+        }
+      }
+      return next;
+    });
   };
 
   const clearDatesForAgent = () => {
     setAgentShiftDates(new Set());
+    setPerDateSlots({});
   };
 
   // Group shifts by date for display
@@ -1590,8 +1617,13 @@ export default function Planning() {
                                         type="button"
                                         onClick={() => {
                                           const next = new Set(agentShiftDates);
-                                          if (next.has(date)) next.delete(date);
-                                          else next.add(date);
+                                          if (next.has(date)) {
+                                            next.delete(date);
+                                            setPerDateSlots(prev => { const n = { ...prev }; delete n[date]; return n; });
+                                          } else {
+                                            next.add(date);
+                                            setPerDateSlots(prev => ({ ...prev, [date]: agentTemplateSlots.map(s => ({ ...s })) }));
+                                          }
                                           setAgentShiftDates(next);
                                         }}
                                         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
@@ -1611,10 +1643,10 @@ export default function Planning() {
                                 </p>
                               </div>
 
-                              {/* Time slots template */}
-                              <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <p className="text-xs font-semibold text-slate-600">Créneaux horaires</p>
+                              {/* Template for bulk apply */}
+                              <div className="bg-white/60 rounded-xl border border-slate-200 p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-semibold text-slate-600">Modèle horaire (appliquer en masse)</p>
                                   <button
                                     type="button"
                                     onClick={() => setAgentTemplateSlots((prev) => [...prev, { startTime: '08:00', endTime: '17:00' }])}
@@ -1623,49 +1655,133 @@ export default function Planning() {
                                     <Plus size={12} /> Ajouter
                                   </button>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 mb-2">
                                   {agentTemplateSlots.map((slot, idx) => (
                                     <div key={idx} className="flex items-center gap-2">
                                       <input
                                         type="time"
+                                        lang="fr-FR"
                                         value={slot.startTime}
                                         onChange={(e) =>
                                           setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, startTime: e.target.value } : s)))
                                         }
-                                        className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                        className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                       />
-                                      <span className="text-slate-300 text-xs">→ </span>
+                                      <span className="text-slate-300 text-xs">→</span>
                                       <input
                                         type="time"
+                                        lang="fr-FR"
                                         value={slot.endTime}
                                         onChange={(e) =>
                                           setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, endTime: e.target.value } : s)))
                                         }
-                                        className="px-2.5 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                                        className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                       />
                                       {agentTemplateSlots.length > 1 && (
                                         <button
                                           type="button"
                                           onClick={() => setAgentTemplateSlots((prev) => prev.filter((_, i) => i !== idx))}
-                                          className="p-1.5 text-rose-400 hover:text-rose-600 rounded transition-colors"
+                                          className="p-1 text-rose-400 hover:text-rose-600 rounded transition-colors"
                                         >
-                                          <Trash2 size={13} />
+                                          <Trash2 size={12} />
                                         </button>
                                       )}
                                     </div>
                                   ))}
                                 </div>
+                                <button
+                                  type="button"
+                                  onClick={applyTemplateToSelectedDates}
+                                  disabled={agentShiftDates.size === 0}
+                                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 rounded-lg transition-all"
+                                >
+                                  <Copy size={12} />
+                                  Appliquer ce modèle à {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''}
+                                </button>
                               </div>
 
-                              {/* Apply button */}
+                              {/* Per-date time slot editing */}
+                              {agentShiftDates.size > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-600 mb-2">Horaires par jour</p>
+                                  <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                                    {Array.from(agentShiftDates).sort().map((date) => {
+                                      const dateObj = new Date(date + 'T12:00:00');
+                                      const dayName = WEEKDAY_NAMES[dateObj.getDay()];
+                                      const dd = dateObj.getDate().toString().padStart(2, '0');
+                                      const mm = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                                      const dateSlots = perDateSlots[date] || [];
+                                      return (
+                                        <div key={date} className="bg-white rounded-lg border border-slate-200 p-2.5">
+                                          <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-xs font-bold text-primary-700">{dayName} {dd}/{mm}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => setPerDateSlots(prev => ({
+                                                ...prev,
+                                                [date]: [...(prev[date] || []), { startTime: '08:00', endTime: '17:00' }]
+                                              }))}
+                                              className="text-[10px] font-medium text-primary-600 hover:text-primary-700 flex items-center gap-0.5"
+                                            >
+                                              <Plus size={10} /> Créneau
+                                            </button>
+                                          </div>
+                                          {dateSlots.length === 0 && (
+                                            <p className="text-[10px] text-slate-400 italic">Aucun créneau — cliquez + pour ajouter</p>
+                                          )}
+                                          <div className="space-y-1.5">
+                                            {dateSlots.map((slot, slotIdx) => (
+                                              <div key={slotIdx} className="flex items-center gap-2">
+                                                <input
+                                                  type="time"
+                                                  lang="fr-FR"
+                                                  value={slot.startTime}
+                                                  onChange={(e) => setPerDateSlots(prev => ({
+                                                    ...prev,
+                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, startTime: e.target.value } : s)
+                                                  }))}
+                                                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none w-[120px]"
+                                                />
+                                                <span className="text-slate-400 text-xs">→</span>
+                                                <input
+                                                  type="time"
+                                                  lang="fr-FR"
+                                                  value={slot.endTime}
+                                                  onChange={(e) => setPerDateSlots(prev => ({
+                                                    ...prev,
+                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, endTime: e.target.value } : s)
+                                                  }))}
+                                                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none w-[120px]"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setPerDateSlots(prev => ({
+                                                    ...prev,
+                                                    [date]: (prev[date] || []).filter((_, i) => i !== slotIdx)
+                                                  }))}
+                                                  className="p-0.5 text-rose-400 hover:text-rose-600 rounded transition-colors"
+                                                >
+                                                  <X size={12} />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Confirm button */}
                               <button
                                 type="button"
                                 onClick={() => applyAgentShifts(agentId)}
-                                disabled={agentShiftDates.size === 0}
+                                disabled={Object.values(perDateSlots).every(slots => slots.length === 0)}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl transition-all"
                               >
                                 <Check size={16} />
-                                Appliquer {agentTemplateSlots.length} créneau{agentTemplateSlots.length > 1 ? 'x' : ''} à {agentShiftDates.size} jour{agentShiftDates.size > 1 ? 's' : ''}
+                                Confirmer les créneaux
                               </button>
                             </div>
                           )}

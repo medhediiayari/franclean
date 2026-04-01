@@ -9,6 +9,7 @@ import eventRoutes from './routes/events.js';
 import attendanceRoutes from './routes/attendance.js';
 import clientRoutes from './routes/clients.js';
 import paymentRoutes from './routes/payments.js';
+import clientPortalRoutes from './routes/clientPortal.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,6 +28,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/client-portal', clientPortalRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

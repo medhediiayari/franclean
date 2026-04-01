@@ -5,6 +5,7 @@ import { useAuthStore } from './store/authStore';
 import Login from './pages/Login';
 import AdminLayout from './components/layout/AdminLayout';
 import AgentLayout from './components/layout/AgentLayout';
+import ClientLayout from './components/layout/ClientLayout';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import Planning from './pages/admin/Planning';
@@ -19,6 +20,11 @@ import AgentDashboard from './pages/agent/AgentDashboard';
 import MyPlanning from './pages/agent/MyPlanning';
 import CheckIn from './pages/agent/CheckIn';
 import MyHours from './pages/agent/MyHours';
+
+import ClientDashboard from './pages/client/ClientDashboard';
+import ClientSites from './pages/client/ClientSites';
+import ClientMissions from './pages/client/ClientMissions';
+import ClientPhotos from './pages/client/ClientPhotos';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -81,12 +87,27 @@ export default function App() {
         <Route path="heures" element={<MyHours />} />
       </Route>
 
+      {/* Client Routes */}
+      <Route
+        path="/client"
+        element={
+          <ProtectedRoute allowedRoles={['client']}>
+            <ClientLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ClientDashboard />} />
+        <Route path="sites" element={<ClientSites />} />
+        <Route path="missions" element={<ClientMissions />} />
+        <Route path="photos" element={<ClientPhotos />} />
+      </Route>
+
       {/* Default redirect */}
       <Route
         path="*"
         element={
           isAuthenticated && user ? (
-            <Navigate to={user.role === 'admin' ? '/admin' : '/agent'} replace />
+            <Navigate to={user.role === 'admin' ? '/admin' : user.role === 'client' ? '/client' : '/agent'} replace />
           ) : (
             <Navigate to="/login" replace />
           )

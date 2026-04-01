@@ -12,6 +12,8 @@ interface ClientStore {
   addSite: (clientId: string, data: { name: string; address?: string; latitude?: number | null; longitude?: number | null; geoRadius?: number; hourlyRate?: number | null; notes?: string }) => Promise<ClientSite>;
   updateSite: (clientId: string, siteId: string, data: Partial<{ name: string; address: string; latitude: number | null; longitude: number | null; geoRadius: number; hourlyRate: number | null; notes: string | null }>) => Promise<void>;
   deleteSite: (clientId: string, siteId: string) => Promise<void>;
+  createClientAccount: (clientId: string) => Promise<{ email: string; password: string }>;
+  deleteClientAccount: (clientId: string) => Promise<void>;
 }
 
 export const useClientStore = create<ClientStore>((set, get) => ({
@@ -73,5 +75,19 @@ export const useClientStore = create<ClientStore>((set, get) => ({
         c.id === clientId ? { ...c, sites: c.sites.filter((st) => st.id !== siteId) } : c
       ),
     }));
+  },
+
+  createClientAccount: async (clientId) => {
+    const result = await api.post<{ userId: string; email: string; password: string }>(`/clients/${clientId}/create-account`, {});
+    // Refresh clients to get the user link
+    const clients = await api.get<ClientData[]>('/clients');
+    set({ clients });
+    return { email: result.email, password: result.password };
+  },
+
+  deleteClientAccount: async (clientId) => {
+    await api.delete(`/clients/${clientId}/account`);
+    const clients = await api.get<ClientData[]>('/clients');
+    set({ clients });
   },
 }));

@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { z } from 'zod';
@@ -6,7 +8,7 @@ import { z } from 'zod';
 const router = Router();
 router.use(authMiddleware);
 
-const clientInclude = { sites: { orderBy: { name: 'asc' as const } } };
+const clientInclude = { sites: { orderBy: { name: 'asc' as const } }, user: { select: { id: true, email: true, isActive: true } } };
 
 // ── Clients ─────────────────────────────────────────────
 
@@ -160,6 +162,68 @@ router.put('/:clientId/sites/:siteId', adminOnly, async (req: Request, res: Resp
 // DELETE /api/clients/:clientId/sites/:siteId (admin)
 router.delete('/:clientId/sites/:siteId', adminOnly, async (req: Request, res: Response) => {
   await prisma.clientSite.delete({ where: { id: req.params.siteId } });
+  res.json({ success: true });
+});
+
+// ── Client Account Management ──────────────────────────
+
+function generatePassword(): string {
+  return crypto.randomBytes(6).toString('base64url').slice(0, 10);
+}
+
+function generateClientEmail(clientName: string): string {
+  const slug = clientName
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
+  return `${slug}@client.franclean.fr`;
+}
+
+// POST /api/clients/:id/create-account — auto-generate user account for client
+router.post('/:id/create-account', adminOnly, async (req: Request, res: Response) => {
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
+  if (client.user) { res.status(409).json({ error: 'Ce client a déjà un compte', email: client.user.email }); return; }
+
+  const plainPassword = generatePassword();
+  const email = client.email || generateClientEmail(client.name);
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+  // Check email uniqueness
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    res.status(409).json({ error: `L'email ${email} est déjà utilisé` });
+    return;
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      firstName: client.name,
+      lastName: 'Client',
+      email,
+      password: hashedPassword,
+      role: 'client',
+      isActive: true,
+      clientId: client.id,
+    },
+  });
+
+  res.status(201).json({
+    userId: user.id,
+    email,
+    password: plainPassword, // shown once to admin
+    clientName: client.name,
+  });
+});
+
+// DELETE /api/clients/:id/account — remove client account
+router.delete('/:id/account', adminOnly, async (req: Request, res: Response) => {
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
+  if (!client.user) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
+
+  await prisma.user.delete({ where: { id: client.user.id } });
   res.json({ success: true });
 });
 

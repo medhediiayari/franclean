@@ -22,7 +22,7 @@ export default function Login() {
       const success = await login(email, password);
       if (success) {
         const user = useAuthStore.getState().user;
-        navigate(user?.role === 'admin' ? '/admin' : '/agent');
+        navigate(user?.role === 'admin' ? '/admin' : user?.role === 'client' ? '/client' : '/agent');
       } else {
         setError('Email ou mot de passe incorrect');
       }

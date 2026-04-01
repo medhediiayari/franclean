@@ -7,6 +7,7 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // Clear existing data
+  await prisma.attendancePhoto.deleteMany();
   await prisma.clientSite.deleteMany();
   await prisma.client.deleteMany();
   await prisma.attendance.deleteMany();
@@ -740,6 +741,77 @@ async function main() {
   }
   console.log(`📋 ${defaultClients.length} clients seeded`);
 
+  // ── Create sample client user account ─────────────────
+  // Link a client user to "COREDIF NOISY" for demo
+  const demoClient = await prisma.client.findUnique({ where: { name: 'COREDIF NOISY' } });
+  if (demoClient) {
+    await prisma.user.create({
+      data: {
+        firstName: 'COREDIF NOISY',
+        lastName: 'Client',
+        email: 'coredif@client.franclean.fr',
+        password: hash('client123'),
+        role: 'client',
+        isActive: true,
+        clientId: demoClient.id,
+      },
+    });
+    // Add some sites to this client
+    await prisma.clientSite.createMany({
+      data: [
+        { clientId: demoClient.id, name: 'Site Principal', address: '15 Rue de Noisy, 93160 Noisy-le-Grand' },
+        { clientId: demoClient.id, name: 'Entrepôt Nord', address: '42 Avenue du Nord, 93160 Noisy-le-Grand' },
+      ],
+    });
+    // Create events linked to this client name for demo
+    await prisma.event.create({
+      data: {
+        title: 'Nettoyage Bureaux COREDIF',
+        description: 'Nettoyage complet des bureaux et sanitaires',
+        client: 'COREDIF NOISY',
+        site: 'Site Principal',
+        color: '#6366F1',
+        startDate: yesterday,
+        endDate: yesterday,
+        address: '15 Rue de Noisy, 93160 Noisy-le-Grand',
+        status: 'termine',
+        shifts: { create: [{ date: yesterday, startTime: '08:00', endTime: '12:00', agentId: agent1.id }] },
+        agents: { create: [{ agentId: agent1.id, response: 'accepted' }] },
+        history: { create: [{ action: 'Création', userId: admin1.id }, { action: 'Terminé', userId: agent1.id }] },
+        attendances: {
+          create: [{
+            agentId: agent1.id,
+            date: yesterday,
+            checkInTime: new Date(`${yesterday.toISOString().slice(0, 10)}T08:05:00Z`),
+            checkInPhotoUrl: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%236366F1" width="400" height="300" rx="8"/><text x="200" y="150" text-anchor="middle" fill="white" font-size="18">Arrivée COREDIF</text></svg>',
+            checkInLatitude: 48.85, checkInLongitude: 2.55, checkInLocationValid: true,
+            checkOutTime: new Date(`${yesterday.toISOString().slice(0, 10)}T12:10:00Z`),
+            checkOutPhotoUrl: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%2310B981" width="400" height="300" rx="8"/><text x="200" y="150" text-anchor="middle" fill="white" font-size="18">Départ COREDIF</text></svg>',
+            checkOutLatitude: 48.85, checkOutLongitude: 2.55, checkOutLocationValid: true,
+            hoursWorked: 4.08, status: 'valide', validatedBy: admin1.id,
+          }],
+        },
+      },
+    });
+    await prisma.event.create({
+      data: {
+        title: 'Entretien Entrepôt COREDIF',
+        description: 'Nettoyage sol entrepôt et zones de stockage',
+        client: 'COREDIF NOISY',
+        site: 'Entrepôt Nord',
+        color: '#F59E0B',
+        startDate: today,
+        endDate: today,
+        address: '42 Avenue du Nord, 93160 Noisy-le-Grand',
+        status: 'en_cours',
+        shifts: { create: [{ date: today, startTime: '14:00', endTime: '18:00', agentId: agent2.id }] },
+        agents: { create: [{ agentId: agent2.id, response: 'accepted' }] },
+        history: { create: [{ action: 'Création', userId: admin1.id }] },
+      },
+    });
+    console.log('👤 Demo client account created for COREDIF NOISY');
+  }
+
   console.log('');
   console.log('Comptes de connexion :');
   console.log('  Admin  → admin@franclean.fr / admin123');
@@ -747,6 +819,7 @@ async function main() {
   console.log('  Agent2 → sara@franclean.fr / agent123');
   console.log('  Agent3 → karim@franclean.fr / agent123');
   console.log('  Agent4 → fatima@franclean.fr / agent123');
+  console.log('  Client → coredif@client.franclean.fr / client123');
 }
 
 main()

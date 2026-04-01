@@ -147,7 +147,6 @@ export default function AdminLayout() {
                   </span>
                 )}
               </button>
-              <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} sidebarCollapsed={collapsed} />
             </div>
 
             {/* Déconnexion */}
@@ -178,6 +177,9 @@ export default function AdminLayout() {
           </div>
         </div>
       </aside>
+
+      {/* Notification panel - outside sidebar to avoid transform stacking context */}
+      <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} sidebarCollapsed={collapsed} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">

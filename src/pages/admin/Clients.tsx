@@ -16,10 +16,14 @@ import {
   X,
   Save,
   AlertTriangle,
+  UserPlus,
+  Key,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export default function Clients() {
-  const { clients, loading, fetchClients, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite } = useClientStore();
+  const { clients, loading, fetchClients, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite, createClientAccount, deleteClientAccount } = useClientStore();
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -40,6 +44,11 @@ export default function Clients() {
   const [siteForm, setSiteForm] = useState({ name: '', address: '', latitude: '', longitude: '', geoRadius: '500', hourlyRate: '', notes: '' });
   const [siteError, setSiteError] = useState<string | null>(null);
   const [siteSaving, setSiteSaving] = useState(false);
+
+  // Client account
+  const [accountCreating, setAccountCreating] = useState(false);
+  const [accountCredentials, setAccountCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Filter
   const filtered = search.trim()
@@ -179,6 +188,35 @@ export default function Clients() {
     } catch {
       alert('Erreur lors de la suppression.');
     }
+  };
+
+  const handleCreateAccount = async (clientId: string) => {
+    setAccountCreating(true);
+    setAccountCredentials(null);
+    try {
+      const result = await createClientAccount(clientId);
+      setAccountCredentials(result);
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la création du compte.');
+    } finally {
+      setAccountCreating(false);
+    }
+  };
+
+  const handleDeleteAccount = async (clientId: string) => {
+    if (!confirm('Supprimer le compte client ? Le client ne pourra plus se connecter.')) return;
+    try {
+      await deleteClientAccount(clientId);
+      setAccountCredentials(null);
+    } catch {
+      alert('Erreur lors de la suppression du compte.');
+    }
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   // Group clients into rows of 3 for detail panel insertion
@@ -381,6 +419,64 @@ export default function Clients() {
 
                     {/* Detail body */}
                     <div className="px-6 py-5">
+                      {/* Client Account Section */}
+                      <div className="mb-5 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Key size={15} className="text-slate-500" />
+                            <span className="text-sm font-semibold text-slate-700">Accès espace client</span>
+                          </div>
+                          {selectedClient.user ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200">
+                                <Check size={12} /> Compte actif
+                              </span>
+                              <button
+                                onClick={() => handleDeleteAccount(selectedClient.id)}
+                                className="px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              >
+                                Supprimer le compte
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleCreateAccount(selectedClient.id)}
+                              disabled={accountCreating}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 rounded-lg transition-colors"
+                            >
+                              <UserPlus size={13} />
+                              {accountCreating ? 'Création...' : 'Créer un accès'}
+                            </button>
+                          )}
+                        </div>
+                        {selectedClient.user && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            Email de connexion : <span className="font-mono font-semibold text-slate-700">{selectedClient.user.email}</span>
+                          </p>
+                        )}
+                        {accountCredentials && (
+                          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                            <p className="text-xs font-semibold text-emerald-800 mb-2">Identifiants créés (copiez-les maintenant) :</p>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-600 w-16">Email :</span>
+                                <code className="text-xs font-mono bg-white px-2 py-0.5 rounded border border-emerald-200 text-slate-800">{accountCredentials.email}</code>
+                                <button onClick={() => copyToClipboard(accountCredentials.email, 'email')} className="p-1 text-emerald-600 hover:text-emerald-700">
+                                  {copiedField === 'email' ? <Check size={13} /> : <Copy size={13} />}
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-600 w-16">Mot de passe :</span>
+                                <code className="text-xs font-mono bg-white px-2 py-0.5 rounded border border-emerald-200 text-slate-800">{accountCredentials.password}</code>
+                                <button onClick={() => copyToClipboard(accountCredentials.password, 'password')} className="p-1 text-emerald-600 hover:text-emerald-700">
+                                  {copiedField === 'password' ? <Check size={13} /> : <Copy size={13} />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Juridique badges */}
                       {(selectedClient.siret || selectedClient.formeJuridique || selectedClient.representantLegal) && (
                         <div className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
