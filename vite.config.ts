@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'FranClean RH - Gestion des Ressources Humaines',
-        short_name: 'FranClean RH',
+        name: 'Bipbip - Gestion des Ressources Humaines',
+        short_name: 'Bipbip',
         description: 'Bipbip - Gestion RH, Planning et Pointage',
         theme_color: '#4F46E5',
         background_color: '#F8FAFC',
@@ -38,7 +38,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],
