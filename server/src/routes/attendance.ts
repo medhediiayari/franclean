@@ -135,7 +135,7 @@ const createSchema = z.object({
   checkInLatitude: z.number().optional(),
   checkInLongitude: z.number().optional(),
   checkInLocationValid: z.boolean().optional(),
-  status: z.string().optional(),
+  status: z.enum(['en_attente', 'valide', 'refuse', 'suspect']).optional(),
   isSuspect: z.boolean().optional(),
   suspectReasons: z.array(z.string()).optional(),
 });
