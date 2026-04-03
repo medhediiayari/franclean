@@ -2,7 +2,49 @@ import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { emitAttendanceChanged, emitToAdmins } from '../lib/socket.js';
+import { sendEmail, emailSuspectAttendance } from '../lib/email.js';
+import { sendSms, smsSuspectAttendance } from '../lib/sms.js';
 import { z } from 'zod';
+
+// Helper: send suspect attendance notification (email + sms) if rule is enabled
+async function notifySuspectAttendance(record: any) {
+  try {
+    const rule = await prisma.emailNotificationRule.findUnique({ where: { type: 'suspect_attendance' } });
+    if (!rule || (!rule.enabled && !rule.smsEnabled)) return;
+
+    const agent = await prisma.user.findUnique({ where: { id: record.agentId }, select: { firstName: true, lastName: true } });
+    const event = await prisma.event.findUnique({ where: { id: record.eventId }, select: { title: true } });
+    if (!agent || !event) return;
+
+    const agentName = `${agent.firstName} ${agent.lastName}`;
+    const dateStr = record.date instanceof Date ? record.date.toISOString().slice(0, 10) : String(record.date).slice(0, 10);
+
+    if (rule.enabled) {
+      const recipients = rule.recipients.length > 0 ? rule.recipients : (await prisma.user.findMany({ where: { role: 'admin', isActive: true }, select: { email: true } })).map(a => a.email);
+      const html = emailSuspectAttendance(agentName, event.title, dateStr, record.suspectReasons || ['Anomalie détectée']);
+      const subject = `🔴 Pointage suspect : ${agentName}`;
+      for (const email of recipients) {
+        const sent = await sendEmail(email, subject, html);
+        if (sent) {
+          await prisma.emailLog.create({ data: { ruleType: 'suspect_attendance', recipient: email, subject, entityId: record.id } });
+        }
+      }
+    }
+
+    if (rule.smsEnabled) {
+      const adminPhones = (await prisma.user.findMany({ where: { role: 'admin', isActive: true, phone: { not: '' } }, select: { phone: true } })).map(a => a.phone);
+      const smsBody = smsSuspectAttendance(agentName, event.title);
+      for (const phone of adminPhones) {
+        const sent = await sendSms(phone, smsBody);
+        if (sent) {
+          await prisma.emailLog.create({ data: { ruleType: 'suspect_attendance', recipient: phone, subject: 'SMS: pointage suspect', channel: 'sms', entityId: record.id } });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Notification (suspect_attendance) error:', err);
+  }
+}
 
 const router = Router();
 router.use(authMiddleware);
@@ -93,6 +135,9 @@ const createSchema = z.object({
   checkInLatitude: z.number().optional(),
   checkInLongitude: z.number().optional(),
   checkInLocationValid: z.boolean().optional(),
+  status: z.string().optional(),
+  isSuspect: z.boolean().optional(),
+  suspectReasons: z.array(z.string()).optional(),
 });
 
 // POST /api/attendance (agent check-in)
@@ -113,6 +158,13 @@ router.post('/', async (req: Request, res: Response) => {
     },
     include: { photos: true },
   });
+
+  res.status(201).json(formatRecord(record));
+  emitAttendanceChanged();
+
+  if (record.isSuspect) {
+    notifySuspectAttendance(record);
+  }
 });
 
 const updateSchema = z.object({
@@ -151,6 +203,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
     res.json(formatRecord(record));
     emitAttendanceChanged();
+
+    // Send suspect email if marked as suspect
+    if (data.isSuspect === true) {
+      notifySuspectAttendance(record);
+    }
   } catch (e: any) {
     if (e.code === 'P2025') {
       res.status(404).json({ error: 'Pointage introuvable' });

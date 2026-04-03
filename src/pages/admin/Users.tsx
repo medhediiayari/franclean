@@ -14,6 +14,7 @@ import {
   Phone,
   Mail,
   CheckCircle2,
+  Building2,
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
@@ -129,6 +130,7 @@ export default function Users() {
 
   const adminCount = users.filter((u) => u.role === 'admin').length;
   const agentCount = users.filter((u) => u.role === 'agent').length;
+  const clientCount = users.filter((u) => u.role === 'client').length;
   const activeCount = users.filter((u) => u.isActive).length;
   const agents = users.filter((u) => u.role === 'agent');
   const allCanRefuse = agents.length > 0 && agents.every((a) => a.canRefuseEvents);
@@ -154,9 +156,10 @@ export default function Users() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard label="Admins" value={adminCount} icon={Shield} iconBg="bg-purple-50" iconColor="text-purple-600" />
         <StatCard label="Agents" value={agentCount} icon={UserCheck} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard label="Clients" value={clientCount} icon={Building2} iconBg="bg-amber-50" iconColor="text-amber-600" />
         <StatCard label="Actifs" value={activeCount} subtitle={`/ ${users.length} total`} icon={UserCheck} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
       </div>
 
@@ -180,6 +183,7 @@ export default function Users() {
           <option value="all">Tous les rôles</option>
           <option value="admin">Admin</option>
           <option value="agent">Agent</option>
+          <option value="client">Client</option>
         </select>
         <div className="flex items-center gap-3 ml-auto">
           <span className="text-xs font-medium text-slate-500 hidden sm:inline">Refus missions</span>
@@ -220,6 +224,8 @@ export default function Users() {
                   className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold ${
                     user.role === 'admin'
                       ? 'bg-purple-100 text-purple-700'
+                      : user.role === 'client'
+                      ? 'bg-amber-100 text-amber-700'
                       : 'bg-primary-100 text-primary-700'
                   }`}
                 >
@@ -233,15 +239,19 @@ export default function Users() {
                     className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
                       user.role === 'admin'
                         ? 'bg-purple-100 text-purple-700'
+                        : user.role === 'client'
+                        ? 'bg-amber-100 text-amber-700'
                         : 'bg-blue-100 text-blue-700'
                     }`}
                   >
                     {user.role === 'admin' ? (
                       <Shield size={10} />
+                    ) : user.role === 'client' ? (
+                      <Building2 size={10} />
                     ) : (
                       <UserCheck size={10} />
                     )}
-                    {user.role === 'admin' ? 'Admin' : 'Agent'}
+                    {user.role === 'admin' ? 'Admin' : user.role === 'client' ? 'Client' : 'Agent'}
                   </span>
                 </div>
               </div>
@@ -377,6 +387,7 @@ export default function Users() {
               >
                 <option value="agent">Agent</option>
                 <option value="admin">Administrateur</option>
+                <option value="client">Client</option>
               </select>
             </div>
             <div>

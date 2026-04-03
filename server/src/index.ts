@@ -10,6 +10,8 @@ import attendanceRoutes from './routes/attendance.js';
 import clientRoutes from './routes/clients.js';
 import paymentRoutes from './routes/payments.js';
 import clientPortalRoutes from './routes/clientPortal.js';
+import emailNotificationRoutes from './routes/emailNotifications.js';
+import { startNotificationCron } from './lib/notificationEngine.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -29,6 +31,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/client-portal', clientPortalRoutes);
+app.use('/api/email-notifications', emailNotificationRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -41,6 +44,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Erreur interne du serveur' });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`🚀 Bipbip API running on http://localhost:${PORT}`);
+  await startNotificationCron();
 });

@@ -15,6 +15,7 @@ import HoursTracking from './pages/admin/HoursTracking';
 import Gestion from './pages/admin/Gestion';
 import Recap from './pages/admin/Recap';
 import Clients from './pages/admin/Clients';
+import EmailNotifications from './pages/admin/EmailNotifications';
 
 import AgentDashboard from './pages/agent/AgentDashboard';
 import MyPlanning from './pages/agent/MyPlanning';
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="heures" element={<HoursTracking />} />
         <Route path="gestion" element={<Gestion />} />
         <Route path="recap" element={<Recap />} />
+        <Route path="emails" element={<EmailNotifications />} />
       </Route>
 
       {/* Agent Routes */}

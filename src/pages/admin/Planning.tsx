@@ -62,7 +62,7 @@ const statusColors: Record<EventStatus, string> = {
 export default function Planning() {
   const { events, addEvent, updateEvent, deleteEvent, fetchEvents } = useEventStore();
   const { users, fetchUsers } = useAuthStore();
-  const { clients: dbClients, fetchClients } = useClientStore();
+  const { clients: dbClients, fetchClients, addClient, addSite } = useClientStore();
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
@@ -102,6 +102,16 @@ export default function Planning() {
 
   const [formTab, setFormTab] = useState<'event' | 'agents'>('event');
   const [formError, setFormError] = useState<string | null>(null);
+
+  // ── Inline client / site creation ───────────────────
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    name: '', email: '', phone: '', address: '', siret: '', notes: '',
+  });
+  const [showNewSiteForm, setShowNewSiteForm] = useState(false);
+  const [newSiteForm, setNewSiteForm] = useState({
+    name: '', hourlyRate: '', notes: '',
+  });
 
   // Per-agent shift assignments: agentId -> array of shifts
   const [agentShiftAssignments, setAgentShiftAssignments] = useState<
@@ -298,6 +308,10 @@ export default function Planning() {
     setFormTab('event');
     setFormError(null);
     setSelectedEvent(null);
+    setShowNewClientForm(false);
+    setNewClientForm({ name: '', email: '', phone: '', address: '', siret: '', notes: '' });
+    setShowNewSiteForm(false);
+    setNewSiteForm({ name: '', hourlyRate: '', notes: '' });
   };
 
   const handleDateSelect = (info: { startStr: string; endStr: string }) => {
@@ -377,6 +391,57 @@ export default function Planning() {
       return;
     }
 
+    // ── Inline client creation ────────────────────────
+    let clientName = form.client;
+    let resolvedClientId: string | null = null;
+
+    if (showNewClientForm) {
+      if (!newClientForm.name.trim()) {
+        setFormError('Le nom du client est obligatoire.');
+        return;
+      }
+      try {
+        const created = await addClient({
+          name: newClientForm.name.trim().toUpperCase(),
+          email: newClientForm.email || undefined,
+          phone: newClientForm.phone || undefined,
+          address: newClientForm.address || undefined,
+          siret: newClientForm.siret || undefined,
+          notes: newClientForm.notes || undefined,
+        });
+        clientName = created.name;
+        resolvedClientId = created.id;
+      } catch (err: any) {
+        setFormError(err?.message || 'Erreur lors de la création du client.');
+        return;
+      }
+    } else {
+      const match = dbClients.find((c) => c.name === clientName);
+      if (match) resolvedClientId = match.id;
+    }
+
+    // ── Inline site creation ──────────────────────────
+    let siteName = form.site;
+
+    if (showNewSiteForm && resolvedClientId) {
+      if (!newSiteForm.name.trim()) {
+        setFormError('Le nom du site est obligatoire.');
+        return;
+      }
+      try {
+        const created = await addSite(resolvedClientId, {
+          name: newSiteForm.name.trim(),
+          address: form.address || undefined,
+          hourlyRate: newSiteForm.hourlyRate ? parseFloat(newSiteForm.hourlyRate) : undefined,
+          notes: newSiteForm.notes || undefined,
+        });
+        siteName = created.name;
+      } catch (err: any) {
+        setFormError(err?.message || 'Erreur lors de la création du site.');
+        return;
+      }
+    }
+
     // Build flat shifts array from per-agent assignments
     const allShifts: { date: string; startTime: string; endTime: string; agentId?: string }[] = [];
     const allAgentIds = Object.keys(agentShiftAssignments);
@@ -389,9 +454,9 @@ export default function Planning() {
     const eventData = {
       title: form.title,
       description: form.description,
-      client: form.client || undefined,
-      clientPhone: form.clientPhone || undefined,
-      site: form.site || undefined,
+      client: clientName || undefined,
+      clientPhone: (showNewClientForm ? newClientForm.phone : form.clientPhone) || undefined,
+      site: siteName || undefined,
       color: form.color,
       startDate: form.startDate,
       endDate: form.endDate,
@@ -1245,27 +1310,101 @@ export default function Planning() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Client</label>
-                  <ClientCombobox
-                    value={form.client}
-                    onChange={(v) => {
-                      const matchedClient = dbClients.find((c) => c.name === v);
-                      setForm((f) => ({
-                        ...f,
-                        client: v,
-                        clientPhone: matchedClient?.phone || '',
-                        site: '',
-                      }));
-                    }}
-                    existingClients={events.map((e) => e.client).filter(Boolean) as string[]}
-                  />
+                  {showNewClientForm ? (
+                    <div className="space-y-3 p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Plus size={12} /> Nouveau client
+                        </span>
+                        <button type="button" onClick={() => { setShowNewClientForm(false); setNewClientForm({ name: '', email: '', phone: '', address: '', siret: '', notes: '' }); }}
+                          className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-all">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Nom *</label>
+                        <input type="text" value={newClientForm.name}
+                          onChange={(e) => setNewClientForm((f) => ({ ...f, name: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                          placeholder="NOM DU CLIENT" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                          <input type="email" value={newClientForm.email}
+                            onChange={(e) => setNewClientForm((f) => ({ ...f, email: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="email@client.fr" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Téléphone</label>
+                          <input type="tel" value={newClientForm.phone}
+                            onChange={(e) => setNewClientForm((f) => ({ ...f, phone: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="+33 6 ..." />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Adresse</label>
+                        <input type="text" value={newClientForm.address}
+                          onChange={(e) => setNewClientForm((f) => ({ ...f, address: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                          placeholder="Adresse du siège" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">SIRET</label>
+                          <input type="text" value={newClientForm.siret}
+                            onChange={(e) => setNewClientForm((f) => ({ ...f, siret: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="14 chiffres" maxLength={14} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+                          <input type="text" value={newClientForm.notes}
+                            onChange={(e) => setNewClientForm((f) => ({ ...f, notes: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                            placeholder="Notes..." />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <ClientCombobox
+                      value={form.client}
+                      onChange={(v) => {
+                        const matchedClient = dbClients.find((c) => c.name === v);
+                        setShowNewClientForm(false);
+                        setShowNewSiteForm(false);
+                        setNewSiteForm({ name: '', hourlyRate: '', notes: '' });
+                        setForm((f) => ({
+                          ...f,
+                          client: v,
+                          clientPhone: matchedClient?.phone || '',
+                          site: '',
+                        }));
+                      }}
+                      onCreateNew={(name) => {
+                        setShowNewClientForm(true);
+                        setNewClientForm({ name, email: '', phone: '', address: '', siret: '', notes: '' });
+                        setForm((f) => ({ ...f, client: '', site: '' }));
+                      }}
+                      existingClients={events.map((e) => e.client).filter(Boolean) as string[]}
+                    />
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Tél. Client</label>
                   <input
                     type="tel"
-                    value={form.clientPhone}
-                    onChange={(e) => setForm((f) => ({ ...f, clientPhone: e.target.value }))}
+                    value={showNewClientForm ? newClientForm.phone : form.clientPhone}
+                    onChange={(e) => {
+                      if (showNewClientForm) {
+                        setNewClientForm((f) => ({ ...f, phone: e.target.value }));
+                      } else {
+                        setForm((f) => ({ ...f, clientPhone: e.target.value }));
+                      }
+                    }}
                     placeholder="Rempli automatiquement ou saisir"
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   />
@@ -1273,46 +1412,103 @@ export default function Planning() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Site</label>
-                  {(() => {
-                    const selectedClient = dbClients.find((c) => c.name === form.client);
+                  {showNewSiteForm ? (
+                    <div className="space-y-3 p-4 bg-blue-50/50 border border-blue-200 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Plus size={12} /> Nouveau site
+                        </span>
+                        <button type="button" onClick={() => { setShowNewSiteForm(false); setNewSiteForm({ name: '', hourlyRate: '', notes: '' }); }}
+                          className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-all">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Nom du site *</label>
+                        <input type="text" value={newSiteForm.name}
+                          onChange={(e) => setNewSiteForm((f) => ({ ...f, name: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          placeholder="Nom du site" />
+                      </div>
+                      {form.address && (
+                        <p className="text-[11px] text-blue-600 flex items-center gap-1.5 px-1">
+                          <MapPin size={11} /> L'adresse de l'événement sera utilisée : <span className="font-semibold truncate">{form.address}</span>
+                        </p>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Tarif HT/h (€)</label>
+                          <input type="number" step="0.01" min="0" value={newSiteForm.hourlyRate}
+                            onChange={(e) => setNewSiteForm((f) => ({ ...f, hourlyRate: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            placeholder="0.00" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
+                          <input type="text" value={newSiteForm.notes}
+                            onChange={(e) => setNewSiteForm((f) => ({ ...f, notes: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            placeholder="Notes..." />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (() => {
+                    const selectedClient = showNewClientForm ? null : dbClients.find((c) => c.name === form.client);
                     const sites = selectedClient?.sites || [];
                     if (sites.length > 0) {
                       return (
-                        <select
-                          value={form.site}
-                          onChange={(e) => {
-                            const siteName = e.target.value;
-                            setForm((f) => ({ ...f, site: siteName }));
-                            const site = sites.find((s) => s.name === siteName);
-                            if (site) {
-                              setForm((f) => ({
-                                ...f,
-                                site: siteName,
-                                address: site.address || f.address,
-                                latitude: site.latitude != null ? String(site.latitude) : f.latitude,
-                                longitude: site.longitude != null ? String(site.longitude) : f.longitude,
-                                geoRadius: site.geoRadius ? String(site.geoRadius) : f.geoRadius,
-                                hourlyRate: site.hourlyRate != null ? String(site.hourlyRate) : f.hourlyRate,
-                              }));
-                            }
-                          }}
-                          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
-                        >
-                          <option value="">Sélectionner un site</option>
-                          {sites.map((s) => (
-                            <option key={s.id} value={s.name}>{s.name}</option>
-                          ))}
-                        </select>
+                        <div className="space-y-2">
+                          <select
+                            value={form.site}
+                            onChange={(e) => {
+                              const siteName = e.target.value;
+                              if (siteName === '__NEW__') {
+                                setShowNewSiteForm(true);
+                                setForm((f) => ({ ...f, site: '' }));
+                                return;
+                              }
+                              setForm((f) => ({ ...f, site: siteName }));
+                              const site = sites.find((s) => s.name === siteName);
+                              if (site) {
+                                setForm((f) => ({
+                                  ...f,
+                                  site: siteName,
+                                  address: site.address || f.address,
+                                  latitude: site.latitude != null ? String(site.latitude) : f.latitude,
+                                  longitude: site.longitude != null ? String(site.longitude) : f.longitude,
+                                  geoRadius: site.geoRadius ? String(site.geoRadius) : f.geoRadius,
+                                  hourlyRate: site.hourlyRate != null ? String(site.hourlyRate) : f.hourlyRate,
+                                }));
+                              }
+                            }}
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+                          >
+                            <option value="">Sélectionner un site</option>
+                            {sites.map((s) => (
+                              <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                            <option value="__NEW__">＋ Nouveau site...</option>
+                          </select>
+                        </div>
                       );
                     }
+                    // No existing sites — show text input + "create site" button
                     return (
-                      <input
-                        type="text"
-                        value={form.site}
-                        onChange={(e) => setForm((f) => ({ ...f, site: e.target.value }))}
-                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                        placeholder="Nom du site"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={form.site}
+                          onChange={(e) => setForm((f) => ({ ...f, site: e.target.value }))}
+                          className="flex-1 px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                          placeholder="Nom du site"
+                        />
+                        {(form.client || showNewClientForm) && (
+                          <button type="button" onClick={() => setShowNewSiteForm(true)}
+                            className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-all flex items-center gap-1">
+                            <Plus size={13} /> Site
+                          </button>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>

@@ -15,7 +15,7 @@ interface AuthState {
   deleteUser: (id: string) => Promise<void>;
 }
 
-const TOKEN_KEY = 'franclean-token';
+const TOKEN_KEY = 'bipbip-token';
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,

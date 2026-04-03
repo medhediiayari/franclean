@@ -394,7 +394,7 @@ export default function HoursTracking() {
     const d = new Date();
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const filterSuffix = dateFrom || dateTo ? `_${dateFrom || 'debut'}_${dateTo || 'fin'}` : '';
-    XLSX.writeFile(wb, `FranClean_Suivi_Heures_${dateStr}${filterSuffix}.xlsx`);
+    XLSX.writeFile(wb, `Bipbip_Suivi_Heures_${dateStr}${filterSuffix}.xlsx`);
   }, [filteredRows, totalPointed, dateFrom, dateTo]);
 
   const exportToPdf = useCallback(() => {

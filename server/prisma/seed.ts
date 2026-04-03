@@ -25,7 +25,7 @@ async function main() {
       id: 'admin-1',
       firstName: 'Mohamed',
       lastName: 'Admin',
-      email: 'admin@franclean.fr',
+      email: 'admin@bipbip.fr',
       password: hash('admin123'),
       phone: '+33 6 12 34 56 78',
       role: 'admin',
@@ -38,7 +38,7 @@ async function main() {
       id: 'agent-1',
       firstName: 'Ahmed',
       lastName: 'Benali',
-      email: 'ahmed@franclean.fr',
+      email: 'ahmed@bipbip.fr',
       password: hash('agent123'),
       phone: '+33 6 22 33 44 55',
       role: 'agent',
@@ -51,7 +51,7 @@ async function main() {
       id: 'agent-2',
       firstName: 'Sara',
       lastName: 'Mansouri',
-      email: 'sara@franclean.fr',
+      email: 'sara@bipbip.fr',
       password: hash('agent123'),
       phone: '+33 6 33 44 55 66',
       role: 'agent',
@@ -64,7 +64,7 @@ async function main() {
       id: 'agent-3',
       firstName: 'Karim',
       lastName: 'Dupont',
-      email: 'karim@franclean.fr',
+      email: 'karim@bipbip.fr',
       password: hash('agent123'),
       phone: '+33 6 44 55 66 77',
       role: 'agent',
@@ -77,7 +77,7 @@ async function main() {
       id: 'agent-4',
       firstName: 'Fatima',
       lastName: 'El Amrani',
-      email: 'fatima@franclean.fr',
+      email: 'fatima@bipbip.fr',
       password: hash('agent123'),
       phone: '+33 6 55 66 77 88',
       role: 'agent',
@@ -749,7 +749,7 @@ async function main() {
       data: {
         firstName: 'COREDIF NOISY',
         lastName: 'Client',
-        email: 'coredif@client.franclean.fr',
+        email: 'coredif@client.bipbip.fr',
         password: hash('client123'),
         role: 'client',
         isActive: true,
@@ -814,12 +814,12 @@ async function main() {
 
   console.log('');
   console.log('Comptes de connexion :');
-  console.log('  Admin  → admin@franclean.fr / admin123');
-  console.log('  Agent1 → ahmed@franclean.fr / agent123');
-  console.log('  Agent2 → sara@franclean.fr / agent123');
-  console.log('  Agent3 → karim@franclean.fr / agent123');
-  console.log('  Agent4 → fatima@franclean.fr / agent123');
-  console.log('  Client → coredif@client.franclean.fr / client123');
+  console.log('  Admin  → admin@bipbip.fr / admin123');
+  console.log('  Agent1 → ahmed@bipbip.fr / agent123');
+  console.log('  Agent2 → sara@bipbip.fr / agent123');
+  console.log('  Agent3 → karim@bipbip.fr / agent123');
+  console.log('  Agent4 → fatima@bipbip.fr / agent123');
+  console.log('  Client → coredif@client.bipbip.fr / client123');
 }
 
 main()

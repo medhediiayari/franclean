@@ -14,6 +14,7 @@ interface ClientStore {
   deleteSite: (clientId: string, siteId: string) => Promise<void>;
   createClientAccount: (clientId: string) => Promise<{ email: string; password: string }>;
   deleteClientAccount: (clientId: string) => Promise<void>;
+  resetClientPassword: (clientId: string) => Promise<{ email: string; password: string }>;
 }
 
 export const useClientStore = create<ClientStore>((set, get) => ({
@@ -89,5 +90,10 @@ export const useClientStore = create<ClientStore>((set, get) => ({
     await api.delete(`/clients/${clientId}/account`);
     const clients = await api.get<ClientData[]>('/clients');
     set({ clients });
+  },
+
+  resetClientPassword: async (clientId) => {
+    const result = await api.post<{ email: string; password: string }>(`/clients/${clientId}/reset-password`, {});
+    return result;
   },
 }));

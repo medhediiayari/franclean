@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function Clients() {
-  const { clients, loading, fetchClients, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite, createClientAccount, deleteClientAccount } = useClientStore();
+  const { clients, loading, fetchClients, addClient, updateClient, deleteClient, addSite, updateSite, deleteSite, createClientAccount, deleteClientAccount, resetClientPassword } = useClientStore();
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -49,6 +49,7 @@ export default function Clients() {
   const [accountCreating, setAccountCreating] = useState(false);
   const [accountCredentials, setAccountCredentials] = useState<{ email: string; password: string } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   // Filter
   const filtered = search.trim()
@@ -213,6 +214,19 @@ export default function Clients() {
     }
   };
 
+  const handleResetPassword = async (clientId: string) => {
+    if (!confirm('Générer un nouveau mot de passe pour ce client ?')) return;
+    setResettingPassword(true);
+    try {
+      const result = await resetClientPassword(clientId);
+      setAccountCredentials(result);
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la réinitialisation.');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -295,7 +309,7 @@ export default function Clients() {
                     return (
                       <div
                         key={client.id}
-                        onClick={() => setExpandedClientId(isSelected ? null : client.id)}
+                        onClick={() => { setExpandedClientId(isSelected ? null : client.id); setAccountCredentials(null); }}
                         className={`relative bg-white rounded-2xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-md group ${
                           isSelected
                             ? 'border-primary-500 shadow-lg shadow-primary-500/10 ring-1 ring-primary-500/20'
@@ -432,6 +446,13 @@ export default function Clients() {
                                 <Check size={12} /> Compte actif
                               </span>
                               <button
+                                onClick={() => handleResetPassword(selectedClient.id)}
+                                disabled={resettingPassword}
+                                className="px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              >
+                                {resettingPassword ? 'Réinitialisation...' : 'Réinitialiser MDP'}
+                              </button>
+                              <button
                                 onClick={() => handleDeleteAccount(selectedClient.id)}
                                 className="px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                               >
@@ -455,8 +476,17 @@ export default function Clients() {
                           </p>
                         )}
                         {accountCredentials && (
-                          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                            <p className="text-xs font-semibold text-emerald-800 mb-2">Identifiants créés (copiez-les maintenant) :</p>
+                          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg relative">
+                            <button
+                              onClick={() => setAccountCredentials(null)}
+                              className="absolute top-2 right-2 p-0.5 text-emerald-400 hover:text-emerald-700 transition-colors"
+                              title="Masquer les identifiants"
+                            >
+                              <X size={14} />
+                            </button>
+                            <p className="text-xs font-semibold text-emerald-800 mb-2">
+                              Nouveau mot de passe (copiez-le maintenant) :
+                            </p>
                             <div className="space-y-1.5">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-slate-600 w-16">Email :</span>

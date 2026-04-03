@@ -75,7 +75,7 @@ export function generatePlanningPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('FranClean RH - Planning', 14, 13);
+  doc.text('Bipbip - Planning', 14, 13);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.text(label.charAt(0).toUpperCase() + label.slice(1), 14, 22);

@@ -19,17 +19,18 @@ import {
   PanelLeftOpen,
   BarChart3,
   Building2,
+  Mail,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
   { to: '/admin/planning', icon: CalendarDays, label: 'Planification' },
-  { to: '/admin/pointage', icon: Clock, label: 'Pointage' },
   { to: '/admin/clients', icon: Building2, label: 'Clients' },
   { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
   { to: '/admin/heures', icon: FileSpreadsheet, label: 'Suivi Heures' },
   { to: '/admin/recap', icon: BarChart3, label: 'Récap' },
   { to: '/admin/gestion', icon: ListChecks, label: 'Gestion' },
+  { to: '/admin/emails', icon: Mail, label: 'Emails' },
 ];
 
 export default function AdminLayout() {

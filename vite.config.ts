@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'FranClean RH - Gestion des Ressources Humaines',
         short_name: 'FranClean RH',
-        description: 'Plateforme de gestion RH - Planning et Pointage',
+        description: 'Bipbip - Gestion RH, Planning et Pointage',
         theme_color: '#4F46E5',
         background_color: '#F8FAFC',
         display: 'standalone',

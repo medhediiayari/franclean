@@ -47,9 +47,25 @@ function parseHHmm(t: string): number {
   return h + m / 60;
 }
 
+const STORAGE_KEY = 'bipbip_read_notification_ids';
+
+function loadReadIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set<string>();
+}
+
+function saveReadIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {}
+}
+
 export const useNotificationStore = create<NotificationState>()((set, get) => ({
   notifications: [],
-  readIds: new Set<string>(),
+  readIds: loadReadIds(),
 
   generateNotifications: (events, records, users) => {
     const notifs: AdminNotification[] = [];
@@ -249,6 +265,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     set((state) => {
       const newReadIds = new Set(state.readIds);
       newReadIds.add(id);
+      saveReadIds(newReadIds);
       return {
         readIds: newReadIds,
         notifications: state.notifications.map((n) =>
@@ -262,6 +279,7 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
     set((state) => {
       const newReadIds = new Set(state.readIds);
       state.notifications.forEach((n) => newReadIds.add(n.id));
+      saveReadIds(newReadIds);
       return {
         readIds: newReadIds,
         notifications: state.notifications.map((n) => ({ ...n, isRead: true })),

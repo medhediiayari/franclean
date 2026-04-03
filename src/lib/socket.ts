@@ -5,7 +5,7 @@ import { useEventStore } from '../store/eventStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useNotificationStore } from '../store/notificationStore';
 
-const TOKEN_KEY = 'franclean-token';
+const TOKEN_KEY = 'bipbip-token';
 
 let globalSocket: Socket | null = null;
 

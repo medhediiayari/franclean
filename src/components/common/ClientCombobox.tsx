@@ -7,9 +7,11 @@ interface ClientComboboxProps {
   onChange: (value: string) => void;
   /** Client names already used in existing events — merged into the dropdown automatically */
   existingClients?: string[];
+  /** If provided, called instead of inline quick-create. Receives the typed name. */
+  onCreateNew?: (name: string) => void;
 }
 
-export default function ClientCombobox({ value, onChange, existingClients = [] }: ClientComboboxProps) {
+export default function ClientCombobox({ value, onChange, existingClients = [], onCreateNew }: ClientComboboxProps) {
   const { clients: dbClients, loading, fetchClients, addClient } = useClientStore();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -59,6 +61,12 @@ export default function ClientCombobox({ value, onChange, existingClients = [] }
   async function handleCreate() {
     const name = search.trim().toUpperCase();
     if (!name || creating) return;
+    if (onCreateNew) {
+      onCreateNew(name);
+      setSearch('');
+      setOpen(false);
+      return;
+    }
     setCreating(true);
     try {
       await addClient({ name });

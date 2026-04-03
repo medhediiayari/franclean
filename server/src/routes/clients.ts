@@ -177,7 +177,7 @@ function generateClientEmail(clientName: string): string {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '.')
     .replace(/^\.+|\.+$/g, '');
-  return `${slug}@client.franclean.fr`;
+  return `${slug}@client.bipbip.fr`;
 }
 
 // POST /api/clients/:id/create-account — auto-generate user account for client
@@ -225,6 +225,23 @@ router.delete('/:id/account', adminOnly, async (req: Request, res: Response) => 
 
   await prisma.user.delete({ where: { id: client.user.id } });
   res.json({ success: true });
+});
+
+// POST /api/clients/:id/reset-password — generate new password for client
+router.post('/:id/reset-password', adminOnly, async (req: Request, res: Response) => {
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
+  if (!client.user) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
+
+  const plainPassword = generatePassword();
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+  await prisma.user.update({
+    where: { id: client.user.id },
+    data: { password: hashedPassword },
+  });
+
+  res.json({ email: client.user.email, password: plainPassword });
 });
 
 export default router;

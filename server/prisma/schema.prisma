@@ -255,3 +255,43 @@ model AgentPayment {
 
   @@map("agent_payments")
 }
+
+// ── Email Notification Rules ────────────────────────────
+model EmailNotificationRule {
+  id          String   @id @default(cuid())
+  type        String   // rule type key (see below)
+  enabled     Boolean  @default(true)
+  smsEnabled  Boolean  @default(false)
+  recipients  String[] @default([]) // email addresses; empty = all admins
+  threshold   Int      @default(0)  // minutes or days depending on type
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([type])
+  @@map("email_notification_rules")
+}
+
+// ── Email Log (sent emails history) ─────────────────────
+model EmailLog {
+  id         String   @id @default(cuid())
+  ruleType   String
+  recipient  String
+  subject    String
+  channel    String   @default("email") // "email" or "sms"
+  entityId   String?  // eventId, attendanceId, etc.
+  sentAt     DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+// ── SMS Config (Twilio) ─────────────────────────────────
+model SmsConfig {
+  id          String   @id @default("singleton")
+  accountSid  String   @default("")
+  authToken   String   @default("")
+  phoneNumber String   @default("")
+  enabled     Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@map("sms_config")
+}

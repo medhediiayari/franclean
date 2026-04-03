@@ -2,7 +2,101 @@ import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { emitEventsChanged, emitToAdmins, emitToUser } from '../lib/socket.js';
+import { sendEmail, emailAgentAssigned, emailEventRefused, type ShiftInfo } from '../lib/email.js';
+import { sendSms, smsAgentAssigned, smsEventRefused } from '../lib/sms.js';
 import { z } from 'zod';
+
+// Helper: send agent-assigned notification (email + sms) if rule is enabled
+async function notifyAgentAssigned(agentIds: string[], event: any) {
+  try {
+    const rule = await prisma.emailNotificationRule.findUnique({ where: { type: 'agent_assigned' } });
+    if (!rule || (!rule.enabled && !rule.smsEnabled)) return;
+
+    const agents = await prisma.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, email: true, phone: true, firstName: true, lastName: true } });
+    const dates = `${event.startDate.toISOString().slice(0, 10)} → ${event.endDate.toISOString().slice(0, 10)}`;
+
+    // Build shifts per agent from event data
+    const allShifts: { agentId: string | null; date: Date; startTime: string; endTime: string }[] = event.shifts || [];
+
+    for (const agent of agents) {
+      // Filter shifts for this agent (or unassigned shifts if no agentId)
+      const agentShifts: ShiftInfo[] = allShifts
+        .filter((s: any) => s.agentId === agent.id || s.agentId === null)
+        .map((s: any) => ({
+          date: s.date instanceof Date ? s.date.toISOString().slice(0, 10) : String(s.date).slice(0, 10),
+          startTime: s.startTime,
+          endTime: s.endTime,
+        }))
+        .sort((a: ShiftInfo, b: ShiftInfo) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+
+      if (rule.enabled) {
+        const already = await prisma.emailLog.findFirst({
+          where: { ruleType: 'agent_assigned', entityId: `${event.id}-${agent.id}`, recipient: agent.email },
+        });
+        if (!already) {
+          const html = emailAgentAssigned(`${agent.firstName} ${agent.lastName}`, event.title, event.client || '', dates, event.address, agentShifts);
+          const sent = await sendEmail(agent.email, `Nouvelle mission : ${event.title}`, html);
+          if (sent) {
+            await prisma.emailLog.create({ data: { ruleType: 'agent_assigned', recipient: agent.email, subject: `Nouvelle mission : ${event.title}`, entityId: `${event.id}-${agent.id}` } });
+          }
+        }
+      }
+
+      if (rule.smsEnabled && agent.phone) {
+        const alreadySms = await prisma.emailLog.findFirst({
+          where: { ruleType: 'agent_assigned', entityId: `${event.id}-${agent.id}`, recipient: agent.phone, channel: 'sms' },
+        });
+        if (!alreadySms) {
+          const smsBody = smsAgentAssigned(`${agent.firstName} ${agent.lastName}`, event.title, dates);
+          const sent = await sendSms(agent.phone, smsBody);
+          if (sent) {
+            await prisma.emailLog.create({ data: { ruleType: 'agent_assigned', recipient: agent.phone, subject: 'SMS: nouvelle mission', channel: 'sms', entityId: `${event.id}-${agent.id}` } });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Notification (agent_assigned) error:', err);
+  }
+}
+
+// Helper: send event-refused notification (email + sms) if rule is enabled
+async function notifyEventRefused(agentId: string, event: any) {
+  try {
+    const rule = await prisma.emailNotificationRule.findUnique({ where: { type: 'event_refused' } });
+    if (!rule || (!rule.enabled && !rule.smsEnabled)) return;
+
+    const agent = await prisma.user.findUnique({ where: { id: agentId }, select: { firstName: true, lastName: true, phone: true } });
+    if (!agent) return;
+
+    const agentName = `${agent.firstName} ${agent.lastName}`;
+
+    if (rule.enabled) {
+      const recipients = rule.recipients.length > 0 ? rule.recipients : (await prisma.user.findMany({ where: { role: 'admin', isActive: true }, select: { email: true } })).map(a => a.email);
+      const html = emailEventRefused(agentName, event.title, event.client || '');
+      const subject = `❌ Mission refusée : ${event.title}`;
+      for (const email of recipients) {
+        const sent = await sendEmail(email, subject, html);
+        if (sent) {
+          await prisma.emailLog.create({ data: { ruleType: 'event_refused', recipient: email, subject, entityId: event.id } });
+        }
+      }
+    }
+
+    if (rule.smsEnabled) {
+      const adminPhones = (await prisma.user.findMany({ where: { role: 'admin', isActive: true, phone: { not: '' } }, select: { phone: true } })).map(a => a.phone);
+      const smsBody = smsEventRefused(agentName, event.title);
+      for (const phone of adminPhones) {
+        const sent = await sendSms(phone, smsBody);
+        if (sent) {
+          await prisma.emailLog.create({ data: { ruleType: 'event_refused', recipient: phone, subject: 'SMS: mission refusée', channel: 'sms', entityId: event.id } });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Notification (event_refused) error:', err);
+  }
+}
 
 const router = Router();
 router.use(authMiddleware);
@@ -169,6 +263,11 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
 
   res.status(201).json(formatEvent(event));
   emitEventsChanged();
+
+  // Send email to newly assigned agents
+  if (assignedAgentIds && assignedAgentIds.length > 0) {
+    notifyAgentAssigned(assignedAgentIds, event);
+  }
 });
 
 const updateEventSchema = z.object({
@@ -266,6 +365,11 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
 
   res.json(formatEvent(event));
   emitEventsChanged();
+
+  // Send email to newly assigned agents (only new ones)
+  if (assignedAgentIds && assignedAgentIds.length > 0) {
+    notifyAgentAssigned(assignedAgentIds, event);
+  }
 });
 
 // DELETE /api/events/:id (admin only)
@@ -339,6 +443,12 @@ router.post('/:id/response', async (req: Request, res: Response) => {
   res.json(formatEvent(event));
   // Notify admins in real-time about agent response
   emitEventsChanged();
+
+  // Send email if agent refused
+  if (parsed.data.response === 'refused') {
+    notifyEventRefused(agentId, event);
+  }
+
   emitToAdmins('notification:agentResponse', {
     eventId,
     agentId,
