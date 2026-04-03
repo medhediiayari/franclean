@@ -30,6 +30,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-franclean}:${POSTGRES_PASSWORD:-franclean_secret}@postgres:5432/${POSTGRES_DB:-franclean_db}
       JWT_SECRET: ${JWT_SECRET:-change_me_in_production_please}
       PORT: 3000
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      - ./public:/app/public-assets
     # No external port - accessed via nginx internally
 
   frontend:

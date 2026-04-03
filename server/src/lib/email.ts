@@ -20,9 +20,15 @@ transporter.verify().then(() => {
 
 const FROM = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@bipbip.fr';
 
-// Resolve logo path — works in dev (server/) and with the project structure
+// Resolve logo path — works in dev (server/) and in Docker (/app with public-assets volume)
+import fs from 'fs';
 const LOGO_FILENAME = 'logobipbip new.png';
-const LOGO_PATH = path.resolve(process.cwd(), '..', 'public', LOGO_FILENAME);
+const LOGO_CANDIDATES = [
+  path.resolve(process.cwd(), '..', 'public', LOGO_FILENAME),       // dev: server/../public/
+  path.resolve(process.cwd(), 'public-assets', LOGO_FILENAME),      // docker: /app/public-assets/
+  path.resolve(process.cwd(), 'public', LOGO_FILENAME),             // fallback
+];
+const LOGO_PATH = LOGO_CANDIDATES.find(p => fs.existsSync(p)) || LOGO_CANDIDATES[0];
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
