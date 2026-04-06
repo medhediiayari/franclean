@@ -368,29 +368,23 @@ export default function CheckIn() {
 
               {/* Work photos section */}
               <div className="border-t border-slate-100 pt-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ImagePlus size={14} className="text-violet-500" />
-                    <span className="text-xs font-bold text-slate-700">Photos de travail</span>
-                    {(rec.photos || []).length > 0 && (
-                      <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">
-                        {rec.photos.length}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => openGalleryForRecord(rec.id)}
-                    disabled={workPhotoUploading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-xl transition-colors disabled:opacity-50"
-                  >
-                    {workPhotoUploading ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <ImagePlus size={12} />
-                    )}
-                    Ajouter
-                  </button>
-                </div>
+                <button
+                  onClick={() => openGalleryForRecord(rec.id)}
+                  disabled={workPhotoUploading}
+                  className="w-full flex items-center justify-center gap-2.5 px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 rounded-2xl shadow-lg shadow-violet-500/20 transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {workPhotoUploading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <ImagePlus size={18} />
+                  )}
+                  Ajouter des photos de travail
+                  {(rec.photos || []).length > 0 && (
+                    <span className="text-xs font-bold bg-white/20 px-2 py-0.5 rounded-full">
+                      {rec.photos.length}
+                    </span>
+                  )}
+                </button>
 
                 {/* Existing photos gallery */}
                 {(rec.photos || []).length > 0 && (

@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
+  Navigation,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -368,9 +369,19 @@ export default function MyPlanning() {
                           }
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 mt-1 text-xs text-slate-400">
+                      <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-400">
                         <MapPin size={12} />
                         {event.address.split(',')[0]}
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full shadow-sm transition-all active:scale-95"
+                          title="Ouvrir dans Google Maps"
+                        >
+                          <Navigation size={10} /> Maps
+                        </a>
                       </div>
                       {exceptionDays.length > 0 && (
                         <p className="mt-1 text-[11px] font-medium text-amber-600">
@@ -413,6 +424,14 @@ export default function MyPlanning() {
                         <p className="text-xs text-slate-400">
                           Adresse : {event.address}
                         </p>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all active:scale-[0.98]"
+                        >
+                          <Navigation size={16} /> Ouvrir dans Google Maps
+                        </a>
                       </div>
 
                       {/* Agent response buttons */}

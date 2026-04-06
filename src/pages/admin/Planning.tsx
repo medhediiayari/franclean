@@ -12,6 +12,7 @@ import { formatDateTime, formatDate } from '../../utils/helpers';
 import type { PlanningEvent, EventStatus, EventShift } from '../../types';
 import LocationPicker from '../../components/common/LocationPicker';
 import ClientCombobox from '../../components/common/ClientCombobox';
+import TimeInput24 from '../../components/common/TimeInput24';
 import { useClientStore } from '../../store/clientStore';
 import { generatePlanningPDF } from '../../utils/pdfExport';
 import {
@@ -1854,24 +1855,18 @@ export default function Planning() {
                                 <div className="space-y-2 mb-2">
                                   {agentTemplateSlots.map((slot, idx) => (
                                     <div key={idx} className="flex items-center gap-2">
-                                      <input
-                                        type="time"
-                                        lang="fr-FR"
+                                      <TimeInput24
                                         value={slot.startTime}
-                                        onChange={(e) =>
-                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, startTime: e.target.value } : s)))
+                                        onChange={(v) =>
+                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, startTime: v } : s)))
                                         }
-                                        className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                       />
                                       <span className="text-slate-300 text-xs">→</span>
-                                      <input
-                                        type="time"
-                                        lang="fr-FR"
+                                      <TimeInput24
                                         value={slot.endTime}
-                                        onChange={(e) =>
-                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, endTime: e.target.value } : s)))
+                                        onChange={(v) =>
+                                          setAgentTemplateSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, endTime: v } : s)))
                                         }
-                                        className="px-2 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                                       />
                                       {agentTemplateSlots.length > 1 && (
                                         <button
@@ -1928,26 +1923,20 @@ export default function Planning() {
                                           <div className="space-y-1.5">
                                             {dateSlots.map((slot, slotIdx) => (
                                               <div key={slotIdx} className="flex items-center gap-2">
-                                                <input
-                                                  type="time"
-                                                  lang="fr-FR"
+                                                <TimeInput24
                                                   value={slot.startTime}
-                                                  onChange={(e) => setPerDateSlots(prev => ({
+                                                  onChange={(v) => setPerDateSlots(prev => ({
                                                     ...prev,
-                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, startTime: e.target.value } : s)
+                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, startTime: v } : s)
                                                   }))}
-                                                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none w-[120px]"
                                                 />
                                                 <span className="text-slate-400 text-xs">→</span>
-                                                <input
-                                                  type="time"
-                                                  lang="fr-FR"
+                                                <TimeInput24
                                                   value={slot.endTime}
-                                                  onChange={(e) => setPerDateSlots(prev => ({
+                                                  onChange={(v) => setPerDateSlots(prev => ({
                                                     ...prev,
-                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, endTime: e.target.value } : s)
+                                                    [date]: (prev[date] || []).map((s, i) => i === slotIdx ? { ...s, endTime: v } : s)
                                                   }))}
-                                                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none w-[120px]"
                                                 />
                                                 <button
                                                   type="button"
