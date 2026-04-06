@@ -172,8 +172,9 @@ export default function HoursTracking() {
       .map((rec) => {
         const agent = agents.find((a) => a.id === rec.agentId);
         const event = events.find((e) => e.id === rec.eventId);
-        // Find planned shift for this date
-        const shift = event?.shifts?.find((s) => s.date === rec.date);
+        // Find planned shift for this date + agent (fallback to any shift on the date)
+        const shifts = event?.shifts?.filter((s) => s.date === rec.date) || [];
+        const shift = shifts.find((s) => s.agentId === rec.agentId) || shifts[0];
 
         return {
           ...rec,
@@ -868,7 +869,8 @@ export default function HoursTracking() {
         {quickRecord && (() => {
           const ev = events.find((e) => e.id === quickRecord.eventId);
           const ag = users.find((u) => u.id === quickRecord.agentId);
-          const sh = ev?.shifts?.find((s) => s.date === quickRecord.date);
+          const shForDate = ev?.shifts?.filter((s) => s.date === quickRecord.date) || [];
+          const sh = shForDate.find((s) => s.agentId === quickRecord.agentId) || shForDate[0];
 
           let qPlanned = 0;
           if (sh?.startTime && sh?.endTime) {
@@ -1067,7 +1069,8 @@ export default function HoursTracking() {
         {selectedRecord && (() => {
           const event = events.find((e) => e.id === selectedRecord.eventId);
           const agent = users.find((u) => u.id === selectedRecord.agentId);
-          const shift = event?.shifts?.find((s) => s.date === selectedRecord.date);
+          const shiftsForDate = event?.shifts?.filter((s) => s.date === selectedRecord.date) || [];
+          const shift = shiftsForDate.find((s) => s.agentId === selectedRecord.agentId) || shiftsForDate[0];
 
           return (
             <div className="space-y-5">
