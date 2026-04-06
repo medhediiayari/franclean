@@ -16,7 +16,11 @@ declare global {
   }
 }
 
-export function signToken(payload: AuthPayload): string {
+export function signToken(payload: AuthPayload, longLived = false): string {
+  if (longLived) {
+    // No expiration for mobile PWA
+    return jwt.sign(payload, JWT_SECRET);
+  }
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 

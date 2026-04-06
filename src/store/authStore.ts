@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
+import { subscribeToPush } from '../lib/pushNotifications';
 import type { User } from '../types';
 
 interface AuthState {
@@ -24,10 +25,18 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   login: async (email: string, password: string) => {
     try {
-      const { token, user } = await api.post<{ token: string; user: User }>('/auth/login', { email, password });
+      // Detect PWA standalone mode (installed on home screen)
+      const isPwa = window.matchMedia('(display-mode: standalone)').matches
+        || (window.navigator as any).standalone === true;
+      const { token, user } = await api.post<{ token: string; user: User }>('/auth/login', { email, password, persist: isPwa });
       api.setToken(token);
+      localStorage.setItem(TOKEN_KEY, token);
       sessionStorage.setItem(TOKEN_KEY, token);
       set({ user, isAuthenticated: true });
+
+      // Auto-subscribe to push notifications
+      subscribeToPush().catch(() => {});
+
       return true;
     } catch {
       return false;
@@ -36,18 +45,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   logout: () => {
     api.setToken(null);
+    localStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
     set({ user: null, isAuthenticated: false, users: [] });
   },
 
   initAuth: async () => {
-    const token = sessionStorage.getItem(TOKEN_KEY);
+    // Try localStorage first (persists across sessions on mobile), then sessionStorage
+    const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
     if (!token) return;
     api.setToken(token);
     try {
       const user = await api.get<User>('/auth/me');
       set({ user, isAuthenticated: true });
+      // Re-sync push subscription
+      subscribeToPush().catch(() => {});
     } catch {
+      localStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(TOKEN_KEY);
       api.setToken(null);
     }

@@ -269,3 +269,108 @@ export function emailNoCheckoutAlert(items: { agentName: string; eventTitle: str
     </table>
   `);
 }
+
+export function emailLateCheckin(agentName: string, eventTitle: string, expectedTime: string, actualTime: string, lateMinutes: number): string {
+  return baseTemplate('⏰ Agent en retard', `
+    <p>L'agent <strong>${agentName}</strong> a pointé son entrée en <span style="color:#ef4444;font-weight:600;">retard de ${lateMinutes} minutes</span> :</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;width:140px;">Mission</td>
+          <td style="padding:8px 12px;background:#f1f5f9;">${eventTitle}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:600;color:#64748b;">Heure prévue</td>
+          <td style="padding:8px 12px;">${expectedTime}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;">Heure réelle</td>
+          <td style="padding:8px 12px;background:#f1f5f9;color:#ef4444;font-weight:600;">${actualTime}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:600;color:#64748b;">Retard</td>
+          <td style="padding:8px 12px;color:#ef4444;font-weight:600;">+${lateMinutes} min</td></tr>
+    </table>
+  `);
+}
+
+export function emailEarlyCheckout(agentName: string, eventTitle: string, expectedTime: string, actualTime: string, earlyMinutes: number): string {
+  return baseTemplate('⚡ Sortie anticipée', `
+    <p>L'agent <strong>${agentName}</strong> a pointé sa sortie <span style="color:#f59e0b;font-weight:600;">${earlyMinutes} minutes avant</span> la fin prévue :</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;width:140px;">Mission</td>
+          <td style="padding:8px 12px;background:#f1f5f9;">${eventTitle}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:600;color:#64748b;">Fin prévue</td>
+          <td style="padding:8px 12px;">${expectedTime}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;">Sortie réelle</td>
+          <td style="padding:8px 12px;background:#f1f5f9;color:#f59e0b;font-weight:600;">${actualTime}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:600;color:#64748b;">Avance</td>
+          <td style="padding:8px 12px;color:#f59e0b;font-weight:600;">-${earlyMinutes} min</td></tr>
+    </table>
+  `);
+}
+
+export function emailMissionCancelled(agentName: string, eventTitle: string, client: string, address: string): string {
+  return baseTemplate('🚫 Mission annulée', `
+    <p>Bonjour <strong>${agentName}</strong>,</p>
+    <p>La mission suivante a été <span style="color:#ef4444;font-weight:600;">annulée</span> :</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;width:120px;">Mission</td>
+          <td style="padding:8px 12px;background:#f1f5f9;">${eventTitle}</td></tr>
+      <tr><td style="padding:8px 12px;font-weight:600;color:#64748b;">Client</td>
+          <td style="padding:8px 12px;">${client || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f1f5f9;font-weight:600;color:#64748b;">Adresse</td>
+          <td style="padding:8px 12px;background:#f1f5f9;">${address || '—'}</td></tr>
+    </table>
+    <p>Vous n'avez plus besoin de vous présenter pour cette mission.</p>
+  `);
+}
+
+export function emailWeeklyAgentSummary(agents: { name: string; totalHours: number; missionCount: number; dayCount: number }[], weekStart: string, weekEnd: string): string {
+  const totalHours = agents.reduce((s, a) => s + a.totalHours, 0);
+  const rows = agents.map(a =>
+    `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:500;">${a.name}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:600;color:#059669;">${a.totalHours}h</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${a.missionCount}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${a.dayCount}j</td>
+    </tr>`
+  ).join('');
+  return baseTemplate('📊 Récap hebdomadaire des heures', `
+    <p>Voici le récapitulatif des heures de la semaine du <strong>${weekStart}</strong> au <strong>${weekEnd}</strong> :</p>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin:16px 0;text-align:center;">
+      <span style="font-size:24px;font-weight:700;color:#059669;">${Math.round(totalHours * 100) / 100}h</span>
+      <span style="display:block;font-size:12px;color:#64748b;margin-top:4px;">Total heures — ${agents.length} agent(s)</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;">
+      <thead><tr style="background:#f1f5f9;">
+        <th style="padding:8px 12px;text-align:left;color:#64748b;">Agent</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Heures</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Missions</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Jours</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `);
+}
+
+export function emailMonthlyClientReport(clients: { client: string; totalHours: number; missionCount: number; agentCount: number }[], monthName: string): string {
+  const totalHours = clients.reduce((s, c) => s + c.totalHours, 0);
+  const rows = clients.map(c =>
+    `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:500;">${c.client}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:600;color:#6366f1;">${c.totalHours}h</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${c.missionCount}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${c.agentCount}</td>
+    </tr>`
+  ).join('');
+  return baseTemplate(`📋 Récap mensuel par client — ${monthName}`, `
+    <p>Voici le récapitulatif des heures par client pour <strong>${monthName}</strong> :</p>
+    <div style="background:#eef2ff;border:1px solid #a5b4fc;border-radius:8px;padding:12px 16px;margin:16px 0;text-align:center;">
+      <span style="font-size:24px;font-weight:700;color:#6366f1;">${Math.round(totalHours * 100) / 100}h</span>
+      <span style="display:block;font-size:12px;color:#64748b;margin-top:4px;">Total heures — ${clients.length} client(s)</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;">
+      <thead><tr style="background:#f1f5f9;">
+        <th style="padding:8px 12px;text-align:left;color:#64748b;">Client</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Heures</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Missions</th>
+        <th style="padding:8px 12px;text-align:center;color:#64748b;">Agents</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="color:#64748b;font-size:12px;">Ce récapitulatif peut servir de base pour la facturation.</p>
+  `);
+}

@@ -130,7 +130,7 @@ export default function AdminDashboard() {
                 {suspectAttendance.length} pointage(s) suspect(s) nécessitent votre attention
               </p>
               <Link
-                to="/admin/pointage"
+                to="/admin/heures"
                 className="ml-auto text-xs text-orange-500 hover:text-orange-600 font-medium flex items-center gap-1"
               >
                 Voir <ArrowRight size={12} />

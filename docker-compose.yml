@@ -35,6 +35,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-BCi2MiUqC0f4a4jEmy4FjPARQckHPnfSNef7klKbFqHJW09GDs26WHWm5n_ockigkLZvNAII5U9M2eKEYdPf77w}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-BOdCODQk39JZ51Yt_JaCAYIb3Hm1H6Phme3gOULIAYA}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:notif.bipbip@gmail.com}
     volumes:
       - ./public:/app/public-assets
     # No external port - accessed via nginx internally

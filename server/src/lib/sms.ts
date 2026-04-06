@@ -93,3 +93,23 @@ export function smsSuspectAttendance(agentName: string, eventTitle: string): str
 export function smsEventRefused(agentName: string, eventTitle: string): string {
   return `🐦 Bipbip ❌\n\n${agentName} a refusé la mission "${eventTitle}". Réaffectation nécessaire.`;
 }
+
+export function smsLateCheckin(agentName: string, eventTitle: string, lateMinutes: number): string {
+  return `🐦 Bipbip ⏰\n\nRetard : ${agentName} a pointé +${lateMinutes} min en retard sur "${eventTitle}".`;
+}
+
+export function smsEarlyCheckout(agentName: string, eventTitle: string, earlyMinutes: number): string {
+  return `🐦 Bipbip ⚡\n\nSortie anticipée : ${agentName} est parti ${earlyMinutes} min avant la fin de "${eventTitle}".`;
+}
+
+export function smsMissionCancelled(agentName: string, eventTitle: string): string {
+  return `🐦 Bipbip 🚫\n\nBonjour ${agentName}, la mission "${eventTitle}" a été annulée. Vous n'avez plus besoin de vous présenter.`;
+}
+
+export function smsWeeklyAgentSummary(agentCount: number, totalHours: number): string {
+  return `🐦 Bipbip 📊\n\nRécap hebdo : ${agentCount} agent(s), ${totalHours}h au total. Détails par email.`;
+}
+
+export function smsMonthlyClientReport(clientCount: number, totalHours: number, monthName: string): string {
+  return `🐦 Bipbip 📋\n\nRécap ${monthName} : ${clientCount} client(s), ${totalHours}h au total. Détails par email.`;
+}

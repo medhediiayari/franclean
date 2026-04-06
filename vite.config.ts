@@ -40,6 +40,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        importScripts: ['sw-push.js'],
       },
     }),
   ],

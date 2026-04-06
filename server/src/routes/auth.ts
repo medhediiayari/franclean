@@ -9,6 +9,7 @@ const router = Router();
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  persist: z.boolean().optional(),
 });
 
 // POST /api/auth/login
@@ -19,7 +20,7 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, persist } = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user || !user.isActive) {
@@ -33,7 +34,8 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const token = signToken({ userId: user.id, role: user.role });
+  // Long-lived token for mobile/PWA (persist=true)
+  const token = signToken({ userId: user.id, role: user.role }, persist === true);
   const { password: _, ...userWithoutPassword } = user;
 
   res.json({ token, user: userWithoutPassword });

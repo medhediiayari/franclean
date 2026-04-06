@@ -4,6 +4,8 @@ import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { emitEventsChanged, emitToAdmins, emitToUser } from '../lib/socket.js';
 import { sendEmail, emailAgentAssigned, emailEventRefused, type ShiftInfo } from '../lib/email.js';
 import { sendSms, smsAgentAssigned, smsEventRefused } from '../lib/sms.js';
+import { notifyMissionCancelled } from '../lib/notificationEngine.js';
+import { sendPushToUser, sendPushToAdmins } from '../lib/push.js';
 import { z } from 'zod';
 
 // Helper: send agent-assigned notification (email + sms) if rule is enabled
@@ -54,6 +56,14 @@ async function notifyAgentAssigned(agentIds: string[], event: any) {
           }
         }
       }
+
+      // Push notification to agent
+      await sendPushToUser(agent.id, {
+        title: '🎯 Nouvelle mission',
+        body: `${event.title} — ${dates}`,
+        url: '/agent/planning',
+        tag: `assigned-${event.id}`,
+      });
     }
   } catch (err) {
     console.error('Notification (agent_assigned) error:', err);
@@ -93,6 +103,14 @@ async function notifyEventRefused(agentId: string, event: any) {
         }
       }
     }
+
+    // Push to admins
+    await sendPushToAdmins({
+      title: '❌ Mission refusée',
+      body: `${agentName} a refusé "${event.title}"`,
+      url: '/admin/planning',
+      tag: `refused-${event.id}`,
+    });
   } catch (err) {
     console.error('Notification (event_refused) error:', err);
   }
@@ -369,6 +387,11 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
   // Send email to newly assigned agents (only new ones)
   if (assignedAgentIds && assignedAgentIds.length > 0) {
     notifyAgentAssigned(assignedAgentIds, event);
+  }
+
+  // Notify agents when mission is cancelled
+  if (rest.status === 'annule') {
+    notifyMissionCancelled(eventId);
   }
 });
 

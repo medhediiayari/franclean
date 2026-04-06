@@ -29,6 +29,11 @@ import {
   MessageSquare,
   Eye,
   EyeOff,
+  Timer,
+  Zap,
+  Ban,
+  BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface EmailRule {
@@ -69,6 +74,11 @@ const RULE_ICONS: Record<string, any> = {
   no_checkout: LogOut,
   suspect_attendance: ShieldAlert,
   event_refused: UserX,
+  late_checkin: Timer,
+  early_checkout: Zap,
+  mission_cancelled: Ban,
+  weekly_agent_summary: BarChart3,
+  monthly_client_report: FileSpreadsheet,
 };
 
 const RULE_COLORS: Record<string, string> = {
@@ -79,6 +89,11 @@ const RULE_COLORS: Record<string, string> = {
   no_checkout: 'bg-yellow-500',
   suspect_attendance: 'bg-red-600',
   event_refused: 'bg-rose-500',
+  late_checkin: 'bg-orange-600',
+  early_checkout: 'bg-amber-600',
+  mission_cancelled: 'bg-slate-600',
+  weekly_agent_summary: 'bg-emerald-500',
+  monthly_client_report: 'bg-indigo-500',
 };
 
 export default function EmailNotifications() {

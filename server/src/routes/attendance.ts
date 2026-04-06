@@ -4,6 +4,8 @@ import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { emitAttendanceChanged, emitToAdmins } from '../lib/socket.js';
 import { sendEmail, emailSuspectAttendance } from '../lib/email.js';
 import { sendSms, smsSuspectAttendance } from '../lib/sms.js';
+import { notifyLateCheckin, notifyEarlyCheckout } from '../lib/notificationEngine.js';
+import { sendPushToAdmins } from '../lib/push.js';
 import { z } from 'zod';
 
 // Helper: send suspect attendance notification (email + sms) if rule is enabled
@@ -41,6 +43,14 @@ async function notifySuspectAttendance(record: any) {
         }
       }
     }
+
+    // Push to admins
+    await sendPushToAdmins({
+      title: '🔴 Pointage suspect',
+      body: `${agentName} — ${event.title}`,
+      url: '/admin/heures',
+      tag: `suspect-${record.id}`,
+    });
   } catch (err) {
     console.error('Notification (suspect_attendance) error:', err);
   }
@@ -165,6 +175,11 @@ router.post('/', async (req: Request, res: Response) => {
   if (record.isSuspect) {
     notifySuspectAttendance(record);
   }
+
+  // Check for late check-in
+  if (record.checkInTime) {
+    notifyLateCheckin(record.agentId, record.eventId, new Date(record.checkInTime));
+  }
 });
 
 const updateSchema = z.object({
@@ -207,6 +222,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Send suspect email if marked as suspect
     if (data.isSuspect === true) {
       notifySuspectAttendance(record);
+    }
+
+    // Check for early check-out
+    if (data.checkOutTime && record.agentId && record.eventId) {
+      notifyEarlyCheckout(record.agentId, record.eventId, new Date(data.checkOutTime));
     }
   } catch (e: any) {
     if (e.code === 'P2025') {
