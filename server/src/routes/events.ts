@@ -502,4 +502,216 @@ router.get('/check/conflicts', async (req: Request, res: Response) => {
   res.json(events.map(formatEvent));
 });
 
+// ── Duplicate week ──────────────────────────────────────
+const duplicateWeekSchema = z.object({
+  sourceStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Monday of source week
+  targetStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // Monday of target week
+});
+
+router.post('/bulk/duplicate-week', adminOnly, async (req: Request, res: Response) => {
+  const parsed = duplicateWeekSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Données invalides', details: parsed.error.flatten() });
+    return;
+  }
+
+  const { sourceStart, targetStart } = parsed.data;
+  const srcMonday = new Date(sourceStart);
+  const srcSunday = new Date(srcMonday);
+  srcSunday.setDate(srcSunday.getDate() + 6);
+
+  const tgtMonday = new Date(targetStart);
+  const dayOffset = Math.round((tgtMonday.getTime() - srcMonday.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Find all events overlapping the source week
+  const sourceEvents = await prisma.event.findMany({
+    where: {
+      startDate: { lte: srcSunday },
+      endDate: { gte: srcMonday },
+      status: { notIn: ['annule'] },
+    },
+    include: eventInclude,
+  });
+
+  if (sourceEvents.length === 0) {
+    res.status(400).json({ error: 'Aucun événement trouvé dans la semaine source.' });
+    return;
+  }
+
+  const created: any[] = [];
+
+  for (const src of sourceEvents) {
+    const newStart = new Date(src.startDate);
+    newStart.setDate(newStart.getDate() + dayOffset);
+    const newEnd = new Date(src.endDate);
+    newEnd.setDate(newEnd.getDate() + dayOffset);
+
+    const agentIds = src.agents.map((a: any) => a.agentId);
+    let agentRefuseMap = new Map<string, boolean>();
+    if (agentIds.length > 0) {
+      const agentsInfo = await prisma.user.findMany({
+        where: { id: { in: agentIds } },
+        select: { id: true, canRefuseEvents: true },
+      });
+      agentRefuseMap = new Map(agentsInfo.map((a) => [a.id, a.canRefuseEvents]));
+    }
+
+    const event = await prisma.event.create({
+      data: {
+        title: src.title,
+        description: src.description,
+        client: src.client,
+        clientPhone: src.clientPhone,
+        site: src.site,
+        color: src.color,
+        startDate: newStart,
+        endDate: newEnd,
+        address: src.address,
+        latitude: src.latitude,
+        longitude: src.longitude,
+        geoRadius: src.geoRadius,
+        hourlyRate: src.hourlyRate,
+        status: 'planifie',
+        shifts: src.shifts.length > 0
+          ? {
+              create: src.shifts.map((s: any) => {
+                const newDate = new Date(s.date);
+                newDate.setDate(newDate.getDate() + dayOffset);
+                return { date: newDate, startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || null };
+              }),
+            }
+          : undefined,
+        agents: agentIds.length > 0
+          ? { create: agentIds.map((agentId: string) => ({ agentId, response: agentRefuseMap.get(agentId) === false ? 'accepted' : 'pending' })) }
+          : undefined,
+        history: { create: { action: 'Duplication (semaine)', userId: req.auth!.userId } },
+      },
+      include: eventInclude,
+    });
+
+    created.push(formatEvent(event));
+
+    // Notify assigned agents
+    if (agentIds.length > 0) {
+      notifyAgentAssigned(agentIds, event);
+    }
+  }
+
+  res.status(201).json({ count: created.length, events: created });
+  emitEventsChanged();
+});
+
+// ── Duplicate event with repetition ─────────────────────
+const repeatEventSchema = z.object({
+  eventId: z.string(),
+  frequency: z.enum(['daily', 'weekly']),
+  endRepeatDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  skipWeekends: z.boolean().optional(),
+});
+
+router.post('/bulk/repeat', adminOnly, async (req: Request, res: Response) => {
+  const parsed = repeatEventSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Données invalides', details: parsed.error.flatten() });
+    return;
+  }
+
+  const { eventId, frequency, endRepeatDate, skipWeekends } = parsed.data;
+
+  const source = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: eventInclude,
+  });
+  if (!source) {
+    res.status(404).json({ error: 'Événement introuvable' });
+    return;
+  }
+
+  const srcStart = new Date(source.startDate);
+  const srcEnd = new Date(source.endDate);
+  const eventDuration = Math.round((srcEnd.getTime() - srcStart.getTime()) / (1000 * 60 * 60 * 24));
+  const repeatEnd = new Date(endRepeatDate);
+  const stepDays = frequency === 'weekly' ? 7 : 1;
+
+  const agentIds = source.agents.map((a: any) => a.agentId);
+  let agentRefuseMap = new Map<string, boolean>();
+  if (agentIds.length > 0) {
+    const agentsInfo = await prisma.user.findMany({
+      where: { id: { in: agentIds } },
+      select: { id: true, canRefuseEvents: true },
+    });
+    agentRefuseMap = new Map(agentsInfo.map((a) => [a.id, a.canRefuseEvents]));
+  }
+
+  const created: any[] = [];
+  let currentOffset = stepDays;
+
+  // Safety limit: max 200 events
+  while (created.length < 200) {
+    const newStart = new Date(srcStart);
+    newStart.setDate(newStart.getDate() + currentOffset);
+
+    if (newStart > repeatEnd) break;
+
+    // Skip weekends if option enabled
+    if (skipWeekends && frequency === 'daily') {
+      const dow = newStart.getDay();
+      if (dow === 0 || dow === 6) {
+        currentOffset += 1;
+        continue;
+      }
+    }
+
+    const newEnd = new Date(newStart);
+    newEnd.setDate(newEnd.getDate() + eventDuration);
+
+    const event = await prisma.event.create({
+      data: {
+        title: source.title,
+        description: source.description,
+        client: source.client,
+        clientPhone: source.clientPhone,
+        site: source.site,
+        color: source.color,
+        startDate: newStart,
+        endDate: newEnd,
+        address: source.address,
+        latitude: source.latitude,
+        longitude: source.longitude,
+        geoRadius: source.geoRadius,
+        hourlyRate: source.hourlyRate,
+        status: 'planifie',
+        shifts: source.shifts.length > 0
+          ? {
+              create: source.shifts.map((s: any) => {
+                const shiftOffset = Math.round((new Date(s.date).getTime() - srcStart.getTime()) / (1000 * 60 * 60 * 24));
+                const newDate = new Date(newStart);
+                newDate.setDate(newDate.getDate() + shiftOffset);
+                return { date: newDate, startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || null };
+              }),
+            }
+          : undefined,
+        agents: agentIds.length > 0
+          ? { create: agentIds.map((agentId: string) => ({ agentId, response: agentRefuseMap.get(agentId) === false ? 'accepted' : 'pending' })) }
+          : undefined,
+        history: { create: { action: 'Duplication (répétition)', userId: req.auth!.userId } },
+      },
+      include: eventInclude,
+    });
+
+    created.push(formatEvent(event));
+    currentOffset += stepDays;
+  }
+
+  // Notify assigned agents for all new events
+  if (agentIds.length > 0 && created.length > 0) {
+    for (const evt of created) {
+      notifyAgentAssigned(agentIds, { ...source, id: evt.id, startDate: new Date(evt.startDate), endDate: new Date(evt.endDate), shifts: evt.shifts });
+    }
+  }
+
+  res.status(201).json({ count: created.length, events: created });
+  emitEventsChanged();
+});
+
 export default router;

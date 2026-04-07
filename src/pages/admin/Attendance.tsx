@@ -54,8 +54,11 @@ function InvalidateSize() {
 }
 
 /** Mini-map showing agent GPS position at photo time */
-function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; label: string; isValid?: boolean }) {
+function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; label: string; isValid?: boolean | null }) {
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+  const gpsLabel = isValid === true ? 'Dans la zone' : isValid === false ? 'Hors zone' : 'GPS non configuré';
+  const gpsColor = isValid === true ? 'text-emerald-600' : isValid === false ? 'text-rose-600' : 'text-slate-500';
+  const gpsIconColor = isValid === true ? 'text-emerald-500' : isValid === false ? 'text-rose-500' : 'text-slate-400';
   return (
     <div className="mt-2 space-y-1.5">
       <div className="rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100" style={{ height: 150, width: '100%', position: 'relative' }}>
@@ -76,9 +79,9 @@ function GpsMiniMap({ lat, lng, label, isValid }: { lat: number; lng: number; la
       </div>
       <div className="flex items-center justify-between flex-wrap gap-1">
         <div className="flex items-center gap-1.5">
-          <Navigation size={12} className={isValid ? 'text-emerald-500' : 'text-rose-500'} />
-          <span className={`text-[11px] font-semibold ${isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {isValid ? 'Dans la zone' : 'Hors zone'}
+          <Navigation size={12} className={gpsIconColor} />
+          <span className={`text-[11px] font-semibold ${gpsColor}`}>
+            {gpsLabel}
           </span>
           <span className="text-[10px] text-slate-400 ml-1">
             ({lat.toFixed(5)}, {lng.toFixed(5)})
@@ -350,10 +353,15 @@ export default function AdminAttendance() {
                         <MapPin size={14} />
                         <span className="text-xs font-medium">Hors zone</span>
                       </span>
-                    ) : rec.checkInLatitude ? (
+                    ) : rec.checkInLocationValid === true ? (
                       <span className="flex items-center gap-1 text-emerald-500">
                         <MapPin size={14} />
                         <span className="text-xs font-medium">OK</span>
+                      </span>
+                    ) : rec.checkInLatitude ? (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <MapPin size={14} />
+                        <span className="text-xs font-medium">Non configuré</span>
                       </span>
                     ) : (
                       <span className="text-sm text-slate-400">—</span>
@@ -593,9 +601,9 @@ export default function AdminAttendance() {
                                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                                           <Clock size={12} /> {formatTime(rec.checkInTime!)}
                                         </span>
-                                        <span className={`flex items-center gap-1 font-medium ${rec.checkInLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkInLocationValid === true ? 'text-emerald-600' : rec.checkInLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                           <MapPin size={12} />
-                                          {rec.checkInLocationValid ? 'GPS valide' : 'Hors zone'}
+                                          {rec.checkInLocationValid === true ? 'GPS validé' : rec.checkInLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                                         </span>
                                       </div>
                                       {rec.checkInLatitude && rec.checkInLongitude && (
@@ -628,9 +636,9 @@ export default function AdminAttendance() {
                                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                                           <Clock size={12} /> {formatTime(rec.checkOutTime!)}
                                         </span>
-                                        <span className={`flex items-center gap-1 font-medium ${rec.checkOutLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkOutLocationValid === true ? 'text-emerald-600' : rec.checkOutLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                           <MapPin size={12} />
-                                          {rec.checkOutLocationValid ? 'GPS valide' : 'Hors zone'}
+                                          {rec.checkOutLocationValid === true ? 'GPS validé' : rec.checkOutLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                                         </span>
                                       </div>
                                       {rec.checkOutLatitude && rec.checkOutLongitude && (
@@ -891,9 +899,9 @@ export default function AdminAttendance() {
                                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                                           <Clock size={12} /> {formatTime(rec.checkInTime!)}
                                         </span>
-                                        <span className={`flex items-center gap-1 font-medium ${rec.checkInLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkInLocationValid === true ? 'text-emerald-600' : rec.checkInLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                           <MapPin size={12} />
-                                          {rec.checkInLocationValid ? 'GPS valide' : 'Hors zone'}
+                                          {rec.checkInLocationValid === true ? 'GPS validé' : rec.checkInLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                                         </span>
                                       </div>
                                       {rec.checkInLatitude && rec.checkInLongitude && (
@@ -920,9 +928,9 @@ export default function AdminAttendance() {
                                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                                           <Clock size={12} /> {formatTime(rec.checkOutTime!)}
                                         </span>
-                                        <span className={`flex items-center gap-1 font-medium ${rec.checkOutLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <span className={`flex items-center gap-1 font-medium ${rec.checkOutLocationValid === true ? 'text-emerald-600' : rec.checkOutLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                                           <MapPin size={12} />
-                                          {rec.checkOutLocationValid ? 'GPS valide' : 'Hors zone'}
+                                          {rec.checkOutLocationValid === true ? 'GPS validé' : rec.checkOutLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                                         </span>
                                       </div>
                                       {rec.checkOutLatitude && rec.checkOutLongitude && (

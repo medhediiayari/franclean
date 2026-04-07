@@ -43,6 +43,7 @@ import {
   X,
   Save,
   FileDown,
+  Repeat,
 } from 'lucide-react';
 
 const EVENT_PALETTE = [
@@ -61,7 +62,7 @@ const statusColors: Record<EventStatus, string> = {
 };
 
 export default function Planning() {
-  const { events, addEvent, updateEvent, deleteEvent, fetchEvents } = useEventStore();
+  const { events, addEvent, updateEvent, deleteEvent, fetchEvents, duplicateWeek, repeatEvent } = useEventStore();
   const { users, fetchUsers } = useAuthStore();
   const { clients: dbClients, fetchClients, addClient, addSite } = useClientStore();
 
@@ -140,6 +141,21 @@ export default function Planning() {
 
   // PDF export menu
   const [showPdfMenu, setShowPdfMenu] = useState(false);
+
+  // Duplicate week modal
+  const [showDuplicateWeek, setShowDuplicateWeek] = useState(false);
+  const [dupWeekSource, setDupWeekSource] = useState('');
+  const [dupWeekTarget, setDupWeekTarget] = useState('');
+  const [dupWeekLoading, setDupWeekLoading] = useState(false);
+  const [dupWeekMsg, setDupWeekMsg] = useState<string | null>(null);
+
+  // Repeat event modal
+  const [showRepeatModal, setShowRepeatModal] = useState(false);
+  const [repeatFrequency, setRepeatFrequency] = useState<'daily' | 'weekly'>('weekly');
+  const [repeatEndDate, setRepeatEndDate] = useState('');
+  const [repeatSkipWeekends, setRepeatSkipWeekends] = useState(true);
+  const [repeatLoading, setRepeatLoading] = useState(false);
+  const [repeatMsg, setRepeatMsg] = useState<string | null>(null);
 
   // Compute agent responses grouped by event
   const eventResponsesGrouped = useMemo(() => {
@@ -392,6 +408,11 @@ export default function Planning() {
       return;
     }
 
+    if (!form.hourlyRate || parseFloat(form.hourlyRate) <= 0) {
+      setFormError('Le prix HT / heure est obligatoire.');
+      return;
+    }
+
     // ── Inline client creation ────────────────────────
     let clientName = form.client;
     let resolvedClientId: string | null = null;
@@ -466,7 +487,7 @@ export default function Planning() {
       latitude: form.latitude ? parseFloat(form.latitude) : undefined,
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 500,
-      hourlyRate: form.hourlyRate ? parseFloat(form.hourlyRate) : undefined,
+      hourlyRate: parseFloat(form.hourlyRate),
       assignedAgentIds: allAgentIds,
       status: form.status,
     };
@@ -683,6 +704,49 @@ export default function Planning() {
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
   };
 
+  // Get Monday of a given date
+  const getMondayOf = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // Handle duplicate week
+  const handleDuplicateWeek = async () => {
+    if (!dupWeekSource || !dupWeekTarget) return;
+    setDupWeekLoading(true);
+    setDupWeekMsg(null);
+    try {
+      const sourceMonday = getMondayOf(dupWeekSource);
+      const targetMonday = getMondayOf(dupWeekTarget);
+      const result = await duplicateWeek(sourceMonday, targetMonday);
+      setDupWeekMsg(`✅ ${result.count} événement(s) dupliqué(s) avec succès !`);
+      setTimeout(() => { setShowDuplicateWeek(false); setDupWeekMsg(null); }, 2000);
+    } catch (err: any) {
+      setDupWeekMsg(`❌ ${err.message || 'Erreur lors de la duplication.'}`);
+    } finally {
+      setDupWeekLoading(false);
+    }
+  };
+
+  // Handle repeat event
+  const handleRepeatEvent = async () => {
+    if (!selectedEvent || !repeatEndDate) return;
+    setRepeatLoading(true);
+    setRepeatMsg(null);
+    try {
+      const result = await repeatEvent(selectedEvent.id, repeatFrequency, repeatEndDate, repeatSkipWeekends);
+      setRepeatMsg(`✅ ${result.count} événement(s) créé(s) !`);
+      setTimeout(() => { setShowRepeatModal(false); setRepeatMsg(null); setShowDetail(false); }, 2000);
+    } catch (err: any) {
+      setRepeatMsg(`❌ ${err.message || 'Erreur lors de la répétition.'}`);
+    } finally {
+      setRepeatLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex items-center justify-between bg-[#0E2137] rounded-xl px-6 py-4 shadow-lg">
@@ -727,6 +791,18 @@ export default function Planning() {
               </div>
             )}
           </div>
+          <button
+            onClick={() => {
+              setDupWeekSource('');
+              setDupWeekTarget('');
+              setDupWeekMsg(null);
+              setShowDuplicateWeek(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl font-medium text-sm transition-all"
+          >
+            <Repeat size={16} />
+            Dupliquer semaine
+          </button>
           <button
             onClick={() => {
               resetForm();
@@ -1230,6 +1306,18 @@ export default function Planning() {
                 <Edit3 size={16} /> Modifier
               </button>
               <button
+                onClick={() => {
+                  setRepeatFrequency('weekly');
+                  setRepeatEndDate('');
+                  setRepeatSkipWeekends(true);
+                  setRepeatMsg(null);
+                  setShowRepeatModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-300 text-indigo-600 hover:bg-indigo-50 rounded-xl font-medium text-sm transition-all"
+              >
+                <Repeat size={16} /> Répéter
+              </button>
+              <button
                 onClick={handleDelete}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl font-medium text-sm transition-all"
               >
@@ -1478,7 +1566,6 @@ export default function Planning() {
                                   latitude: site.latitude != null ? String(site.latitude) : f.latitude,
                                   longitude: site.longitude != null ? String(site.longitude) : f.longitude,
                                   geoRadius: site.geoRadius ? String(site.geoRadius) : f.geoRadius,
-                                  hourlyRate: site.hourlyRate != null ? String(site.hourlyRate) : f.hourlyRate,
                                 }));
                               }
                             }}
@@ -1568,14 +1655,15 @@ export default function Planning() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix HT / heure (€)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix HT / heure (€) <span className="text-rose-500">*</span></label>
                     <input
                       type="number"
                       step="0.01"
                       min="0"
+                      required
                       value={form.hourlyRate}
                       onChange={(e) => setForm((f) => ({ ...f, hourlyRate: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none ${!form.hourlyRate ? 'border-rose-300 bg-rose-50/50' : 'border-slate-300'}`}
                       placeholder="0.00"
                     />
                   </div>
@@ -2070,6 +2158,184 @@ export default function Planning() {
           </div>
         </div>
       )}
+
+      {/* Duplicate Week Modal */}
+      <Modal
+        isOpen={showDuplicateWeek}
+        onClose={() => setShowDuplicateWeek(false)}
+        title="Dupliquer une semaine"
+        size="md"
+      >
+        <div className="space-y-5">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+            <Repeat size={14} className="inline mr-1.5 -mt-0.5" />
+            Tous les événements de la semaine source seront dupliqués vers la semaine cible, avec les mêmes agents, horaires et paramètres.
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Semaine source (choisir un jour de la semaine)</label>
+            <input
+              type="date"
+              value={dupWeekSource}
+              onChange={(e) => setDupWeekSource(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            />
+            {dupWeekSource && (
+              <p className="text-xs text-slate-500 mt-1">
+                Semaine du lundi {getMondayOf(dupWeekSource)} au dimanche {(() => { const d = new Date(getMondayOf(dupWeekSource)); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })()}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Semaine cible (choisir un jour de la semaine)</label>
+            <input
+              type="date"
+              value={dupWeekTarget}
+              onChange={(e) => setDupWeekTarget(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            />
+            {dupWeekTarget && (
+              <p className="text-xs text-slate-500 mt-1">
+                Semaine du lundi {getMondayOf(dupWeekTarget)} au dimanche {(() => { const d = new Date(getMondayOf(dupWeekTarget)); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })()}
+              </p>
+            )}
+          </div>
+
+          {dupWeekMsg && (
+            <p className={`text-sm font-medium ${dupWeekMsg.startsWith('✅') ? 'text-emerald-600' : 'text-rose-600'}`}>{dupWeekMsg}</p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowDuplicateWeek(false)}
+              className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleDuplicateWeek}
+              disabled={!dupWeekSource || !dupWeekTarget || dupWeekLoading}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Repeat size={16} />
+              {dupWeekLoading ? 'Duplication...' : 'Dupliquer'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Repeat Event Modal */}
+      <Modal
+        isOpen={showRepeatModal}
+        onClose={() => setShowRepeatModal(false)}
+        title="Répéter l'événement"
+        size="md"
+      >
+        {selectedEvent && (
+          <div className="space-y-5">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-700">
+              <Repeat size={14} className="inline mr-1.5 -mt-0.5" />
+              L'événement <strong>« {selectedEvent.title} »</strong> sera dupliqué selon la fréquence choisie, avec les mêmes agents et horaires.
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Fréquence</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'weekly' as const, label: 'Chaque semaine' },
+                  { value: 'daily' as const, label: 'Chaque jour' },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setRepeatFrequency(value)}
+                    className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border transition-all ${
+                      repeatFrequency === value
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {repeatFrequency === 'daily' && (
+              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={repeatSkipWeekends}
+                  onChange={(e) => setRepeatSkipWeekends(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                />
+                Exclure les week-ends (samedi & dimanche)
+              </label>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Répéter jusqu'au</label>
+              <input
+                type="date"
+                value={repeatEndDate}
+                onChange={(e) => setRepeatEndDate(e.target.value)}
+                min={selectedEvent.endDate}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+              />
+            </div>
+
+            {repeatEndDate && selectedEvent && (
+              <p className="text-xs text-slate-500">
+                {(() => {
+                  const srcStart = new Date(selectedEvent.startDate);
+                  const end = new Date(repeatEndDate);
+                  const step = repeatFrequency === 'weekly' ? 7 : 1;
+                  let count = 0;
+                  let offset = step;
+                  while (count < 200) {
+                    const d = new Date(srcStart);
+                    d.setDate(d.getDate() + offset);
+                    if (d > end) break;
+                    if (repeatSkipWeekends && repeatFrequency === 'daily' && (d.getDay() === 0 || d.getDay() === 6)) {
+                      offset += 1;
+                      continue;
+                    }
+                    count++;
+                    offset += step;
+                  }
+                  return `≈ ${count} événement(s) seront créés`;
+                })()}
+              </p>
+            )}
+
+            {repeatMsg && (
+              <p className={`text-sm font-medium ${repeatMsg.startsWith('✅') ? 'text-emerald-600' : 'text-rose-600'}`}>{repeatMsg}</p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setShowRepeatModal(false)}
+                className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleRepeatEvent}
+                disabled={!repeatEndDate || repeatLoading}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Repeat size={16} />
+                {repeatLoading ? 'Création...' : 'Créer les répétitions'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

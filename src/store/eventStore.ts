@@ -11,6 +11,8 @@ interface EventState {
   setAgentResponse: (eventId: string, agentId: string, response: 'accepted' | 'refused') => Promise<void>;
   getEventsByAgent: (agentId: string) => PlanningEvent[];
   getConflicts: (agentId: string, start: string, end: string, excludeId?: string) => Promise<PlanningEvent[]>;
+  duplicateWeek: (sourceStart: string, targetStart: string) => Promise<{ count: number }>;
+  repeatEvent: (eventId: string, frequency: 'daily' | 'weekly', endRepeatDate: string, skipWeekends?: boolean) => Promise<{ count: number }>;
 }
 
 export const useEventStore = create<EventState>()((set, get) => ({
@@ -54,6 +56,18 @@ export const useEventStore = create<EventState>()((set, get) => ({
     const params = new URLSearchParams({ agentId, start, end });
     if (excludeId) params.set('excludeId', excludeId);
     return api.get<PlanningEvent[]>(`/events/check/conflicts?${params}`);
+  },
+
+  duplicateWeek: async (sourceStart, targetStart) => {
+    const result = await api.post<{ count: number; events: PlanningEvent[] }>('/events/bulk/duplicate-week', { sourceStart, targetStart });
+    set((state) => ({ events: [...state.events, ...result.events] }));
+    return { count: result.count };
+  },
+
+  repeatEvent: async (eventId, frequency, endRepeatDate, skipWeekends) => {
+    const result = await api.post<{ count: number; events: PlanningEvent[] }>('/events/bulk/repeat', { eventId, frequency, endRepeatDate, skipWeekends });
+    set((state) => ({ events: [...state.events, ...result.events] }));
+    return { count: result.count };
   },
 }));
 

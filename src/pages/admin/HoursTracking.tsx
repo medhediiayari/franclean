@@ -52,7 +52,7 @@ function InvalidateSize() {
   return null;
 }
 
-function GpsMiniMap({ lat, lng, isValid }: { lat: number; lng: number; isValid?: boolean }) {
+function GpsMiniMap({ lat, lng, isValid }: { lat: number; lng: number; isValid?: boolean | null }) {
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
   return (
     <div className="mt-2 space-y-1.5">
@@ -74,9 +74,9 @@ function GpsMiniMap({ lat, lng, isValid }: { lat: number; lng: number; isValid?:
       </div>
       <div className="flex items-center justify-between flex-wrap gap-1">
         <div className="flex items-center gap-1.5">
-          <Navigation size={12} className={isValid ? 'text-emerald-500' : 'text-rose-500'} />
-          <span className={`text-[11px] font-semibold ${isValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {isValid ? 'Dans la zone' : 'Hors zone'}
+          <Navigation size={12} className={isValid === true ? 'text-emerald-500' : isValid === false ? 'text-rose-500' : 'text-slate-400'} />
+          <span className={`text-[11px] font-semibold ${isValid === true ? 'text-emerald-600' : isValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
+            {isValid === true ? 'Dans la zone' : isValid === false ? 'Hors zone' : 'GPS non configuré'}
           </span>
           <span className="text-[10px] text-slate-400 ml-1">
             ({lat.toFixed(5)}, {lng.toFixed(5)})
@@ -341,8 +341,8 @@ export default function HoursTracking() {
       'Durée (h)': r.hoursWorked ? Number(r.hoursWorked.toFixed(2)) : 0,
       'Durée': r.hoursWorked ? formatDuration(r.hoursWorked) : '—',
       'Statut': statusLabel(r.status),
-      'GPS Entrée valide': r.checkInLocationValid ? 'Oui' : 'Non',
-      'GPS Sortie valide': r.checkOutLocationValid ? 'Oui' : 'Non',
+      'GPS Entrée valide': r.checkInLocationValid === true ? 'Oui' : r.checkInLocationValid === false ? 'Non' : 'N/A',
+      'GPS Sortie valide': r.checkOutLocationValid === true ? 'Oui' : r.checkOutLocationValid === false ? 'Non' : 'N/A',
       'Suspect': r.isSuspect ? 'Oui' : 'Non',
       'Raisons suspect': r.suspectReasons?.join(', ') || '',
       'Adresse': r.eventAddress,
@@ -1222,9 +1222,9 @@ export default function HoursTracking() {
                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                           <Clock size={12} /> {formatTime(selectedRecord.checkInTime!)}
                         </span>
-                        <span className={`flex items-center gap-1 font-medium ${selectedRecord.checkInLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span className={`flex items-center gap-1 font-medium ${selectedRecord.checkInLocationValid === true ? 'text-emerald-600' : selectedRecord.checkInLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                           <MapPin size={12} />
-                          {selectedRecord.checkInLocationValid ? 'GPS valide' : 'Hors zone'}
+                          {selectedRecord.checkInLocationValid === true ? 'GPS validé' : selectedRecord.checkInLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                         </span>
                       </div>
                       {selectedRecord.checkInLatitude && selectedRecord.checkInLongitude && (
@@ -1256,9 +1256,9 @@ export default function HoursTracking() {
                         <span className="font-semibold text-slate-900 flex items-center gap-1">
                           <Clock size={12} /> {formatTime(selectedRecord.checkOutTime!)}
                         </span>
-                        <span className={`flex items-center gap-1 font-medium ${selectedRecord.checkOutLocationValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span className={`flex items-center gap-1 font-medium ${selectedRecord.checkOutLocationValid === true ? 'text-emerald-600' : selectedRecord.checkOutLocationValid === false ? 'text-rose-600' : 'text-slate-500'}`}>
                           <MapPin size={12} />
-                          {selectedRecord.checkOutLocationValid ? 'GPS valide' : 'Hors zone'}
+                          {selectedRecord.checkOutLocationValid === true ? 'GPS validé' : selectedRecord.checkOutLocationValid === false ? 'Hors zone' : 'GPS non configuré'}
                         </span>
                       </div>
                       {selectedRecord.checkOutLatitude && selectedRecord.checkOutLongitude && (

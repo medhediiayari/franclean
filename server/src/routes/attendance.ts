@@ -6,6 +6,7 @@ import { sendEmail, emailSuspectAttendance } from '../lib/email.js';
 import { sendSms, smsSuspectAttendance } from '../lib/sms.js';
 import { notifyLateCheckin, notifyEarlyCheckout } from '../lib/notificationEngine.js';
 import { sendPushToAdmins } from '../lib/push.js';
+import { validateGpsLocation } from '../lib/geo.js';
 import { z } from 'zod';
 
 // Helper: send suspect attendance notification (email + sms) if rule is enabled
@@ -158,13 +159,57 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  const { date, checkInTime, ...rest } = parsed.data;
+  const { date, checkInTime, checkInLocationValid: _clientValid, ...rest } = parsed.data;
+
+  // Server-side GPS validation — override client-provided value
+  let serverLocationValid: boolean | null = null;
+  const suspectReasons: string[] = [...(rest.suspectReasons || [])];
+
+  const event = await prisma.event.findUnique({
+    where: { id: rest.eventId },
+    select: { latitude: true, longitude: true, geoRadius: true },
+  });
+
+  if (event) {
+    const gpsResult = validateGpsLocation(
+      rest.checkInLatitude,
+      rest.checkInLongitude,
+      event.latitude,
+      event.longitude,
+      event.geoRadius,
+    );
+    if (gpsResult) {
+      serverLocationValid = gpsResult.isValid;
+      if (!gpsResult.isValid) {
+        const distStr = gpsResult.distance < 1000
+          ? `${Math.round(gpsResult.distance)}m`
+          : `${(gpsResult.distance / 1000).toFixed(1)}km`;
+        // Replace any client-side GPS suspect reason
+        const filtered = suspectReasons.filter(r => !r.includes('Localisation hors zone'));
+        filtered.push(`Localisation hors zone (${distStr})`);
+        suspectReasons.length = 0;
+        suspectReasons.push(...filtered);
+      }
+    }
+    // if gpsResult is null, event has no GPS → leave as null (unknown)
+  }
+
+  const isSuspect = rest.isSuspect || (serverLocationValid === false) || suspectReasons.length > 0;
+
   const record = await prisma.attendance.create({
     data: {
-      ...rest,
+      eventId: rest.eventId,
+      shiftId: rest.shiftId,
       agentId: req.auth!.userId,
       date: new Date(date),
       checkInTime: checkInTime ? new Date(checkInTime) : undefined,
+      checkInPhotoUrl: rest.checkInPhotoUrl,
+      checkInLatitude: rest.checkInLatitude,
+      checkInLongitude: rest.checkInLongitude,
+      checkInLocationValid: serverLocationValid,
+      status: isSuspect ? 'suspect' : (rest.status || 'en_attente'),
+      isSuspect,
+      suspectReasons,
     },
     include: { photos: true },
   });
@@ -209,6 +254,46 @@ router.put('/:id', async (req: Request, res: Response) => {
   const data: any = { ...parsed.data };
   if (data.checkInTime) data.checkInTime = new Date(data.checkInTime);
   if (data.checkOutTime) data.checkOutTime = new Date(data.checkOutTime);
+
+  // Server-side GPS validation for check-out
+  if (data.checkOutLatitude != null && data.checkOutLongitude != null) {
+    // Get the existing record to find its eventId
+    const existing = await prisma.attendance.findUnique({
+      where: { id: req.params.id },
+      select: { eventId: true, suspectReasons: true, isSuspect: true },
+    });
+    if (existing) {
+      const event = await prisma.event.findUnique({
+        where: { id: existing.eventId },
+        select: { latitude: true, longitude: true, geoRadius: true },
+      });
+      if (event) {
+        const gpsResult = validateGpsLocation(
+          data.checkOutLatitude,
+          data.checkOutLongitude,
+          event.latitude,
+          event.longitude,
+          event.geoRadius,
+        );
+        if (gpsResult) {
+          data.checkOutLocationValid = gpsResult.isValid;
+          if (!gpsResult.isValid) {
+            const distStr = gpsResult.distance < 1000
+              ? `${Math.round(gpsResult.distance)}m`
+              : `${(gpsResult.distance / 1000).toFixed(1)}km`;
+            const existingReasons: string[] = data.suspectReasons || (existing.suspectReasons as string[]) || [];
+            const filtered = existingReasons.filter((r: string) => !r.includes('sortie hors zone'));
+            filtered.push(`Localisation sortie hors zone (${distStr})`);
+            data.suspectReasons = filtered;
+            data.isSuspect = true;
+          }
+        } else {
+          // Event has no GPS → null (unknown)
+          data.checkOutLocationValid = null;
+        }
+      }
+    }
+  }
 
   try {
     const record = await prisma.attendance.update({

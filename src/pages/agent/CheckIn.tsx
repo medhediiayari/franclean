@@ -186,7 +186,7 @@ export default function CheckIn() {
       }
 
       // Check if within radius
-      let locationValid = true;
+      let locationValid: boolean | null = null; // null = GPS not configured on event
       const suspectReasons: string[] = [];
 
       if (selectedEvent.latitude && selectedEvent.longitude && selectedEvent.geoRadius) {
@@ -216,7 +216,7 @@ export default function CheckIn() {
           checkInPhotoUrl: capturedPhoto,
           checkInLatitude: latitude,
           checkInLongitude: longitude,
-          checkInLocationValid: locationValid,
+          checkInLocationValid: locationValid ?? undefined,
           status: suspectReasons.length > 0 ? 'suspect' : 'en_attente',
           isSuspect: suspectReasons.length > 0,
           suspectReasons,
@@ -238,7 +238,7 @@ export default function CheckIn() {
           checkOutPhotoUrl: capturedPhoto,
           checkOutLatitude: latitude,
           checkOutLongitude: longitude,
-          checkOutLocationValid: locationValid,
+          checkOutLocationValid: locationValid ?? undefined,
           hoursWorked,
           isSuspect: existingRecord.isSuspect || suspectReasons.length > 0,
           suspectReasons: [...existingRecord.suspectReasons, ...suspectReasons],
