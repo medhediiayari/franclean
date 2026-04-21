@@ -5,9 +5,11 @@ import type { PlanningEvent } from '../types';
 interface EventState {
   events: PlanningEvent[];
   fetchEvents: () => Promise<void>;
-  addEvent: (event: Omit<PlanningEvent, 'id' | 'createdAt' | 'updatedAt' | 'history' | 'agentResponses' | 'shifts'> & { shifts: Array<{ date: string; startTime: string; endTime: string; agentId?: string }>; agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>; history?: PlanningEvent['history'] }) => Promise<PlanningEvent>;
-  updateEvent: (id: string, data: Partial<Omit<PlanningEvent, 'shifts'>> & { shifts?: Array<{ date: string; startTime: string; endTime: string; agentId?: string }> }) => Promise<void>;
+  addEvent: (event: Omit<PlanningEvent, 'id' | 'createdAt' | 'updatedAt' | 'history' | 'agentResponses' | 'shifts' | 'draftVersions' | 'publishedAt'> & { shifts: Array<{ date: string; startTime: string; endTime: string; agentId?: string }>; agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>; history?: PlanningEvent['history'] }) => Promise<PlanningEvent>;
+  updateEvent: (id: string, data: Partial<Omit<PlanningEvent, 'shifts' | 'draftVersions'>> & { shifts?: Array<{ date: string; startTime: string; endTime: string; agentId?: string }> }) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  publishEvent: (id: string) => Promise<PlanningEvent>;
+  restoreVersion: (eventId: string, versionId: string) => Promise<PlanningEvent>;
   setAgentResponse: (eventId: string, agentId: string, response: 'accepted' | 'refused') => Promise<void>;
   getEventsByAgent: (agentId: string) => PlanningEvent[];
   getConflicts: (agentId: string, start: string, end: string, excludeId?: string) => Promise<PlanningEvent[]>;
@@ -39,6 +41,22 @@ export const useEventStore = create<EventState>()((set, get) => ({
   deleteEvent: async (id) => {
     await api.delete(`/events/${id}`);
     set((state) => ({ events: state.events.filter((e) => e.id !== id) }));
+  },
+
+  publishEvent: async (id) => {
+    const updated = await api.post<PlanningEvent>(`/events/${id}/publish`, {});
+    set((state) => ({
+      events: state.events.map((e) => (e.id === id ? updated : e)),
+    }));
+    return updated;
+  },
+
+  restoreVersion: async (eventId, versionId) => {
+    const updated = await api.post<PlanningEvent>(`/events/${eventId}/restore/${versionId}`, {});
+    set((state) => ({
+      events: state.events.map((e) => (e.id === eventId ? updated : e)),
+    }));
+    return updated;
   },
 
   setAgentResponse: async (eventId, agentId, response) => {

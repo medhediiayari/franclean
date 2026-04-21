@@ -9,12 +9,12 @@ import { useAuthStore } from '../../store/authStore';
 import Modal from '../../components/common/Modal';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDateTime, formatDate } from '../../utils/helpers';
-import type { PlanningEvent, EventStatus, EventShift } from '../../types';
+import type { PlanningEvent, EventStatus, EventShift, EventDraftVersion } from '../../types';
 import LocationPicker from '../../components/common/LocationPicker';
 import ClientCombobox from '../../components/common/ClientCombobox';
 import TimeInput24 from '../../components/common/TimeInput24';
 import { useClientStore } from '../../store/clientStore';
-import { generatePlanningPDF } from '../../utils/pdfExport';
+import { generatePlanningPDF, type PDFExportFilters } from '../../utils/pdfExport';
 import {
   Plus,
   MapPin,
@@ -44,6 +44,11 @@ import {
   Save,
   FileDown,
   Repeat,
+  Send,
+  FileEdit,
+  RotateCcw,
+  Eye,
+  Archive,
 } from 'lucide-react';
 
 const EVENT_PALETTE = [
@@ -62,7 +67,7 @@ const statusColors: Record<EventStatus, string> = {
 };
 
 export default function Planning() {
-  const { events, addEvent, updateEvent, deleteEvent, fetchEvents, duplicateWeek, repeatEvent } = useEventStore();
+  const { events, addEvent, updateEvent, deleteEvent, fetchEvents, duplicateWeek, repeatEvent, publishEvent, restoreVersion } = useEventStore();
   const { users, fetchUsers } = useAuthStore();
   const { clients: dbClients, fetchClients, addClient, addSite } = useClientStore();
 
@@ -139,8 +144,16 @@ export default function Planning() {
   };
   const [conflictPopup, setConflictPopup] = useState<PlanningConflictInfo | null>(null);
 
-  // PDF export menu
-  const [showPdfMenu, setShowPdfMenu] = useState(false);
+  // PDF export dialog
+  const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [pdfPeriod, setPdfPeriod] = useState<'day' | 'week' | 'month'>('week');
+  const [pdfFilterAgent, setPdfFilterAgent] = useState<string>('');
+  const [pdfFilterClient, setPdfFilterClient] = useState<string>('');
+  const [pdfFilterSite, setPdfFilterSite] = useState<string>('');
+  // Draft version history panel
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   // Duplicate week modal
   const [showDuplicateWeek, setShowDuplicateWeek] = useState(false);
@@ -175,6 +188,7 @@ export default function Planning() {
 
     for (const evt of events) {
       if (evt.status === 'annule' || evt.status === 'termine') continue;
+      if (evt.isDraft) continue; // Draft events: agents not notified yet, skip responses widget
       if (evt.assignedAgentIds.length === 0) continue;
       const responses = evt.agentResponses || {};
       const agentsList = evt.assignedAgentIds.map((agentId) => ({
@@ -220,6 +234,17 @@ export default function Planning() {
     );
   }, [eventResponsesGrouped]);
 
+  // Unique clients & sites for PDF filter dropdowns
+  const uniqueClients = useMemo(() => {
+    const clients = new Set(events.map(e => e.client).filter(Boolean));
+    return Array.from(clients).sort();
+  }, [events]);
+
+  const uniqueSites = useMemo(() => {
+    const sites = new Set(events.map(e => e.site).filter(Boolean));
+    return Array.from(sites).sort();
+  }, [events]);
+
   // Generate calendar events from shifts
   const calendarEvents = useMemo(() => {
     const result: Array<{
@@ -245,25 +270,27 @@ export default function Planning() {
           const earliest = dayShifts.reduce((a, b) => (a.startTime < b.startTime ? a : b));
           const latest = dayShifts.reduce((a, b) => (a.endTime > b.endTime ? a : b));
           const shiftsInfo = dayShifts.map(s => `${s.startTime}-${s.endTime}`).join(' / ');
+          const draftPrefix = evt.isDraft ? '📝 ' : '';
           result.push({
             id: `${evt.id}__${date}`,
-            title: evt.title,
+            title: `${draftPrefix}${evt.title}`,
             start: `${date}T${earliest.startTime}:00`,
             end: `${date}T${latest.endTime}:00`,
-            backgroundColor: evt.color || statusColors[evt.status],
-            borderColor: evt.color || statusColors[evt.status],
+            backgroundColor: evt.isDraft ? '#94A3B8' : (evt.color || statusColors[evt.status]),
+            borderColor: evt.isDraft ? '#64748B' : (evt.color || statusColors[evt.status]),
             extendedProps: { shiftsInfo },
           });
         }
       } else {
+        const draftPrefix = evt.isDraft ? '📝 ' : '';
         result.push({
           id: evt.id,
-          title: evt.title,
+          title: `${draftPrefix}${evt.title}`,
           start: evt.startDate,
           end: evt.endDate,
           allDay: true,
-          backgroundColor: evt.color || statusColors[evt.status],
-          borderColor: evt.color || statusColors[evt.status],
+          backgroundColor: evt.isDraft ? '#94A3B8' : (evt.color || statusColors[evt.status]),
+          borderColor: evt.isDraft ? '#64748B' : (evt.color || statusColors[evt.status]),
         });
       }
     }
@@ -391,6 +418,12 @@ export default function Planning() {
       }
       delete assignments['__shared__'];
     }
+    // Ensure agents without shifts still appear in assignments
+    for (const agentId of selectedEvent.assignedAgentIds) {
+      if (!assignments[agentId]) {
+        assignments[agentId] = [];
+      }
+    }
     setAgentShiftAssignments(assignments);
     setEditingAgentId(null);
     setFormTab('event');
@@ -399,7 +432,7 @@ export default function Planning() {
     setShowForm(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, saveAsDraft = false) => {
     e.preventDefault();
     setFormError(null);
 
@@ -490,6 +523,7 @@ export default function Planning() {
       hourlyRate: parseFloat(form.hourlyRate),
       assignedAgentIds: allAgentIds,
       status: form.status,
+      isDraft: saveAsDraft,
     };
 
     try {
@@ -550,6 +584,108 @@ export default function Planning() {
     const agent = users.find((u) => u.id === id);
     return agent ? `${agent.firstName} ${agent.lastName}` : 'Non assigné';
   };
+
+  // ── Version diff helper ──────────────────────────────────
+  const FIELD_LABELS: Record<string, string> = {
+    title: 'Titre',
+    description: 'Description',
+    client: 'Client',
+    clientPhone: 'Tél. client',
+    site: 'Site',
+    color: 'Couleur',
+    startDate: 'Date début',
+    endDate: 'Date fin',
+    address: 'Adresse',
+    latitude: 'Latitude',
+    longitude: 'Longitude',
+    geoRadius: 'Rayon géo.',
+    hourlyRate: 'Taux horaire',
+    status: 'Statut',
+    isDraft: 'Brouillon',
+  };
+
+  type FieldChange = { field: string; label: string; before: string; after: string };
+
+  const formatFieldValue = (key: string, val: any): string => {
+    if (val === null || val === undefined || val === '') return '—';
+    if (key === 'isDraft') return val ? 'Oui' : 'Non';
+    if (key === 'hourlyRate') return `${val} €/h`;
+    if (key === 'geoRadius') return `${val} m`;
+    if (key === 'status') {
+      const statusLabels: Record<string, string> = { planifie: 'Planifié', en_cours: 'En cours', termine: 'Terminé', a_reattribuer: 'À réattribuer', annule: 'Annulé' };
+      return statusLabels[val] || val;
+    }
+    return String(val);
+  };
+
+  const computeFieldChanges = (before: any, after: any): FieldChange[] => {
+    if (!before || !after) return [];
+    const changes: FieldChange[] = [];
+
+    // Compare scalar fields
+    for (const key of Object.keys(FIELD_LABELS)) {
+      const bVal = before[key] ?? null;
+      const aVal = after[key] ?? null;
+      if (String(bVal ?? '') !== String(aVal ?? '')) {
+        changes.push({
+          field: key,
+          label: FIELD_LABELS[key],
+          before: formatFieldValue(key, bVal),
+          after: formatFieldValue(key, aVal),
+        });
+      }
+    }
+
+    // Compare agents
+    const bAgents = (before.assignedAgentIds || []).slice().sort();
+    const aAgents = (after.assignedAgentIds || []).slice().sort();
+    if (JSON.stringify(bAgents) !== JSON.stringify(aAgents)) {
+      changes.push({
+        field: 'assignedAgentIds',
+        label: 'Agents',
+        before: bAgents.length > 0 ? bAgents.map((id: string) => getAgentName(id)).join(', ') : '—',
+        after: aAgents.length > 0 ? aAgents.map((id: string) => getAgentName(id)).join(', ') : '—',
+      });
+    }
+
+    // Compare shifts count / content
+    const bShifts = before.shifts || [];
+    const aShifts = after.shifts || [];
+    const shiftStr = (s: any) => `${s.date} ${s.startTime}-${s.endTime}`;
+    const bShiftStr = bShifts.map(shiftStr).sort().join(' | ');
+    const aShiftStr = aShifts.map(shiftStr).sort().join(' | ');
+    if (bShiftStr !== aShiftStr) {
+      changes.push({
+        field: 'shifts',
+        label: 'Créneaux',
+        before: bShifts.length > 0 ? `${bShifts.length} créneau(x)` : '—',
+        after: aShifts.length > 0 ? `${aShifts.length} créneau(x)` : '—',
+      });
+    }
+
+    return changes;
+  };
+
+  /** Build a snapshot-like object from the current selectedEvent for diff comparison */
+  const currentEventAsSnapshot = (ev: PlanningEvent) => ({
+    title: ev.title,
+    description: ev.description,
+    client: ev.client,
+    clientPhone: ev.clientPhone,
+    site: ev.site,
+    color: ev.color,
+    startDate: ev.startDate,
+    endDate: ev.endDate,
+    address: ev.address,
+    latitude: ev.latitude,
+    longitude: ev.longitude,
+    geoRadius: ev.geoRadius,
+    hourlyRate: ev.hourlyRate,
+    status: ev.status,
+    isDraft: ev.isDraft,
+    shifts: ev.shifts.map(s => ({ date: s.date, startTime: s.startTime, endTime: s.endTime, agentId: s.agentId })),
+    assignedAgentIds: ev.assignedAgentIds,
+  });
 
   // Helper: get all dates in event range
   const getEventDatesInRange = (skip: number[] = [0, 6]): string[] => {
@@ -731,6 +867,20 @@ export default function Planning() {
     }
   };
 
+  // Handle PDF export with filters
+  const handleExportPDF = () => {
+    const filters: PDFExportFilters = {};
+    if (pdfFilterAgent) filters.agentId = pdfFilterAgent;
+    if (pdfFilterClient) filters.client = pdfFilterClient;
+    if (pdfFilterSite) filters.site = pdfFilterSite;
+    generatePlanningPDF(events, users, new Date(), pdfPeriod, Object.keys(filters).length > 0 ? filters : undefined);
+    setShowPdfDialog(false);
+    // Reset filters
+    setPdfFilterAgent('');
+    setPdfFilterClient('');
+    setPdfFilterSite('');
+  };
+
   // Handle repeat event
   const handleRepeatEvent = async () => {
     if (!selectedEvent || !repeatEndDate) return;
@@ -756,41 +906,13 @@ export default function Planning() {
         </div>
         <div className="flex items-center gap-2">
           {/* PDF Export */}
-          <div className="relative">
-            <button
-              onClick={() => setShowPdfMenu(!showPdfMenu)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl font-medium text-sm transition-all"
-            >
-              <FileDown size={16} />
-              Exporter PDF
-              <ChevronDown size={14} />
-            </button>
-            {showPdfMenu && (
-              <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
-                <button
-                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'day'); setShowPdfMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
-                >
-                  <Calendar size={14} className="text-slate-400" />
-                  Aujourd'hui
-                </button>
-                <button
-                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'week'); setShowPdfMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
-                >
-                  <CalendarDays size={14} className="text-slate-400" />
-                  Cette semaine
-                </button>
-                <button
-                  onClick={() => { generatePlanningPDF(events, users, new Date(), 'month'); setShowPdfMenu(false); }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-primary-50 hover:text-primary-700 transition-colors flex items-center gap-2"
-                >
-                  <Grid3X3 size={14} className="text-slate-400" />
-                  Ce mois
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setShowPdfDialog(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl font-medium text-sm transition-all"
+          >
+            <FileDown size={16} />
+            Exporter PDF
+          </button>
           <button
             onClick={() => {
               setDupWeekSource('');
@@ -1148,12 +1270,50 @@ export default function Planning() {
       )}
       <Modal
         isOpen={showDetail}
-        onClose={() => setShowDetail(false)}
+        onClose={() => { setShowDetail(false); setShowVersionHistory(false); }}
         title="Détail de l'événement"
         size="lg"
       >
         {selectedEvent && (
           <div className="space-y-6">
+            {/* Draft banner */}
+            {selectedEvent.isDraft && (
+              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <FileEdit size={18} className="text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Brouillon non publié</p>
+                    <p className="text-xs text-amber-600">Les agents ne voient pas encore cette mission. Publiez pour envoyer les notifications.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    // Check if all agents have at least one shift
+                    const agentsWithoutShifts = selectedEvent.assignedAgentIds.filter(
+                      (agentId) => !selectedEvent.shifts.some((s) => s.agentId === agentId)
+                    );
+                    if (agentsWithoutShifts.length > 0) {
+                      const names = agentsWithoutShifts.map((id) => getAgentName(id)).join(', ');
+                      alert(`Impossible de publier : les agents suivants n'ont aucun créneau attribué :\n\n${names}\n\nVeuillez modifier la mission et attribuer au moins un créneau à chaque agent avant de publier.`);
+                      return;
+                    }
+                    if (!confirm('Publier ce brouillon ? Les agents seront notifiés.')) return;
+                    setPublishingId(selectedEvent.id);
+                    try {
+                      const updated = await publishEvent(selectedEvent.id);
+                      setSelectedEvent(updated);
+                    } catch (err) { console.error(err); }
+                    setPublishingId(null);
+                  }}
+                  disabled={publishingId === selectedEvent.id}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white rounded-xl font-medium text-sm transition-all whitespace-nowrap"
+                >
+                  <Send size={14} />
+                  {publishingId === selectedEvent.id ? 'Publication...' : 'Publier'}
+                </button>
+              </div>
+            )}
+
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <span
@@ -1161,7 +1321,14 @@ export default function Planning() {
                   style={{ backgroundColor: selectedEvent.color, boxShadow: `0 0 0 3px ${selectedEvent.color}30` }}
                 />
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900">{selectedEvent.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold text-slate-900">{selectedEvent.title}</h3>
+                    {selectedEvent.isDraft && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 border border-amber-200 rounded-full">
+                        Brouillon
+                      </span>
+                    )}
+                  </div>
                   <p className="text-slate-500 mt-1">{selectedEvent.description}</p>
                 </div>
               </div>
@@ -1174,12 +1341,26 @@ export default function Planning() {
                 <div className="flex-1">
                   <p className="text-xs text-slate-400 mb-1">Agents assignés</p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedEvent.assignedAgentIds.map((agentId) => (
-                      <span key={agentId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-sm">
-                        <span className="font-medium text-slate-900">{getAgentName(agentId)}</span>
-                        <StatusBadge status={selectedEvent.agentResponses?.[agentId] || 'pending'} />
-                      </span>
-                    ))}
+                    {selectedEvent.assignedAgentIds.map((agentId) => {
+                      const hasShift = selectedEvent.shifts.some(s => s.agentId === agentId);
+                      return (
+                        <span key={agentId} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-sm">
+                          <span className="font-medium text-slate-900">{getAgentName(agentId)}</span>
+                          {selectedEvent.isDraft ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-500">
+                              <FileEdit size={10} /> Non notifié
+                            </span>
+                          ) : (
+                            <StatusBadge status={selectedEvent.agentResponses?.[agentId] || 'pending'} />
+                          )}
+                          {!hasShift && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                              <AlertTriangle size={10} /> Sans créneau
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1297,6 +1478,96 @@ export default function Planning() {
               </div>
             )}
 
+            {/* Version History */}
+            {selectedEvent.draftVersions && selectedEvent.draftVersions.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setShowVersionHistory(!showVersionHistory)}
+                  className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-primary-600 transition-colors mb-3"
+                >
+                  <Archive size={16} />
+                  Historique des versions ({selectedEvent.draftVersions.length})
+                  {showVersionHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                {showVersionHistory && (
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {selectedEvent.draftVersions.map((v, idx, arr) => {
+                      let parsed: any = null;
+                      try { parsed = JSON.parse(v.snapshot); } catch {}
+
+                      // Compute diff: compare this version's snapshot with the NEXT version (or current event for the latest)
+                      let changes: FieldChange[] = [];
+                      if (parsed) {
+                        if (idx === 0) {
+                          // Latest version → compare with current event state
+                          changes = computeFieldChanges(parsed, currentEventAsSnapshot(selectedEvent));
+                        } else {
+                          // Compare with the version above (more recent)
+                          let nextParsed: any = null;
+                          try { nextParsed = JSON.parse(arr[idx - 1].snapshot); } catch {}
+                          if (nextParsed) changes = computeFieldChanges(parsed, nextParsed);
+                        }
+                      }
+
+                      return (
+                        <div key={v.id} className="px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded">
+                                  v{v.versionNum}
+                                </span>
+                                <span className="text-xs font-medium text-slate-700 truncate">{v.label}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] text-slate-400">{getAgentName(v.createdBy)}</span>
+                                <span className="text-[10px] text-slate-300">·</span>
+                                <span className="text-[10px] text-slate-400">{formatDateTime(v.createdAt)}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Restaurer la version ${v.versionNum} ?\nL'état actuel sera sauvegardé automatiquement avant la restauration.`)) return;
+                                setRestoringVersionId(v.id);
+                                try {
+                                  const restored = await restoreVersion(selectedEvent.id, v.id);
+                                  setSelectedEvent(restored);
+                                } catch (err) { console.error(err); }
+                                setRestoringVersionId(null);
+                              }}
+                              disabled={restoringVersionId === v.id}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 disabled:bg-slate-100 disabled:text-slate-400 border border-primary-200 rounded-lg transition-all whitespace-nowrap"
+                            >
+                              <RotateCcw size={12} />
+                              {restoringVersionId === v.id ? 'Restauration...' : 'Restaurer'}
+                            </button>
+                          </div>
+
+                          {/* Field-level diff */}
+                          {changes.length > 0 ? (
+                            <div className="mt-2 space-y-1">
+                              {changes.map((c) => (
+                                <div key={c.field} className="flex items-start gap-1.5 text-[11px] leading-tight">
+                                  <span className="font-semibold text-slate-500 whitespace-nowrap min-w-[80px]">{c.label} :</span>
+                                  <span className="text-red-500 line-through break-all">{c.before}</span>
+                                  <span className="text-slate-300">→</span>
+                                  <span className="text-emerald-600 font-medium break-all">{c.after}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-1.5 text-[10px] text-slate-400 italic">
+                              {idx === 0 ? 'Identique à l\'état actuel' : 'Aucune différence détectée'}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
               <button
@@ -1305,6 +1576,32 @@ export default function Planning() {
               >
                 <Edit3 size={16} /> Modifier
               </button>
+              {selectedEvent.isDraft && (
+                <button
+                  onClick={async () => {
+                    // Check if all agents have at least one shift
+                    const agentsWithoutShifts = selectedEvent.assignedAgentIds.filter(
+                      (agentId) => !selectedEvent.shifts.some((s) => s.agentId === agentId)
+                    );
+                    if (agentsWithoutShifts.length > 0) {
+                      const names = agentsWithoutShifts.map((id) => getAgentName(id)).join(', ');
+                      alert(`Impossible de publier : les agents suivants n'ont aucun créneau attribué :\n\n${names}\n\nVeuillez modifier la mission et attribuer au moins un créneau à chaque agent avant de publier.`);
+                      return;
+                    }
+                    if (!confirm('Publier ce brouillon ? Les agents seront notifiés.')) return;
+                    setPublishingId(selectedEvent.id);
+                    try {
+                      const updated = await publishEvent(selectedEvent.id);
+                      setSelectedEvent(updated);
+                    } catch (err) { console.error(err); }
+                    setPublishingId(null);
+                  }}
+                  disabled={publishingId === selectedEvent.id}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl font-medium text-sm transition-all"
+                >
+                  <Send size={16} /> {publishingId === selectedEvent.id ? 'Publication...' : 'Publier'}
+                </button>
+              )}
               <button
                 onClick={() => {
                   setRepeatFrequency('weekly');
@@ -1362,7 +1659,7 @@ export default function Planning() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => handleSubmit(e, false)}>
           {formError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
               <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
@@ -1706,10 +2003,19 @@ export default function Planning() {
                     </button>
                   )}
                   <button
-                    type="submit"
-                    className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
+                    type="button"
+                    onClick={(e) => handleSubmit(e as any, true)}
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all"
                   >
-                    {formMode === 'create' ? 'Créer' : 'Enregistrer'}
+                    <FileEdit size={16} />
+                    {formMode === 'create' ? 'Brouillon' : 'Sauvegarder brouillon'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
+                  >
+                    <Send size={16} />
+                    {formMode === 'create' ? 'Créer & publier' : 'Enregistrer & publier'}
                   </button>
                 </div>
               </div>
@@ -2090,12 +2396,23 @@ export default function Planning() {
                 >
                   ← Événement
                 </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
-                >
-                  {formMode === 'create' ? 'Créer' : 'Enregistrer'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => handleSubmit(e as any, true)}
+                    className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all"
+                  >
+                    <FileEdit size={16} />
+                    {formMode === 'create' ? 'Brouillon' : 'Sauvegarder brouillon'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/25 transition-all"
+                  >
+                    <Send size={16} />
+                    {formMode === 'create' ? 'Créer & publier' : 'Enregistrer & publier'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2158,6 +2475,137 @@ export default function Planning() {
           </div>
         </div>
       )}
+
+      {/* PDF Export Dialog */}
+      <Modal
+        isOpen={showPdfDialog}
+        onClose={() => setShowPdfDialog(false)}
+        title="Exporter le planning en PDF"
+        size="md"
+      >
+        <div className="space-y-5">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-700">
+            <FileDown size={14} className="inline mr-1.5 -mt-0.5" />
+            Sélectionnez la période et les filtres optionnels pour générer un PDF du planning.
+          </div>
+
+          {/* Period Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Période</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setPdfPeriod('day')}
+                className={`px-4 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${
+                  pdfPeriod === 'day'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <Calendar size={16} className="inline mr-1.5 -mt-0.5" />
+                Aujourd'hui
+              </button>
+              <button
+                type="button"
+                onClick={() => setPdfPeriod('week')}
+                className={`px-4 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${
+                  pdfPeriod === 'week'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <CalendarDays size={16} className="inline mr-1.5 -mt-0.5" />
+                Semaine
+              </button>
+              <button
+                type="button"
+                onClick={() => setPdfPeriod('month')}
+                className={`px-4 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${
+                  pdfPeriod === 'month'
+                    ? 'bg-primary-50 border-primary-500 text-primary-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <Grid3X3 size={16} className="inline mr-1.5 -mt-0.5" />
+                Mois
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Filtres optionnels</p>
+
+            {/* Agent Filter */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Agent</label>
+              <select
+                value={pdfFilterAgent}
+                onChange={(e) => setPdfFilterAgent(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+              >
+                <option value="">Tous les agents</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.firstName} {agent.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Client Filter */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Client</label>
+              <select
+                value={pdfFilterClient}
+                onChange={(e) => setPdfFilterClient(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+              >
+                <option value="">Tous les clients</option>
+                {uniqueClients.map((client) => (
+                  <option key={client} value={client}>
+                    {client}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Site Filter */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Site</label>
+              <select
+                value={pdfFilterSite}
+                onChange={(e) => setPdfFilterSite(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"
+              >
+                <option value="">Tous les sites</option>
+                {uniqueSites.map((site) => (
+                  <option key={site} value={site}>
+                    {site}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setShowPdfDialog(false)}
+              className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-600/25 transition-all"
+            >
+              <FileDown size={16} />
+              Générer le PDF
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Duplicate Week Modal */}
       <Modal

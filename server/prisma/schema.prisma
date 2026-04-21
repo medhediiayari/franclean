@@ -65,6 +65,8 @@ model Event {
   geoRadius   Int         @default(200)
   hourlyRate  Float?      // Prix unitaire HT par heure
   status      EventStatus @default(planifie)
+  isDraft     Boolean     @default(false)
+  publishedAt DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -73,6 +75,7 @@ model Event {
   agents      EventAgent[]
   history     EventHistory[]
   attendances Attendance[]
+  draftVersions EventDraftVersion[]
 
   @@map("events")
 }
@@ -111,6 +114,21 @@ model EventShift {
   attendances Attendance[]
 
   @@map("event_shifts")
+}
+
+// ── Event Draft Versions (snapshots) ────────────────────
+model EventDraftVersion {
+  id          String   @id @default(cuid())
+  eventId     String
+  versionNum  Int      @default(1)
+  snapshot    String   // JSON snapshot of event data at this version
+  label       String   @default("")  // optional label e.g. "v1", "Avant modif horaires"
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_draft_versions")
 }
 
 // ── Event History ───────────────────────────────────────

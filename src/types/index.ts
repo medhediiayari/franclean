@@ -27,6 +27,15 @@ export interface EventShift {
   endTime: string;     // HH:mm
 }
 
+export interface EventDraftVersion {
+  id: string;
+  versionNum: number;
+  snapshot: string;  // JSON string
+  label: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface PlanningEvent {
   id: string;
   title: string;
@@ -45,6 +54,9 @@ export interface PlanningEvent {
   hourlyRate?: number;
   assignedAgentIds: string[];
   status: EventStatus;
+  isDraft: boolean;
+  publishedAt?: string | null;
+  draftVersions: EventDraftVersion[];
   agentResponses?: Record<string, 'accepted' | 'refused' | 'pending'>;
   history: EventHistoryEntry[];
   createdAt: string;

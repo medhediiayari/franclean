@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Devis Améliorations — Bipbip Gestion RH</title>
+<style>
+  @page { size: A4; margin: 18mm 15mm 18mm 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1e293b;
+    background: #fff;
+    font-size: 10.5pt;
+    line-height: 1.45;
+  }
+
+  /* ── Cover Page ────────────────────────────────── */
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover-logo {
+    width: 90px; height: 90px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border-radius: 22px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 36px; font-weight: 800;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 30px rgba(99,102,241,0.3);
+  }
+  .cover h1 {
+    font-size: 28pt;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #6366f1;
+    font-weight: 600;
+    margin-bottom: 40px;
+  }
+  .cover-meta {
+    font-size: 10.5pt;
+    color: #64748b;
+    line-height: 1.7;
+  }
+  .cover-meta strong { color: #334155; }
+  .cover-divider {
+    width: 80px; height: 3px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    border-radius: 3px;
+    margin: 28px auto;
+  }
+  .cover-summary-box {
+    margin-top: 36px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 22px 32px;
+    text-align: left;
+    max-width: 420px;
+  }
+  .cover-summary-box h3 {
+    font-size: 11pt;
+    color: #6366f1;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .cover-summary-row {
+    display: flex; justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px dotted #e2e8f0;
+  }
+  .cover-summary-row:last-child { border-bottom: none; }
+  .cover-summary-row .label { color: #64748b; }
+  .cover-summary-row .value { font-weight: 700; color: #1e293b; }
+  .cover-summary-row.total { border-top: 2px solid #6366f1; margin-top: 6px; padding-top: 8px; }
+  .cover-summary-row.total .value { color: #6366f1; font-size: 13pt; }
+
+  /* ── Summary Table Page ────────────────────────── */
+  .summary-page { page-break-after: always; padding-top: 20px; }
+  .summary-page h2 {
+    font-size: 16pt; color: #1e293b;
+    border-bottom: 3px solid #6366f1;
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+  }
+  table.summary {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  table.summary th {
+    background: #4f46e5;
+    color: #fff;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+  }
+  table.summary th:last-child { text-align: right; }
+  table.summary td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  table.summary td:last-child { text-align: right; font-weight: 600; }
+  table.summary tr:nth-child(even) { background: #f8fafc; }
+  table.summary tr.free td:last-child { color: #16a34a; }
+  table.summary tr.paid td:last-child { color: #4f46e5; }
+  table.summary tfoot td {
+    font-weight: 800;
+    font-size: 10.5pt;
+    border-top: 2px solid #4f46e5;
+    padding-top: 10px;
+    background: #f1f5f9;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-free { background: #dcfce7; color: #15803d; }
+  .badge-low { background: #dbeafe; color: #1d4ed8; }
+  .badge-med { background: #fef3c7; color: #b45309; }
+  .badge-high { background: #fee2e2; color: #dc2626; }
+  .scope-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 7pt;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .scope-admin { background: #ede9fe; color: #6d28d9; }
+  .scope-agent { background: #dbeafe; color: #1d4ed8; }
+  .scope-client { background: #d1fae5; color: #047857; }
+  .scope-server { background: #fef3c7; color: #92400e; }
+
+  /* ── Ticket Cards ──────────────────────────────── */
+  .ticket {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    page-break-inside: avoid;
+    overflow: hidden;
+  }
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .ticket-id {
+    font-size: 9pt;
+    font-weight: 800;
+    color: #6366f1;
+    background: #eef2ff;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .ticket-title {
+    flex: 1;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-left: 12px;
+  }
+  .ticket-price {
+    font-size: 12pt;
+    font-weight: 800;
+    padding: 4px 14px;
+    border-radius: 8px;
+  }
+  .ticket-price.free { background: #dcfce7; color: #15803d; }
+  .ticket-price.paid { background: #eef2ff; color: #4f46e5; }
+
+  .ticket-body { padding: 14px 18px; }
+  .ticket-section { margin-bottom: 10px; }
+  .ticket-section-title {
+    font-size: 8pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  .ticket-description { font-size: 10pt; color: #334155; }
+  .ticket-scope { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ticket-impact {
+    font-size: 9pt;
+    color: #64748b;
+    padding: 6px 10px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 3px solid #6366f1;
+  }
+  .ticket-justification {
+    font-size: 9pt;
+    color: #64748b;
+    font-style: italic;
+    padding: 6px 10px;
+    background: #fffbeb;
+    border-radius: 6px;
+    border-left: 3px solid #f59e0b;
+  }
+
+  /* ── Section Headers ───────────────────────────── */
+  .section-header {
+    font-size: 14pt;
+    font-weight: 800;
+    color: #4f46e5;
+    margin: 24px 0 12px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
+    page-break-after: avoid;
+  }
+
+  /* ── Footer ────────────────────────────────────── */
+  .page-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px solid #e2e8f0;
+    font-size: 9pt;
+    color: #94a3b8;
+    text-align: center;
+  }
+  .legal-note {
+    page-break-before: always;
+    padding-top: 40px;
+  }
+  .legal-note h2 {
+    font-size: 14pt;
+    color: #1e293b;
+    margin-bottom: 16px;
+    border-bottom: 3px solid #6366f1;
+    padding-bottom: 8px;
+  }
+  .legal-note p {
+    font-size: 10pt;
+    color: #475569;
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .legal-note ul {
+    margin: 8px 0 12px 20px;
+    font-size: 10pt;
+    color: #475569;
+  }
+  .legal-note li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     COVER PAGE
+     ═══════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">B</div>
+  <h1>Bipbip — Gestion RH</h1>
+  <p class="subtitle">Devis d'Améliorations & Nouvelles Fonctionnalités</p>
+  <div class="cover-divider"></div>
+  <div class="cover-meta">
+    <strong>Document :</strong> Cahier de tickets – Devis détaillé<br>
+    <strong>Version :</strong> 1.0<br>
+    <strong>Date :</strong> 11 avril 2026<br>
+    <strong>Destinataire :</strong> Client<br>
+    <strong>Émetteur :</strong> Équipe Technique Bipbip
+  </div>
+
+  <div class="cover-summary-box">
+    <h3>Résumé Financier</h3>
+    <div class="cover-summary-row"><span class="label">Tickets gratuits (5)</span><span class="value" style="color:#16a34a">0 €</span></div>
+    <div class="cover-summary-row"><span class="label">Tickets payants (15)</span><span class="value">11 400 €</span></div>
+    <div class="cover-summary-row total"><span class="label">TOTAL HT</span><span class="value">11 400 €</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SUMMARY TABLE
+     ═══════════════════════════════════════════════════ -->
+<div class="summary-page">
+  <h2>Tableau Récapitulatif des Tickets</h2>
+  <table class="summary">
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>Ticket</th>
+        <th style="width:90px">Périmètre</th>
+        <th style="width:70px">Complexité</th>
+        <th style="width:80px">Prix HT</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="paid"><td>1</td><td>Draft & Publication des missions</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-high">Haute</span></td><td>1 500 €</td></tr>
+      <tr class="paid"><td>2</td><td>Export planning avec filtres (agent, client, site)</td><td><span class="scope-badge scope-admin">Admin</span></td><td><span class="badge badge-low">Faible</span></td><td>300 €</td></tr>
+      <tr class="paid"><td>3</td><td>Mot de passe oublié — réinitialisation par e-mail</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-agent">Agent</span><span class="scope-badge scope-client">Client</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>700 €</td></tr>
+      <tr class="paid"><td>4</td><td>Profil agent + photo de profil (agent, admin, client)</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-agent">Agent</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>800 €</td></tr>
+      <tr class="paid"><td>5</td><td>Pourcentage agent (facturation automatique)</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>600 €</td></tr>
+      <tr class="paid"><td>6</td><td>Heures globales facturées par site + calcul auto agents</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-high">Haute</span></td><td>1 200 €</td></tr>
+      <tr class="paid"><td>7</td><td>Gestion des heures de pause dans les missions</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-agent">Agent</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-low">Faible</span></td><td>350 €</td></tr>
+      <tr class="free"><td>8</td><td>Blocage pointage si GPS désactivé</td><td><span class="scope-badge scope-agent">Agent</span></td><td><span class="badge badge-free">Simple</span></td><td>Gratuit</td></tr>
+      <tr class="free"><td>9</td><td>Retirer marge brute & dépense salaire du recap client</td><td><span class="scope-badge scope-admin">Admin</span></td><td><span class="badge badge-free">Simple</span></td><td>Gratuit</td></tr>
+      <tr class="paid"><td>10</td><td>Recap client : heures validées, prix/h, suivi dépassement</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>600 €</td></tr>
+      <tr class="free"><td>11</td><td>Renommer tableau « Nbr heures × Prix agent »</td><td><span class="scope-badge scope-admin">Admin</span></td><td><span class="badge badge-free">Simple</span></td><td>Gratuit</td></tr>
+      <tr class="paid"><td>12</td><td>Réglages : logo, nom d'appli, marque blanche</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-high">Haute</span></td><td>1 200 €</td></tr>
+      <tr class="paid"><td>13</td><td>Recap mensuel agent + confirmation d'heures</td><td><span class="scope-badge scope-agent">Agent</span><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>800 €</td></tr>
+      <tr class="paid"><td>14</td><td>Matricule agent + contrôle visibilité photos client</td><td><span class="scope-badge scope-admin">Admin</span><span class="scope-badge scope-client">Client</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>500 €</td></tr>
+      <tr class="paid"><td>15</td><td>Calendrier missions côté client (portail client)</td><td><span class="scope-badge scope-client">Client</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-high">Haute</span></td><td>1 500 €</td></tr>
+      <tr class="paid"><td>16</td><td>Refonte interface client — design moderne</td><td><span class="scope-badge scope-client">Client</span></td><td><span class="badge badge-med">Moyenne</span></td><td>600 €</td></tr>
+      <tr class="paid"><td>17</td><td>Sous-comptes employés par client (accès par site)</td><td><span class="scope-badge scope-client">Client</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-high">Haute</span></td><td>1 000 €</td></tr>
+      <tr class="free"><td>18</td><td>Infos globales dans détails site (espace client)</td><td><span class="scope-badge scope-client">Client</span></td><td><span class="badge badge-free">Simple</span></td><td>Gratuit</td></tr>
+      <tr class="free"><td>19</td><td>Nombre d'agents affectés par site (espace client)</td><td><span class="scope-badge scope-client">Client</span></td><td><span class="badge badge-free">Simple</span></td><td>Gratuit</td></tr>
+      <tr class="paid"><td>20</td><td>Galerie photos de travail + filtre date (client)</td><td><span class="scope-badge scope-client">Client</span><span class="scope-badge scope-server">Backend</span></td><td><span class="badge badge-med">Moyenne</span></td><td>750 €</td></tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;">TOTAL HT</td>
+        <td>11 400 €</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DETAILED TICKETS
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ▬▬▬ SECTION A — Gestion des Missions (Admin) ▬▬▬ -->
+<div class="section-header">A — Gestion des Missions & Planning</div>
+
+<!-- TICKET 1 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #1</span>
+    <span class="ticket-title">Draft & Publication des Missions</span>
+    <span class="ticket-price paid">1 500 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Ajouter un système de brouillon (draft) lors de la création et modification des missions. L'admin peut effectuer plusieurs modifications successives sans déclencher de notifications. Un bouton <strong>« Publier les changements »</strong> envoie les notifications (push, e-mail) uniquement aux agents impactés par les modifications. Si la modification affecte toute la mission, tous les agents assignés sont notifiés.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Planning.tsx</span>
+        <span class="scope-badge scope-server">Backend — events.ts</span>
+        <span class="scope-badge scope-server">Backend — Prisma schema</span>
+        <span class="scope-badge scope-server">Backend — socket.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout d'un champ <code>isDraft: Boolean</code> + table <code>EventDraftChanges</code> dans le schéma Prisma pour stocker les changements en attente.<br>
+        • Modification de la route <code>PUT /api/events/:id</code> pour supporter le mode draft (sauvegarde sans émission socket).<br>
+        • Nouvelle route <code>POST /api/events/:id/publish</code> : calcul du diff entre état publié et brouillon, identification des agents affectés, envoi ciblé des notifications push/email.<br>
+        • Intégration d'un service d'envoi e-mail (Nodemailer / SendGrid) pour les notifications par mail.<br>
+        • Mise à jour du composant Planning.tsx : indicateur visuel « Brouillon non publié », bouton Publier avec confirmation.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité élevée : nécessite un système de diff pour comparer les états, un mécanisme de notifications ciblées (push + email), l'intégration d'un service e-mail, et une refonte partielle du flux de sauvegarde des événements. Estimation : ~4 jours de développement.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 2 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #2</span>
+    <span class="ticket-title">Export Planning avec Filtres (Agent, Client, Site)</span>
+    <span class="ticket-price paid">300 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Enrichir le menu d'export PDF du planning avec des filtres. L'admin pourra choisir d'exporter le planning filtré par <strong>agent</strong>, par <strong>client</strong> ou par <strong>site</strong> avant de générer le PDF. Le document exporté ne contiendra que les missions correspondant au filtre sélectionné.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Planning.tsx</span>
+        <span class="scope-badge scope-admin">Utils — pdfExport.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout d'un dialogue de filtres avant export dans le menu PDF existant (<code>showPdfMenu</code>).<br>
+        • Passage des critères de filtre à <code>generatePlanningPDF()</code> pour filtrer les événements avant rendu.<br>
+        • Adaptation des colonnes PDF en fonction du filtre actif (ex : masquer la colonne "Agent" si filtre agent unique).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Faible complexité : le système d'export PDF et les données existent déjà. Il s'agit d'ajouter un panneau de sélection de filtres et de passer ces paramètres à la fonction existante. Estimation : ~1 jour.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 7 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #7</span>
+    <span class="ticket-title">Gestion des Heures de Pause dans les Missions</span>
+    <span class="ticket-price paid">350 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Lors de la création d'un événement, l'admin peut saisir un nombre d'heures de pause. Cette durée est automatiquement déduite du total prévu. Exemple : un créneau 8h–14h avec 1h de pause = <strong>5h de travail effectif</strong> au lieu de 6h. Cette donnée impacte le calcul des heures prévues dans les récaps et les comparaisons pointé vs prévu.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Planning.tsx</span>
+        <span class="scope-badge scope-agent">Agent — MyPlanning.tsx</span>
+        <span class="scope-badge scope-server">Backend — schema.prisma, events.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout du champ <code>breakHours: Float?</code> sur le modèle <code>EventShift</code> ou <code>Event</code> dans Prisma.<br>
+        • Mise à jour du formulaire de création/édition d'événement avec un sélecteur d'heures de pause.<br>
+        • Modification du calcul <code>totalPrévu = (endTime - startTime) - breakHours</code> dans HoursTracking et Recap.<br>
+        • Affichage de la pause dans le détail créneau (côté agent et admin).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité faible-moyenne : ajout d'un champ simple mais avec impact sur plusieurs calculs existants (heures prévues, comparaisons, récaps). Estimation : ~1 jour.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ▬▬▬ SECTION B — Authentification & Profils ▬▬▬ -->
+<div class="section-header">B — Authentification & Profils Utilisateurs</div>
+
+<!-- TICKET 3 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #3</span>
+    <span class="ticket-title">Mot de Passe Oublié — Réinitialisation par E-mail</span>
+    <span class="ticket-price paid">700 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Sur la page de connexion, un lien <strong>« Mot de passe oublié ? »</strong> permet à tout utilisateur (admin, agent, client) de recevoir un e-mail contenant un lien sécurisé de réinitialisation. Le lien expire après 1h. L'utilisateur définit un nouveau mot de passe via un formulaire dédié.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-server">Backend — auth.ts (nouvelles routes)</span>
+        <span class="scope-badge scope-server">Backend — Prisma (token table)</span>
+        <span class="scope-badge scope-server">Backend — Service email (Nodemailer)</span>
+        <span class="scope-badge scope-admin">Frontend — Login.tsx (nouveau flux)</span>
+        <span class="scope-badge scope-admin">Frontend — ResetPassword.tsx (nouvelle page)</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouvelle table <code>PasswordResetToken</code> (token, userId, expiresAt, used).<br>
+        • Routes : <code>POST /api/auth/forgot-password</code> (génère token + envoie email), <code>POST /api/auth/reset-password</code> (vérifie token + met à jour mdp).<br>
+        • Configuration SMTP (Nodemailer avec SendGrid/Mailgun/SMTP d'entreprise).<br>
+        • Template e-mail HTML branded avec lien de réinitialisation.<br>
+        • Page frontend <code>/reset-password?token=xxx</code> avec formulaire nouveau mdp + confirmation.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : intégration d'un service d'envoi e-mail (configuration SMTP), gestion sécurisée des tokens avec expiration, création d'un template email et d'une page dédiée. Estimation : ~2 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 4 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #4</span>
+    <span class="ticket-title">Profil Agent + Photos de Profil (Agent, Admin, Client)</span>
+    <span class="ticket-price paid">800 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        <strong>Espace agent :</strong> l'agent peut consulter ses informations personnelles, modifier son mot de passe, et uploader sa photo de profil.<br>
+        <strong>Espace admin :</strong> lors de la création/modification d'un agent ou d'un client, l'admin peut joindre ou modifier la photo de profil.<br>
+        Les photos sont redimensionnées automatiquement et stockées de manière optimisée.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-agent">Agent — nouveau MyProfile.tsx</span>
+        <span class="scope-badge scope-admin">Admin — Users.tsx, Clients.tsx</span>
+        <span class="scope-badge scope-server">Backend — users.ts, clients.ts</span>
+        <span class="scope-badge scope-server">Backend — upload / stockage fichiers</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouvelle page agent <code>MyProfile.tsx</code> avec formulaire de changement de mot de passe et upload photo.<br>
+        • Route <code>PUT /api/users/me/password</code> (vérification ancien mdp + nouveau).<br>
+        • Route <code>POST /api/users/:id/avatar</code> et <code>POST /api/clients/:id/avatar</code> pour upload photo.<br>
+        • Gestion du stockage fichiers (disque local ou S3) avec redimensionnement (sharp/jimp).<br>
+        • Composant <code>AvatarUpload</code> réutilisable avec prévisualisation et recadrage.<br>
+        • Mise à jour des modals Users.tsx et Clients.tsx pour intégrer le composant photo.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : upload sécurisé de fichiers, gestion du stockage, redimensionnement d'images, nouvelle page agent, modification de 2 formulaires admin existants. Estimation : ~2.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ▬▬▬ SECTION C — Facturation & Finances ▬▬▬ -->
+<div class="section-header">C — Facturation, Pourcentage Agent & Heures Facturées</div>
+
+<!-- TICKET 5 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #5</span>
+    <span class="ticket-title">Pourcentage Agent — Facturation Automatique</span>
+    <span class="ticket-price paid">600 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Ajouter un champ <strong>« Pourcentage agent »</strong> dans la fiche utilisateur (invisible côté agent). Ce pourcentage servira à calculer automatiquement le montant de facturation par heure pour chaque agent par site de mission. Si l'admin tente d'affecter un agent sans pourcentage renseigné, une <strong>popup d'alerte</strong> l'invite à le remplir avant de continuer.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Users.tsx</span>
+        <span class="scope-badge scope-admin">Admin — Planning.tsx (alerte assignation)</span>
+        <span class="scope-badge scope-server">Backend — schema.prisma, users.ts, events.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout du champ <code>agentPercentage: Float?</code> sur le modèle <code>User</code> (migration Prisma).<br>
+        • Modification du formulaire Users.tsx pour afficher/modifier le pourcentage (visible admin uniquement).<br>
+        • Vérification dans Planning.tsx / Gestion.tsx lors de l'assignation : si <code>agentPercentage == null</code> → popup d'alerte bloquante.<br>
+        • Calcul automatique dans Recap : <code>montantAgent = heuresValidées × prixHeureSite × (pourcentage / 100)</code>.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : ajout d'un champ et d'une logique de validation croisée entre les entités User, Event et Site. Impact sur le calcul financier du Recap. Estimation : ~1.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 6 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #6</span>
+    <span class="ticket-title">Heures Globales Facturées par Site + Calcul Auto Agents</span>
+    <span class="ticket-price paid">1 200 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Lors de la création d'un site client, l'admin renseigne le <strong>nombre d'heures globales contractuelles</strong> et le <strong>prix par heure facturé</strong> au client. Exemple : 50h requises × 100€/h = 5 000€ facturés au client. Les factures agents sont calculées automatiquement via leur pourcentage (ticket #5). Le système détecte et alerte en cas de dépassement d'heures.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Clients.tsx, Recap.tsx</span>
+        <span class="scope-badge scope-server">Backend — schema.prisma, clients.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout des champs <code>contractHours: Float?</code> et <code>contractHourlyRate: Float?</code> sur <code>ClientSite</code>.<br>
+        • Modification Clients.tsx : formulaire site avec heures et prix, affichage du total calculé.<br>
+        • Modification Recap.tsx (tab Clients) : affichage heures consommées vs. contractuelles, barre de progression, coloration si dépassement.<br>
+        • Calcul automatique facturation agent : <code>agentBill = heures × prixSite × (agentPercentage/100)</code>.<br>
+        • Tableau de bord avec alertes dépassement d'heures par site/client.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité élevée : modèle de données enrichi, logique de calcul automatique croisée (heures contractuelles × pourcentage agent × prix), système d'alertes dépassement, impacts sur le Recap facturation. Estimation : ~3.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 10 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #10</span>
+    <span class="ticket-title">Recap Client : Heures Validées, Prix/h, Suivi Dépassement</span>
+    <span class="ticket-price paid">600 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Dans l'onglet « Clients » du Recap, afficher pour chaque client : le <strong>nombre d'heures validées</strong>, le <strong>prix par heure</strong>, le <strong>montant total calculé</strong> (heures × prix), et le <strong>nombre d'heures restantes</strong> par rapport au contrat. Si les heures dépassent le contrat, la ligne est <strong>colorée en rouge</strong> pour signaler le dépassement.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Recap.tsx</span>
+        <span class="scope-badge scope-server">Backend — données agrégées</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Enrichissement du tableau recap client : nouvelles colonnes « Heures validées », « Prix/h », « Total », « Heures restantes ».<br>
+        • Logique de coloration conditionnelle (rouge si dépassement, orange si proche du seuil &gt;80%).<br>
+        • Barre de progression visuelle heures consommées / heures contractuelles.<br>
+        • Dépend du ticket #6 (heures contractuelles par site).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : exploitation des données contractuelles (ticket #6), calculs d'agrégation, rendu conditionnel avec coloration. Estimation : ~1.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ▬▬▬ SECTION D — Espace Agent ▬▬▬ -->
+<div class="section-header">D — Espace Agent — Améliorations</div>
+
+<!-- TICKET 8 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #8</span>
+    <span class="ticket-title">Blocage Pointage si GPS Désactivé</span>
+    <span class="ticket-price free">Gratuit</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Si l'agent n'a pas activé sa géolocalisation (GPS désactivé ou permission refusée), il ne peut pas prendre de photo d'entrée ni de sortie. Un message explicite l'invite à activer son GPS avant de continuer.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-agent">Agent — CheckIn.tsx</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Vérification de <code>navigator.geolocation</code> et du statut de permission avant d'activer la caméra.<br>
+        • Affichage d'un message d'erreur bloquant avec instructions pour activer le GPS.<br>
+        • Désactivation du bouton capture tant que la position n'est pas obtenue.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Simple modification du flux existant dans CheckIn.tsx — ajout d'une condition de garde. La vérification GPS existe déjà partiellement (getCurrentPosition). Moins de 2h de travail.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 13 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #13</span>
+    <span class="ticket-title">Recap Mensuel Agent + Confirmation d'Heures</span>
+    <span class="ticket-price paid">800 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Chaque fin de mois, l'agent reçoit dans son espace un <strong>récapitulatif mensuel</strong> contenant le nombre total d'heures effectuées. L'agent peut <strong>confirmer</strong> ses heures. Côté admin, un tableau de suivi affiche quels agents ont confirmé leurs heures et lesquels n'ont pas encore répondu.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-agent">Agent — nouveau MonthlyRecap.tsx</span>
+        <span class="scope-badge scope-admin">Admin — Recap.tsx (nouvel onglet)</span>
+        <span class="scope-badge scope-server">Backend — nouveau modèle + routes</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouveau modèle Prisma <code>MonthlyConfirmation</code> (agentId, month, year, totalHours, confirmedAt, confirmedBy).<br>
+        • Tâche planifiée (cron job ou trigger) pour générer les récaps fin de mois.<br>
+        • Nouvelle page agent avec détail des heures du mois + bouton « Confirmer ».<br>
+        • Route <code>POST /api/confirmations/:id/confirm</code>.<br>
+        • Nouvel onglet admin dans Recap.tsx : liste agents avec statut confirmation (✓ / en attente).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : nouveau modèle de données, tâche planifiée, nouvelle page agent, modification du Recap admin, logique de workflow de confirmation. Estimation : ~2.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ▬▬▬ SECTION E — Recap & Nommage Admin ▬▬▬ -->
+<div class="section-header">E — Recap Admin & Réglages</div>
+
+<!-- TICKET 9 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #9</span>
+    <span class="ticket-title">Retirer Marge Brute & Dépense Salaire du Recap Client</span>
+    <span class="ticket-price free">Gratuit</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Supprimer les colonnes/sections « Marge brute » et « Dépense salaire » de l'onglet Clients du Recap. Ces informations financières internes ne doivent pas apparaître dans cette vue.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Recap.tsx (tab Clients)</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Suppression du JSX correspondant aux colonnes « Marge brute » et « Dépense salaire » dans Recap.tsx.<br>
+        • Nettoyage des calculs associés.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Modification triviale — suppression de quelques lignes de code JSX. Moins de 30 minutes.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 11 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #11</span>
+    <span class="ticket-title">Renommer Tableau « Nbr heures × Prix agent »</span>
+    <span class="ticket-price free">Gratuit</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Renommer le libellé du tableau des agents dans le Recap pour afficher <strong>« Nbr heures × Prix agent »</strong> au lieu de l'intitulé actuel. Ajustement cosmétique du titre.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Recap.tsx</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Changement d'une chaîne de caractères dans Recap.tsx.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Modification triviale — une seule ligne de code. Moins de 10 minutes.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 12 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #12</span>
+    <span class="ticket-title">Réglages : Logo, Nom d'Appli, Marque Blanche</span>
+    <span class="ticket-price paid">1 200 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Renommer la section « Email » en <strong>« Réglages »</strong>. Dans cette interface, l'admin pourra modifier : le <strong>logo</strong> de l'application, le <strong>nom</strong> de l'application, et toute mention de l'identité actuelle de l'entreprise. Cela permet une personnalisation complète de l'application pour un nouveau client (marque blanche / white label).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — nouveau Settings.tsx</span>
+        <span class="scope-badge scope-admin">Admin — AdminLayout.tsx (sidebar)</span>
+        <span class="scope-badge scope-agent">Agent — AgentLayout.tsx (header)</span>
+        <span class="scope-badge scope-server">Backend — nouveau modèle AppSettings + routes</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouveau modèle Prisma <code>AppSettings</code> (appName, logoUrl, primaryColor, companyName, etc.) — singleton.<br>
+        • Routes CRUD : <code>GET /api/settings</code>, <code>PUT /api/settings</code>, <code>POST /api/settings/logo</code>.<br>
+        • Composant Settings.tsx avec formulaire complet : upload logo, champs texte, sélecteur de couleur primaire.<br>
+        • Store Zustand <code>settingsStore</code> chargé au démarrage → injecte dynamiquement le nom, logo et couleurs dans toute l'application.<br>
+        • Remplacement de toutes les mentions hardcodées « Bipbip », « FranClean RH » par <code>{settings.appName}</code>.<br>
+        • Mise à jour du favicon, titre de la page, headers PDF en dynamique.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité élevée : système de configuration dynamique, upload logo, propagation dans l'ensemble de l'application (layouts, PDFs, headers), store global. Valeur ajoutée importante car permet la revente de l'application à d'autres clients. Estimation : ~3.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ▬▬▬ SECTION F — Espace Client (Portail) ▬▬▬ -->
+<div class="section-header" style="page-break-before: always;">F — Portail Client — Nouvelles Fonctionnalités</div>
+
+<!-- TICKET 14 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #14</span>
+    <span class="ticket-title">Matricule Agent + Contrôle Visibilité Photos Client</span>
+    <span class="ticket-price paid">500 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Lors de la création/modification d'un client, l'admin peut choisir si le client a <strong>accès aux photos de pointage</strong> et aux <strong>photos de travail</strong>. Un <strong>matricule unique</strong> est généré automatiquement pour chaque agent (ex : AGT-0042). Le client voit les matricules au lieu des noms réels des agents, tout en pouvant suivre les entrées/sorties.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-admin">Admin — Clients.tsx, Users.tsx</span>
+        <span class="scope-badge scope-client">Client — portail (filtrage données)</span>
+        <span class="scope-badge scope-server">Backend — schema.prisma, users.ts, clients.ts</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout du champ <code>matricule: String @unique</code> sur le modèle <code>User</code> (auto-généré : AGT-XXXX).<br>
+        • Ajout des champs <code>canViewCheckPhotos: Boolean</code> et <code>canViewWorkPhotos: Boolean</code> sur le modèle <code>Client</code>.<br>
+        • Modification de Clients.tsx : toggles pour les permissions photos.<br>
+        • Modification des routes API client : filtrage conditionnel des photos selon les permissions.<br>
+        • Remplacement du nom d'agent par le matricule dans toutes les vues client.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : auto-génération de matricules, contrôle d'accès granulaire par client, filtrage conditionnel des données sensibles. Estimation : ~1.5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 15 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #15</span>
+    <span class="ticket-title">Calendrier Missions Côté Client (Portail Client)</span>
+    <span class="ticket-price paid">1 500 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Afficher les missions du client dans un <strong>calendrier</strong> similaire à celui de l'admin, mais ne contenant que ses propres missions. Chaque mission contient un <strong>onglet avec les matricules</strong> des agents affectés. En cliquant sur un matricule, le client peut voir : heure d'arrivée, heure de départ, nombre d'heures, et (si autorisé par l'admin, ticket #14) les photos d'entrée et sortie.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — nouveau ClientCalendar.tsx</span>
+        <span class="scope-badge scope-client">Client — nouveau ClientLayout.tsx</span>
+        <span class="scope-badge scope-server">Backend — routes client dédiées</span>
+        <span class="scope-badge scope-server">Backend — rôle « client » dans auth</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Ajout du rôle <code>client</code> dans l'enum <code>Role</code> Prisma et tout le système d'auth (JWT, middleware, guards).<br>
+        • Nouveau layout client : <code>ClientLayout.tsx</code> avec navigation dédiée.<br>
+        • Intégration FullCalendar côté client (licence partagée avec admin).<br>
+        • Routes <code>GET /api/client/events</code> filtrées par client authentifié.<br>
+        • Route <code>GET /api/client/events/:id/attendance</code> : renvoie détails agent par matricule, photos conditionnelles.<br>
+        • TabWidget dans le détail mission : liste des matricules → clic → modal avec détails horaires + photos (si autorisé).<br>
+        • Nouveau système de routes frontend <code>/client/*</code>.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité élevée : création d'un nouveau portail complet (layout, auth, calendrier, détail missions), intégration FullCalendar, gestion fine des permissions photos, nouveau rôle dans le système d'authentification. Estimation : ~4-5 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 16 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #16</span>
+    <span class="ticket-title">Refonte Interface Client — Design Moderne</span>
+    <span class="ticket-price paid">600 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Refonte visuelle du portail client : suppression de <strong>« Portail Sécurité »</strong>, titres du sidebar en <strong>gras</strong>, suppression du <strong>« Suivi transparent »</strong> et <strong>« Accès rapide »</strong>. Simplification des couleurs : palette plus <strong>sombre, moderne et chic</strong> (mode nuit natif, tons neutres premium).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — ClientLayout.tsx</span>
+        <span class="scope-badge scope-client">Client — toutes les pages client</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouvelle palette Tailwind CSS pour le portail client (mode sombre, tons premium : slate/zinc, accents indigo/violet).<br>
+        • Refonte du sidebar : typographie bold, suppression des éléments obsolètes, espacement modernisé.<br>
+        • Mise à jour des composants cards, tableaux, modals côté client avec le nouveau design.<br>
+        • Suppression des sections non pertinentes (portail sécurité, suivi transparent, accès rapide).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : travail principalement CSS/UI, mais impacte l'ensemble du portail client. Nécessite une attention particulière à la cohérence visuelle et l'accessibilité en mode sombre. Estimation : ~1.5-2 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 17 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #17</span>
+    <span class="ticket-title">Sous-comptes Employés par Client (Accès par Site)</span>
+    <span class="ticket-price paid">1 000 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Chaque client peut <strong>créer des sous-comptes</strong> pour ses employés. Ces utilisateurs peuvent avoir accès à des <strong>sites spécifiques</strong>. Exemple : un client possède 3 sites, il crée un utilisateur avec accès aux sites A et B, et un autre avec accès au site C uniquement.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — nouvel UserManagement.tsx</span>
+        <span class="scope-badge scope-server">Backend — nouveau modèle ClientUser</span>
+        <span class="scope-badge scope-server">Backend — auth étendu, middleware</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouveau modèle <code>ClientUser</code> : id, clientId, email, password, firstName, lastName, allowedSiteIds[].<br>
+        • Extension du rôle <code>client</code> en <code>client_admin</code> + <code>client_user</code>.<br>
+        • Interface de gestion des sous-comptes côté client : CRUD utilisateurs avec sélection multi-sites.<br>
+        • Middleware backend : filtrage des données par <code>allowedSiteIds</code> pour les sous-comptes.<br>
+        • Route <code>GET /api/client/users</code>, <code>POST /api/client/users</code>, <code>PUT</code>, <code>DELETE</code>.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité élevée : système multi-tenant avec contrôle d'accès granulaire par site, gestion de sous-comptes, extension du modèle d'authentification, filtrage dynamique des données. Estimation : ~3 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 18 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #18</span>
+    <span class="ticket-title">Infos Globales dans Détails Site (Espace Client)</span>
+    <span class="ticket-price free">Gratuit</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Dans la vue détails d'un site côté client, afficher les informations globales : adresse, heures contractuelles, nombre de missions en cours / terminées, pourcentage de complétion.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — SiteDetail.tsx</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Agrégation des données existantes (events, attendance) pour le site sélectionné.<br>
+        • Composant de carte récapitulative avec statistiques globales.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Affichage simple de données déjà disponibles. Composant UI basique. Moins de 1h de travail (inclus dans le développement du portail client, ticket #15).
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 19 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #19</span>
+    <span class="ticket-title">Nombre d'Agents Affectés par Site (Espace Client)</span>
+    <span class="ticket-price free">Gratuit</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Dans la vue détails d'un site, le client peut voir le <strong>nombre d'agents actuellement affectés</strong> à ce site. Affichage des matricules (pas des noms) avec leur statut d'activité.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — SiteDetail.tsx</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Comptage des agents uniques assignés aux événements du site via les <code>EventAgent</code> et <code>EventShift</code>.<br>
+        • Affichage de la liste des matricules avec indicateur de statut.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Extension simple de la vue site. Données déjà accessibles via les relations événements-agents. Moins de 1h (inclus dans le portail client, tickets #14-#15).
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 20 -->
+<div class="ticket">
+  <div class="ticket-header">
+    <span class="ticket-id">TICKET #20</span>
+    <span class="ticket-title">Galerie Photos de Travail + Filtre Date (Client)</span>
+    <span class="ticket-price paid">750 €</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description fonctionnelle</div>
+      <p class="ticket-description">
+        Une section <strong>« Photos »</strong> dans le portail client affiche uniquement les <strong>photos de travail</strong> (pas les photos d'entrée/sortie). L'affichage est filtrable par <strong>date</strong>. Les photos sont présentées en galerie avec vue agrandie au clic.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre technique</div>
+      <div class="ticket-scope">
+        <span class="scope-badge scope-client">Client — nouveau PhotoGallery.tsx</span>
+        <span class="scope-badge scope-server">Backend — nouveau modèle WorkPhoto + routes</span>
+      </div>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Impacts techniques</div>
+      <p class="ticket-impact">
+        • Nouveau modèle <code>WorkPhoto</code> : id, eventId, siteId, agentId, photoUrl, caption, takenAt.<br>
+        • Routes <code>POST /api/work-photos</code> (upload depuis agent) et <code>GET /api/client/work-photos</code> (consultation client).<br>
+        • Composant galerie avec grille responsive, lightbox plein écran, filtre par date (date picker).<br>
+        • Côté agent : bouton « Photo de travail » dans le flux de pointage (séparé de la photo d'entrée/sortie).
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Justification du prix</div>
+      <p class="ticket-justification">
+        Complexité moyenne : nouveau modèle de données, upload photos, galerie avec lightbox, filtrage par date, séparation entre photos de pointage et photos de travail. Estimation : ~2 jours.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     NOTES LÉGALES & CONDITIONS
+     ═══════════════════════════════════════════════════ -->
+<div class="legal-note">
+  <h2>Conditions & Informations</h2>
+
+  <p><strong>Validité du devis :</strong> Ce devis est valable 30 jours à compter de la date d'émission (11 avril 2026).</p>
+
+  <p><strong>Prix :</strong> Tous les montants sont exprimés en <strong>euros hors taxes (€ HT)</strong>. TVA applicable selon la législation en vigueur.</p>
+
+  <p><strong>Tickets gratuits :</strong> Les tickets marqués « Gratuit » (n° 8, 9, 11, 18, 19) sont des modifications mineures incluses sans frais additionnels.</p>
+
+  <p><strong>Dépendances entre tickets :</strong></p>
+  <ul>
+    <li>Le ticket <strong>#10</strong> (recap client heures validées) dépend du ticket <strong>#6</strong> (heures globales facturées par site).</li>
+    <li>Le ticket <strong>#6</strong> dépend du ticket <strong>#5</strong> (pourcentage agent).</li>
+    <li>Les tickets <strong>#15, #16, #17, #18, #19, #20</strong> forment un ensemble cohérent pour le portail client. Il est recommandé de les prendre ensemble.</li>
+    <li>Le ticket <strong>#14</strong> (matricule + permissions photos) est un prérequis pour les tickets client (#15, #19, #20).</li>
+    <li>Le ticket <strong>#1</strong> (draft/publication) et le ticket <strong>#3</strong> (reset password) partagent l'intégration du service e-mail — pris ensemble, une réduction de 100€ est applicable.</li>
+  </ul>
+
+  <p><strong>Délais estimés :</strong></p>
+  <ul>
+    <li><strong>Tickets simples</strong> (gratuits) : livrés sous 1-2 jours ouvrés.</li>
+    <li><strong>Tickets moyens</strong> (300-800€) : livrés sous 3-5 jours ouvrés chacun.</li>
+    <li><strong>Tickets complexes</strong> (1 000-1 500€) : livrés sous 5-7 jours ouvrés chacun.</li>
+    <li><strong>Ensemble complet (20 tickets)</strong> : estimation globale de 6 à 8 semaines.</li>
+  </ul>
+
+  <p><strong>Livraison :</strong> Chaque ticket est livré avec tests unitaires, déployé en environnement de staging pour validation avant mise en production.</p>
+
+  <p><strong>Paiement :</strong> 40% à la commande, 30% à mi-parcours, 30% à la livraison finale.</p>
+
+  <div class="page-footer">
+    Bipbip — Gestion RH • Devis Améliorations v1.0 • 11 avril 2026<br>
+    Document généré automatiquement — Page de conditions
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roadmap SaaS — Plateforme de Gestion Sécurité & Propreté</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --primary: #0f172a;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --surface: #f8fafc;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 15mm 12mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    background: #fff;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Cover Page ─────────────────────────── */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    color: #fff;
+    padding: 60px 40px;
+    page-break-after: always;
+  }
+  .cover-badge {
+    display: inline-block;
+    background: rgba(99,102,241,0.25);
+    border: 1px solid rgba(99,102,241,0.4);
+    color: var(--accent-light);
+    font-size: 11pt;
+    font-weight: 600;
+    padding: 6px 20px;
+    border-radius: 20px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+  .cover h1 {
+    font-size: 32pt;
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  .cover h1 span { color: var(--accent-light); }
+  .cover .subtitle {
+    font-size: 14pt;
+    font-weight: 300;
+    color: #94a3b8;
+    max-width: 550px;
+    margin-bottom: 50px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 40px;
+    color: #94a3b8;
+    font-size: 9.5pt;
+  }
+  .cover-meta strong { color: #e2e8f0; }
+
+  /* ── Section Headings ──────────────────── */
+  .section-page {
+    page-break-before: always;
+    padding: 0;
+  }
+  .section-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #334155 100%);
+    color: #fff;
+    padding: 28px 32px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+  }
+  .section-header .phase-badge {
+    display: inline-block;
+    background: rgba(99,102,241,0.3);
+    color: var(--accent-light);
+    font-size: 8.5pt;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .section-header h2 {
+    font-size: 20pt;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+  .section-header p {
+    color: #94a3b8;
+    font-size: 10pt;
+  }
+
+  /* ── Cards / Blocks ────────────────────── */
+  .block {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+  .block h3 {
+    font-size: 11.5pt;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .block h3 .icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11pt;
+    flex-shrink: 0;
+  }
+  .block ul {
+    padding-left: 20px;
+    color: var(--text);
+  }
+  .block li {
+    margin-bottom: 3px;
+  }
+  .block li code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9pt;
+    color: var(--accent);
+  }
+
+  /* ── Two Column Layout ─────────────────── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── Tables ─────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-top: 10px;
+  }
+  table th {
+    background: var(--primary);
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  table th:first-child { border-radius: 6px 0 0 0; }
+  table th:last-child { border-radius: 0 6px 0 0; }
+  table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table tr:nth-child(even) td { background: #f8fafc; }
+  table tr:last-child td:first-child { border-radius: 0 0 0 6px; }
+  table tr:last-child td:last-child { border-radius: 0 0 6px 0; }
+
+  /* ── Timeline ──────────────────────────── */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--success));
+    border-radius: 2px;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 18px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .timeline-item.done::before { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+  .timeline-item h4 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .timeline-item .duration {
+    font-size: 8.5pt;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .timeline-item p {
+    font-size: 9.5pt;
+    color: var(--muted);
+  }
+
+  /* ── Highlight box ─────────────────────── */
+  .highlight {
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+  }
+  .highlight.warning {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border-color: #fde68a;
+  }
+  .highlight.success {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+    border-color: #a7f3d0;
+  }
+  .highlight h4 {
+    font-size: 10pt;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .highlight p, .highlight li {
+    font-size: 9.5pt;
+    color: var(--text);
+  }
+
+  /* ── Pricing table special ─────────────── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .pricing-card {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+  }
+  .pricing-card.popular {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(99,102,241,0.15);
+  }
+  .pricing-card.popular::after {
+    content: 'POPULAIRE';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    font-size: 7pt;
+    font-weight: 700;
+    padding: 2px 12px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+  }
+  .pricing-card h4 {
+    font-size: 13pt;
+    font-weight: 800;
+    color: var(--primary);
+  }
+  .pricing-card .price {
+    font-size: 24pt;
+    font-weight: 900;
+    color: var(--accent);
+    margin: 8px 0 4px;
+  }
+  .pricing-card .price span {
+    font-size: 10pt;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .pricing-card ul {
+    text-align: left;
+    padding-left: 16px;
+    margin-top: 12px;
+    font-size: 9pt;
+    color: var(--text);
+  }
+  .pricing-card li { margin-bottom: 4px; }
+
+  /* ── Architecture diagram ──────────────── */
+  .arch-diagram {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 8.5pt;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+
+  /* ── KPI row ───────────────────────────── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .kpi {
+    background: linear-gradient(135deg, var(--primary), #334155);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    color: #fff;
+  }
+  .kpi .value {
+    font-size: 20pt;
+    font-weight: 900;
+    color: var(--accent-light);
+  }
+  .kpi .label {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  /* ── Print ──────────────────────────────── */
+  @media print {
+    body { font-size: 9.5pt; }
+    .cover { min-height: auto; height: 100vh; }
+    .section-page { page-break-before: always; }
+    .no-break { page-break-inside: avoid; }
+  }
+
+  .spacer { height: 10px; }
+  .small-note {
+    font-size: 8.5pt;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- COVER PAGE                                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">Document Confidentiel</div>
+  <h1>Roadmap <span>SaaS</span><br>Multi-Tenant</h1>
+  <p class="subtitle">
+    Stratégie complète de transformation de la plateforme de gestion 
+    (Sécurité & Propreté) en solution SaaS par abonnement — 
+    Du développement au client final.<br>
+    <strong style="color:#818cf8;">Incluant : analyse de capacité 30 users, auto-scaling & infra cloud détaillée</strong>
+  </p>
+  <div class="cover-meta">
+    <div><strong>Projet :</strong> Plateforme Gestion Opérationnelle</div>
+    <div><strong>Version :</strong> 2.0</div>
+    <div><strong>Date :</strong> 11 Avril 2026</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 1 : ÉTAT ACTUEL & VISION                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Contexte</div>
+    <h2>1. État Actuel & Vision SaaS</h2>
+    <p>Analyse de l'architecture existante et objectif de transformation</p>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="value">3</div>
+      <div class="label">Rôles (Admin, Agent, Client)</div>
+    </div>
+    <div class="kpi">
+      <div class="value">6</div>
+      <div class="label">APIs Backend</div>
+    </div>
+    <div class="kpi">
+      <div class="value">12</div>
+      <div class="label">Pages Frontend</div>
+    </div>
+    <div class="kpi">
+      <div class="value">9</div>
+      <div class="label">Modèles de données</div>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">⚙</span> Stack Technique Actuelle</h3>
+    <div class="two-col">
+      <div>
+        <ul>
+          <li><strong>Frontend :</strong> React 18 + TypeScript + Vite</li>
+          <li><strong>UI :</strong> TailwindCSS + Lucide Icons</li>
+          <li><strong>State :</strong> Zustand (stores modulaires)</li>
+          <li><strong>Calendrier :</strong> FullCalendar</li>
+          <li><strong>Carte :</strong> Leaflet / React-Leaflet</li>
+        </ul>
+      </div>
+      <div>
+        <ul>
+          <li><strong>Backend :</strong> Express.js + TypeScript</li>
+          <li><strong>BDD :</strong> PostgreSQL 16 + Prisma ORM</li>
+          <li><strong>Auth :</strong> JWT (bcryptjs)</li>
+          <li><strong>Realtime :</strong> Socket.IO</li>
+          <li><strong>Deploy :</strong> Docker Compose + Nginx</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight warning no-break">
+    <h4>⚠ Architecture Actuelle = Single-Tenant</h4>
+    <p>Aujourd'hui, une seule instance sert un seul client (entreprise). La base de données, le backend et le frontend sont partagés sans aucune isolation. 
+    <strong>Objectif :</strong> Passer à un modèle où chaque entreprise cliente a sa propre instance isolée, avec branding personnalisé, accès dédié et facturation par abonnement.</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🎯</span> Vision Cible : SaaS Multi-Instance</h3>
+    <ul>
+      <li><strong>Modèle retenu :</strong> <code>Une instance dédiée par client</code> (DB isolée, sous-domaine unique)</li>
+      <li>Chaque client (entreprise de sécurité/propreté) a son propre environnement</li>
+      <li>Branding personnalisable (logo, nom, couleurs) — déjà prévu dans les tickets d'amélioration</li>
+      <li>Abonnement mensuel avec différentes formules</li>
+      <li>Provisionnement automatisé : inscription → déploiement → accès en quelques minutes</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 2 : STRATÉGIE MULTI-TENANCY                       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 1 — Architecture</div>
+    <h2>2. Stratégie Multi-Tenancy</h2>
+    <p>Isolation par instance vs. base partagée — choix et conséquences</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3 style="color:var(--accent);">✅ Option A — Instance par Client (Recommandée)</h3>
+      <ul>
+        <li>1 conteneur Docker + 1 BDD PostgreSQL par client</li>
+        <li><strong>Isolation totale</strong> des données (conformité RGPD native)</li>
+        <li>Chaque client a son sous-domaine : <code>client1.votreplateforme.com</code></li>
+        <li>Mise à jour indépendante possible</li>
+        <li>Scaling horizontal simple</li>
+        <li>Facile avec l'architecture Docker actuelle</li>
+      </ul>
+      <p class="small-note">Coût serveur : ~5-15€/mois par instance (VPS optimisé)</p>
+    </div>
+    <div class="block no-break">
+      <h3 style="color:var(--muted);">⊘ Option B — BDD Partagée (Non retenue)</h3>
+      <ul>
+        <li>1 seule BDD avec <code>tenantId</code> sur chaque table</li>
+        <li>Modification lourde du schema Prisma</li>
+        <li>Risque de fuite de données entre tenants</li>
+        <li>Toutes les requêtes doivent filtrer par tenant</li>
+        <li>Un bug = tous les clients impactés</li>
+        <li>Scaling vertical uniquement</li>
+      </ul>
+      <p class="small-note">Moins cher à petite échelle, mais bien plus risqué</p>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🔧</span> Architecture Cible — Diagramme</h3>
+    <div class="arch-diagram">
+                        ┌─────────────────────────────────┐
+                        │      PORTAIL CENTRAL SaaS        │
+                        │   app.votreplateforme.com         │
+                        │  (Landing + Inscription +         │
+                        │   Gestion abonnements +           │
+                        │   Dashboard super-admin)          │
+                        └──────────┬──────────────────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    │              │              │
+              ┌─────┴─────┐ ┌─────┴─────┐ ┌─────┴─────┐
+              │ Instance A │ │ Instance B │ │ Instance C │
+              │ client1.   │ │ client2.   │ │ client3.   │
+              │ plateforme │ │ plateforme │ │ plateforme │
+              ├───────────┤ ├───────────┤ ├───────────┤
+              │ Frontend   │ │ Frontend   │ │ Frontend   │
+              │ API        │ │ API        │ │ API        │
+              │ PostgreSQL │ │ PostgreSQL │ │ PostgreSQL │
+              │ Socket.IO  │ │ Socket.IO  │ │ Socket.IO  │
+              └───────────┘ └───────────┘ └───────────┘
+                    │              │              │
+              ┌──────────────────────────────────────────┐
+              │        Orchestrateur (Docker Swarm        │
+              │         ou Kubernetes / Coolify)          │
+              └──────────────────────────────────────────┘
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 3 : PORTAIL CENTRAL                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 2 — Développement</div>
+    <h2>3. Portail Central SaaS (à développer)</h2>
+    <p>Application web de gestion des abonnements, clients et provisionnement</p>
+  </div>
+
+  <div class="highlight no-break">
+    <h4>📌 Ce portail est la pièce CENTRALE du modèle SaaS</h4>
+    <p>C'est une <strong>nouvelle application</strong> séparée du produit actuel. Elle gère les entreprises clientes, leurs abonnements, le provisionnement des instances et le billing.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">🌐</span> Landing Page Publique</h3>
+      <ul>
+        <li>Présentation du produit et des fonctionnalités</li>
+        <li>Grille tarifaire interactive</li>
+        <li>Formulaire d'inscription entreprise</li>
+        <li>FAQ, témoignages, contact</li>
+        <li>Blog / ressources (SEO)</li>
+        <li>Bouton "Commencer l'essai gratuit"</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">👤</span> Espace Client (Entreprise)</h3>
+      <ul>
+        <li>Dashboard : statut instance, consommation</li>
+        <li>Gestion abonnement : upgrade / downgrade</li>
+        <li>Factures et historique paiements</li>
+        <li>Personnalisation branding (logo, couleurs, nom)</li>
+        <li>Gestion sous-domaine</li>
+        <li>Support / tickets</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">🔑</span> Super-Admin Dashboard</h3>
+      <ul>
+        <li>Liste de toutes les instances actives</li>
+        <li>Monitoring : CPU, RAM, stockage par instance</li>
+        <li>Gestion des abonnements et paiements</li>
+        <li>Provisionnement / suppression d'instances</li>
+        <li>Logs et alertes globales</li>
+        <li>Gestion des versions déployées</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">⚡</span> Provisionnement Automatisé</h3>
+      <ul>
+        <li>Inscription → Paiement → Déploiement auto</li>
+        <li>API d'orchestration Docker / Kubernetes</li>
+        <li>Génération automatique du sous-domaine</li>
+        <li>Certificat SSL automatique (Let's Encrypt)</li>
+        <li>Seed des données initiales (admin par défaut)</li>
+        <li>Email de bienvenue avec identifiants</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#f1f5f9;color:#475569;">📊</span> Stack Technique du Portail</h3>
+    <table>
+      <tr>
+        <th>Composant</th>
+        <th>Technologie recommandée</th>
+        <th>Justification</th>
+      </tr>
+      <tr>
+        <td>Frontend</td>
+        <td>Next.js 14 (App Router) + TailwindCSS</td>
+        <td>SSR pour SEO, même stack CSS que le produit</td>
+      </tr>
+      <tr>
+        <td>Backend API</td>
+        <td>Express.js ou tRPC (Next.js API Routes)</td>
+        <td>Cohérence avec la codebase existante</td>
+      </tr>
+      <tr>
+        <td>BDD Portail</td>
+        <td>PostgreSQL + Prisma</td>
+        <td>Stocke comptes entreprises, abonnements, instances</td>
+      </tr>
+      <tr>
+        <td>Paiement</td>
+        <td>Stripe (Subscriptions + Webhooks)</td>
+        <td>Standard pour SaaS — gère récurrence, factures, relances</td>
+      </tr>
+      <tr>
+        <td>Orchestration</td>
+        <td>Coolify / Portainer / K8s API</td>
+        <td>Pour provisionner les containers automatiquement</td>
+      </tr>
+      <tr>
+        <td>DNS</td>
+        <td>Cloudflare API (wildcard DNS)</td>
+        <td>Sous-domaines dynamiques + CDN + SSL</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 4 : ADAPTATIONS PRODUIT                           -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 3 — Produit</div>
+    <h2>4. Adaptations du Produit Existant</h2>
+    <p>Modifications nécessaires pour rendre chaque instance personnalisable et autonome</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🎨</span> White-Labeling (Personnalisation Marque)</h3>
+    <p style="margin-bottom:8px;">Chaque instance doit pouvoir afficher l'identité de l'entreprise cliente :</p>
+    <table>
+      <tr><th>Élément</th><th>Stockage</th><th>Impact</th></tr>
+      <tr><td>Logo principal + favicon</td><td>BDD (URL) ou bucket S3</td><td>Header, sidebar, login, PDF exports</td></tr>
+      <tr><td>Nom de l'application</td><td>BDD <code>settings</code></td><td>Title, meta, en-têtes</td></tr>
+      <tr><td>Couleur primaire / accent</td><td>BDD <code>settings</code></td><td>CSS variables dynamiques</td></tr>
+      <tr><td>Sous-domaine personnalisé</td><td>Portail central</td><td>Nginx / Cloudflare</td></tr>
+      <tr><td>Email expéditeur</td><td>BDD <code>settings</code></td><td>Notifications, reset password</td></tr>
+    </table>
+    <p class="small-note">Correspond au Ticket #12 des améliorations déjà identifiées.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🔒</span> Sécurité & Isolation</h3>
+      <ul>
+        <li>Chaque instance a sa propre <code>DATABASE_URL</code></li>
+        <li><code>JWT_SECRET</code> unique par instance</li>
+        <li>Rate limiting par instance (Nginx)</li>
+        <li>Backup quotidien isolé par BDD</li>
+        <li>Chiffrement des données sensibles</li>
+        <li>Audit log pour conformité RGPD</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">📧</span> Services Partagés</h3>
+      <ul>
+        <li><strong>Email :</strong> Service SMTP mutualisé (Resend / Postmark)</li>
+        <li><strong>Push Notifications :</strong> Firebase FCM centralisé</li>
+        <li><strong>Stockage photos :</strong> S3 avec préfixe par tenant</li>
+        <li><strong>Monitoring :</strong> Prometheus + Grafana centralisé</li>
+        <li><strong>Logs :</strong> ELK / Loki centralisé</li>
+        <li><strong>CDN :</strong> Cloudflare (1 config wildcard)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">🔧</span> Modifications Code Existant</h3>
+    <table>
+      <tr><th>Fichier / Module</th><th>Modification</th><th>Effort</th></tr>
+      <tr><td><code>schema.prisma</code></td><td>Ajouter table <code>Settings</code> (logo, nom, couleurs, configs)</td><td>Faible</td></tr>
+      <tr><td><code>src/lib/api.ts</code></td><td>Base URL dynamique (sous-domaine)</td><td>Faible</td></tr>
+      <tr><td>Tous les composants UI</td><td>Utiliser CSS variables pour couleurs dynamiques</td><td>Moyen</td></tr>
+      <tr><td>Login, Header, Sidebar</td><td>Charger logo/nom depuis API <code>/api/settings</code></td><td>Faible</td></tr>
+      <tr><td><code>server/src/index.ts</code></td><td>Route <code>/api/settings</code> + middleware branding</td><td>Faible</td></tr>
+      <tr><td>Export PDF (jsPDF)</td><td>Injecter logo client dans les en-têtes PDF</td><td>Faible</td></tr>
+      <tr><td>Docker Compose</td><td>Template paramétrable par variables d'env</td><td>Moyen</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 5 : PAIEMENT & BILLING                            -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 4 — Monétisation</div>
+    <h2>5. Système de Paiement & Facturation</h2>
+    <p>Abonnement récurrent, essai gratuit, relances automatiques</p>
+  </div>
+
+  <div class="pricing-grid">
+    <div class="pricing-card no-break">
+      <h4>Starter</h4>
+      <div class="price">49€ <span>/mois</span></div>
+      <p style="font-size:8.5pt;color:var(--muted);">Petites équipes</p>
+      <ul>
+        <li>Jusqu'à <strong>10 agents</strong></li>
+        <li>1 admin</li>
+        <li>3 sites max</li>
+        <li>Pointage GPS + photo</li>
+        <li>Planning + calendrier</li>
+        <li>Export PDF basique</li>
+        <li>Support email</li>
+      </ul>
+    </div>
+    <div class="pricing-card popular no-break">
+      <h4>Professionnel</h4>
+      <div class="price">129€ <span>/mois</span></div>
+      <p style="font-size:8.5pt;color:var(--muted);">Entreprises en croissance</p>
+      <ul>
+        <li>Jusqu'à <strong>50 agents</strong></li>
+        <li>3 admins</li>
+        <li>Sites illimités</li>
+        <li>Portail client inclus</li>
+        <li>Facturation automatique</li>
+        <li>Notifications push + email</li>
+        <li>Récap mensuel agents</li>
+        <li>Branding personnalisé</li>
+        <li>Support prioritaire</li>
+      </ul>
+    </div>
+    <div class="pricing-card no-break">
+      <h4>Entreprise</h4>
+      <div class="price">299€ <span>/mois</span></div>
+      <p style="font-size:8.5pt;color:var(--muted);">Grands comptes</p>
+      <ul>
+        <li><strong>Agents illimités</strong></li>
+        <li>Admins illimités</li>
+        <li>Multi-clients avancé</li>
+        <li>API personnalisée</li>
+        <li>SSO (SAML / OAuth)</li>
+        <li>SLA garanti 99.9%</li>
+        <li>Domaine personnalisé</li>
+        <li>Onboarding dédié</li>
+        <li>Support téléphone 24/7</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:14px;">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">💳</span> Intégration Stripe</h3>
+      <ul>
+        <li><strong>Stripe Subscriptions</strong> pour la récurrence</li>
+        <li><strong>Stripe Checkout</strong> pour l'inscription initiale</li>
+        <li><strong>Webhooks</strong> pour sync paiements → portail</li>
+        <li><strong>Stripe Billing Portal</strong> pour que le client gère seul son abo</li>
+        <li><strong>Stripe Invoicing</strong> pour factures automatiques PDF</li>
+        <li>Gestion des impayés : relances automatiques (3 tentatives)</li>
+        <li>Après 3 échecs → suspension instance (données conservées 30j)</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🎁</span> Stratégie d'Acquisition</h3>
+      <ul>
+        <li><strong>Essai gratuit 14 jours</strong> (sans CB) — plan Pro</li>
+        <li>Onboarding guidé avec données de démo pré-remplies</li>
+        <li>Email de suivi J+1, J+7, J+12 (conversion)</li>
+        <li>Réduction -20% engagement annuel</li>
+        <li>Programme de parrainage (1 mois offert)</li>
+        <li>Commission revendeur pour intégrateurs</li>
+        <li>Webinaire mensuel de démonstration</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="highlight success no-break">
+    <h4>💰 Modèle de Revenus Estimé</h4>
+    <p>Avec 20 clients (mix Starter/Pro/Entreprise) → <strong>MRR estimé : 2 500 — 4 000€/mois</strong>. 
+    Coût infrastructure ~15€/instance = ~300€/mois. <strong>Marge brute ~90%</strong>. 
+    Objectif breakeven : 8-10 clients payants.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 6 : ANALYSE CAPACITÉ — 30 USERS CONCURRENTS       -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 5A — Analyse Capacité</div>
+    <h2>6. Analyse de Charge : 30 Utilisateurs Simultanés</h2>
+    <p>Vérification détaillée composant par composant — est-ce que l'infra supporte la charge ?</p>
+  </div>
+
+  <div class="highlight success no-break">
+    <h4>✅ Verdict : OUI — 30 users simultanés est largement supporté par l'architecture actuelle</h4>
+    <p>L'application est basée sur un stack léger (Node.js async + PostgreSQL + Nginx servant du statique). 
+    30 connexions simultanées représentent une charge <strong>très faible</strong>. Voici l'analyse composant par composant.</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🔬</span> Analyse par Composant — Consommation Ressources</h3>
+    <table>
+      <tr><th>Composant</th><th>Technologie</th><th>RAM estimée</th><th>Capacité max</th><th>30 users ?</th></tr>
+      <tr><td><strong>Frontend (Nginx)</strong></td><td>Nginx Alpine servant React SPA (fichiers statiques)</td><td>~15 Mo</td><td>10 000+ req/s</td><td style="color:#10b981;font-weight:700;">✅ Trivial</td></tr>
+      <tr><td><strong>Backend API</strong></td><td>Express.js (Node.js 20, single-thread async)</td><td>~80-150 Mo</td><td>~500-1000 req/s</td><td style="color:#10b981;font-weight:700;">✅ Facile</td></tr>
+      <tr><td><strong>Socket.IO</strong></td><td>WebSocket persistent connections</td><td>~50 Ko/connexion</td><td>10 000+ simultanées</td><td style="color:#10b981;font-weight:700;">✅ Trivial</td></tr>
+      <tr><td><strong>PostgreSQL 16</strong></td><td>connection pooling (défault max=100)</td><td>~200-300 Mo</td><td>100 connexions simultanées</td><td style="color:#10b981;font-weight:700;">✅ Facile</td></tr>
+      <tr><td><strong>Prisma ORM</strong></td><td>Connection pool intégré (défaut=5 connexions)</td><td>Inclus dans Node</td><td>Configurable via <code>connection_limit</code></td><td style="color:#f59e0b;font-weight:700;">⚠ À ajuster</td></tr>
+      <tr><td><strong>Photos (base64)</strong></td><td>Stockées en BDD (~200-500 Ko chaque)</td><td>Pic mémoire 10 Mo/upload</td><td>Limite <code>express.json({limit:'10mb'})</code></td><td style="color:#f59e0b;font-weight:700;">⚠ Goulot</td></tr>
+    </table>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">📊</span> Estimation Mémoire Totale par Instance (30 users simultanés)</h3>
+    <table>
+      <tr><th>Service</th><th>RAM Base</th><th>RAM sous charge (30 users)</th><th>Détail du calcul</th></tr>
+      <tr><td>Nginx (frontend)</td><td>15 Mo</td><td>~20 Mo</td><td>Fichiers statiques cachés en RAM, quasi zéro par requête</td></tr>
+      <tr><td>Express.js + Socket.IO</td><td>80 Mo</td><td>~180 Mo</td><td>80 Mo base + 30 sockets × 50 Ko + pics upload photos base64</td></tr>
+      <tr><td>PostgreSQL</td><td>200 Mo</td><td>~350 Mo</td><td>200 Mo base + 30 connexions × ~5 Mo work_mem</td></tr>
+      <tr><td><strong>TOTAL par instance</strong></td><td><strong>~295 Mo</strong></td><td><strong>~550 Mo</strong></td><td>Pour 30 users actifs simultanément</td></tr>
+    </table>
+    <p class="small-note">💡 Avec Docker Compose et les limites mémoire par container, on peut garantir ~600 Mo par instance pour avoir de la marge.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">⚠</span> Point Critique Détecté : Photos Base64 en BDD</h3>
+      <ul>
+        <li>Actuellement les photos de pointage (check-in/out) sont stockées comme <strong>chaînes base64</strong> directement dans PostgreSQL (colonne <code>checkInPhotoUrl</code>)</li>
+        <li>Chaque photo JPEG 0.8 qualité ≈ <strong>200-500 Ko en base64</strong></li>
+        <li>Avec 30 agents × 2 photos/jour = <strong>12-30 Mo/jour</strong> dans la BDD</li>
+        <li>En 1 mois : <strong>~360-900 Mo de photos</strong> dans PostgreSQL</li>
+        <li>En 1 an : <strong>~4-10 Go</strong> — la BDD devient lente</li>
+      </ul>
+      <p style="margin-top:8px;"><strong style="color:#ef4444;">Impact :</strong> Requêtes <code>GET /api/attendance</code> retournent TOUTES les photos en JSON → <strong>transfert réseau énorme</strong>, mémoire Node saturée si beaucoup de records.</p>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🔧</span> Solution Recommandée (Pré-requis SaaS)</h3>
+      <ul>
+        <li>Migrer les photos vers <strong>stockage objet S3</strong> (Hetzner Object Storage / MinIO / AWS S3)</li>
+        <li>En BDD, stocker uniquement l'URL : <code>https://s3.../tenant1/photo-xxx.jpg</code></li>
+        <li>Upload direct depuis le frontend vers S3 via <strong>presigned URL</strong></li>
+        <li>Compression côté client avant upload (déjà fait : JPEG 0.8)</li>
+        <li>CDN Cloudflare devant S3 pour cache des images</li>
+        <li><strong>Gain :</strong> BDD reste < 100 Mo même après des années</li>
+        <li><strong>Gain :</strong> Transfert API réduit de 90% (URLs au lieu de blobs)</li>
+      </ul>
+      <p style="margin-top:8px;"><strong style="color:#10b981;">Impact :</strong> RAM Node.js réduite de 40%, temps de réponse API divisé par 5 sur les listes de pointages.</p>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">📐</span> Scénarios de Charge — Combien d'Instances par Serveur ?</h3>
+    <table>
+      <tr><th>Serveur</th><th>Specs</th><th>RAM Dispo</th><th>Instances (30 users chacune)</th><th>Total Users</th><th>Coût/mois</th></tr>
+      <tr><td>Hetzner CX22</td><td>2 vCPU, 4 Go RAM</td><td>~3.5 Go</td><td>5-6 instances</td><td>~150-180 users</td><td>~5.50€</td></tr>
+      <tr><td>Hetzner CX32</td><td>4 vCPU, 8 Go RAM</td><td>~7 Go</td><td>10-12 instances</td><td>~300-360 users</td><td>~10€</td></tr>
+      <tr><td>Hetzner CX42</td><td>8 vCPU, 16 Go RAM</td><td>~14.5 Go</td><td>22-25 instances</td><td>~660-750 users</td><td>~18€</td></tr>
+      <tr><td>Hetzner CX52</td><td>16 vCPU, 32 Go RAM</td><td>~30 Go</td><td>45-50 instances</td><td>~1350-1500 users</td><td>~35€</td></tr>
+      <tr><td>Hetzner CCX33</td><td>8 dCPU, 32 Go RAM (Dedicated)</td><td>~30 Go</td><td>45-50 instances</td><td>~1500 users</td><td>~45€</td></tr>
+    </table>
+    <p class="small-note">⚡ Calcul basé sur ~600 Mo RAM par instance (30 users). Après migration photos S3, on monte à ~35-40 instances par 16 Go avec ~400 Mo/instance.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 6B : AUTO-SCALING                                  -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 5B — Auto-Scaling</div>
+    <h2>6b. Stratégie d'Auto-Scaling Automatique</h2>
+    <p>Comment le système s'adapte automatiquement quand le nombre d'utilisateurs augmente</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🔄</span> Les 3 Niveaux de Scaling</h3>
+    <table>
+      <tr><th style="width:80px;">Niveau</th><th>Quand ?</th><th>Comment ?</th><th>Automatisable ?</th></tr>
+      <tr>
+        <td style="font-weight:700;color:#6366f1;">Niveau 1<br><small>Vertical</small></td>
+        <td>1-15 instances<br>(1-450 users)</td>
+        <td>Un seul serveur suffit. On monte en RAM/CPU si besoin.<br>Ex : CX22 (4Go) → CX42 (16Go) via l'API Hetzner.</td>
+        <td>✅ Oui — resize via API Hetzner en 2 min (reboot nécessaire)</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#f59e0b;">Niveau 2<br><small>Horizontal</small></td>
+        <td>15-50 instances<br>(450-1500 users)</td>
+        <td>Ajouter un 2ème serveur. Répartir les instances entre les 2 nœuds via Docker Swarm.<br>Load balancer Nginx/Traefik devant.</td>
+        <td>✅ Oui — script d'ajout de nœud au Swarm (5 min)</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:#ef4444;">Niveau 3<br><small>Kubernetes</small></td>
+        <td>50+ instances<br>(1500+ users)</td>
+        <td>Migration vers Kubernetes (K3s ou Hetzner Managed K8s).<br>Auto-scaling natif via HPA (Horizontal Pod Autoscaler).</td>
+        <td>✅ Full auto — K8s gère seul le scaling des pods et des nœuds</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">⚡</span> Architecture Auto-Scaling Détaillée</h3>
+    <div class="arch-diagram">
+                          ┌──────────────────────────┐
+                          │    Cloudflare (CDN/DNS)    │
+                          │  *.plateforme.com → VIP    │
+                          └───────────┬────────────────┘
+                                      │ HTTPS
+                          ┌───────────▼────────────────┐
+                          │   Traefik Load Balancer     │
+                          │   (auto-discovery Docker)   │
+                          │   + Let's Encrypt SSL auto  │
+                          └─┬──────────┬──────────┬────┘
+                            │          │          │
+                  ┌─────────▼──┐ ┌─────▼──────┐ ┌─▼─────────┐
+                  │  Node #1    │ │  Node #2    │ │  Node #3   │
+                  │  CX42 16Go  │ │  CX32 8Go   │ │  CX32 8Go  │
+                  │             │ │             │ │            │
+                  │ Instance A  │ │ Instance F  │ │ Instance K │
+                  │ Instance B  │ │ Instance G  │ │ Instance L │
+                  │ Instance C  │ │ Instance H  │ │ Instance M │
+                  │ Instance D  │ │ Instance I  │ │ (overflow) │
+                  │ Instance E  │ │ Instance J  │ │            │
+                  └─────────────┘ └─────────────┘ └────────────┘
+                            │          │          │
+                  ┌─────────▼──────────▼──────────▼────────────┐
+                  │        Shared Services (1 container)        │
+                  │  • Portail Central SaaS                     │
+                  │  • Monitoring (Grafana + Prometheus)         │
+                  │  • Backup Manager (cron pg_dump)             │
+                  │  • Traefik Dashboard                         │
+                  └─────────────────────────────────────────────┘
+                            │
+                  ┌─────────▼──────────────────────────────────┐
+                  │  Stockage Externe                           │
+                  │  • S3 Object Storage (photos)               │
+                  │  • Hetzner Storage Box (backups)             │
+                  └─────────────────────────────────────────────┘
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">📡</span> Métriques de Déclenchement Auto-Scale</h3>
+      <ul>
+        <li><strong>RAM > 80%</strong> sur un nœud → alerte + provisionnement nouveau nœud</li>
+        <li><strong>CPU > 70%</strong> soutenu 5 min → scale up vertical ou horizontal</li>
+        <li><strong>Temps de réponse API > 500ms</strong> (p95) → investigation + scaling</li>
+        <li><strong>Connexions Socket.IO > 80%</strong> du max → redistribution</li>
+        <li><strong>Stockage BDD > 5 Go</strong> par instance → alerte (probablement photos non migrées)</li>
+        <li><strong>Queue d'emails > 100</strong> → scale du service SMTP</li>
+      </ul>
+      <p class="small-note">Toutes ces métriques sont collectées par Prometheus et visualisées dans Grafana avec alertes Slack/email.</p>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🤖</span> Script Auto-Scale (Niveau 2)</h3>
+      <div style="background:#1e293b;color:#e2e8f0;border-radius:6px;padding:12px;font-family:'Courier New',monospace;font-size:7.5pt;line-height:1.5;">
+        <span style="color:#94a3b8;"># Monitoring daemon (cron chaque 5 min)</span><br>
+        <span style="color:#818cf8;">if</span> ram_usage &gt; 80%:<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># 1. Crée un nouveau VPS via API Hetzner</span><br>
+        &nbsp;&nbsp;new_node = hetzner.create(<span style="color:#10b981;">"cx32"</span>)<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># 2. Installe Docker + rejoint le Swarm</span><br>
+        &nbsp;&nbsp;ssh(new_node, <span style="color:#10b981;">"docker swarm join ..."</span>)<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># 3. Traefik le détecte automatiquement</span><br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># 4. Nouvelles instances déployées dessus</span><br>
+        &nbsp;&nbsp;alert(<span style="color:#10b981;">"Nœud ajouté, capacité +12 instances"</span>)<br><br>
+        <span style="color:#818cf8;">if</span> ram_usage &lt; 30% <span style="color:#818cf8;">and</span> nodes &gt; 1:<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># Migre les instances du nœud vide</span><br>
+        &nbsp;&nbsp;migrate_instances(least_loaded_node)<br>
+        &nbsp;&nbsp;<span style="color:#94a3b8;"># Détruit le VPS vide (économie)</span><br>
+        &nbsp;&nbsp;hetzner.delete(empty_node)<br>
+        &nbsp;&nbsp;alert(<span style="color:#10b981;">"Nœud supprimé, économie ~10€/mois"</span>)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 6C : INFRA CLOUD DÉTAILLÉE                         -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 5C — Cloud Détaillé</div>
+    <h2>6c. Infrastructure Cloud — Configuration Complète</h2>
+    <p>Chaque service, son rôle, sa configuration et son coût détaillé</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🏗</span> Infrastructure Cloud — Tous les Services</h3>
+    <table>
+      <tr><th>Service</th><th>Fournisseur</th><th>Configuration</th><th>Coût/mois</th><th>Rôle détaillé</th></tr>
+      <tr><td><strong>Serveur Principal</strong></td><td>Hetzner CX42</td><td>8 vCPU, 16 Go RAM, 160 Go SSD</td><td>~18€</td><td>Host Docker Swarm leader + 20-25 instances</td></tr>
+      <tr><td><strong>Serveur Worker</strong></td><td>Hetzner CX32</td><td>4 vCPU, 8 Go RAM, 80 Go SSD</td><td>~10€</td><td>Worker Swarm — overflow instances (ajouté si besoin)</td></tr>
+      <tr><td><strong>Load Balancer</strong></td><td>Hetzner LB11</td><td>25 targets, 10K conn. simultanées</td><td>~6€</td><td>Répartition HTTPS entre nœuds (ou Traefik gratuit)</td></tr>
+      <tr><td><strong>Object Storage</strong></td><td>Hetzner S3</td><td>Pay-as-you-go (~0.0065€/Go)</td><td>~5-15€</td><td>Photos pointage, logos, exports PDF, avatars</td></tr>
+      <tr><td><strong>DNS + CDN</strong></td><td>Cloudflare Pro</td><td>Wildcard DNS + WAF + Cache</td><td>~20€</td><td>*.plateforme.com, SSL auto, DDoS protection, cache images</td></tr>
+      <tr><td><strong>Email</strong></td><td>Resend</td><td>5000 emails/mois inclus</td><td>~0€ (gratuit)</td><td>Reset MDP, notifications, onboarding, factures</td></tr>
+      <tr><td><strong>Email Pro</strong></td><td>Resend Pro</td><td>50 000 emails/mois</td><td>~20€</td><td>Quand >20 clients actifs (push email quotidien)</td></tr>
+      <tr><td><strong>Monitoring</strong></td><td>Self-hosted</td><td>Grafana + Prometheus + Loki</td><td>0€</td><td>Métriques CPU/RAM/réseau par instance + logs centralisés</td></tr>
+      <tr><td><strong>Uptime</strong></td><td>Uptime Kuma</td><td>Self-hosted</td><td>0€</td><td>Health check chaque 60s + alertes Slack/Email</td></tr>
+      <tr><td><strong>Backup Storage</strong></td><td>Hetzner Storage Box</td><td>1 To BX11</td><td>~4€</td><td>pg_dump quotidien chiffré, rétention 30 jours</td></tr>
+      <tr><td><strong>Registry Docker</strong></td><td>GitHub GHCR</td><td>Gratuit (repos privés)</td><td>0€</td><td>Stocke les images Docker pour déploiement</td></tr>
+      <tr><td><strong>Domaine</strong></td><td>OVH / Gandi</td><td>.com ou .io</td><td>~1€</td><td>votreplateforme.com</td></tr>
+    </table>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">💰</span> Coûts Progressifs selon Nombre de Clients</h3>
+    <table>
+      <tr><th>Phase</th><th>Nb Clients</th><th>Nb Users total</th><th>Infrastructure</th><th>Coût Infra/mois</th><th>MRR estimé</th><th>Marge</th></tr>
+      <tr><td style="color:#10b981;font-weight:600;">Démarrage</td><td>1-5</td><td>~30-150</td><td>1× CX22 (4 Go) + Cloudflare Free</td><td>~12€</td><td>250-650€</td><td style="color:#10b981;font-weight:700;">95%</td></tr>
+      <tr><td style="color:#6366f1;font-weight:600;">Croissance</td><td>5-15</td><td>~150-450</td><td>1× CX42 (16 Go) + Cloudflare Pro</td><td>~50€</td><td>650-1950€</td><td style="color:#10b981;font-weight:700;">94%</td></tr>
+      <tr><td style="color:#f59e0b;font-weight:600;">Scale</td><td>15-40</td><td>~450-1200</td><td>1× CX42 + 1× CX32 + LB + S3</td><td>~85€</td><td>1950-5200€</td><td style="color:#10b981;font-weight:700;">96%</td></tr>
+      <tr><td style="color:#ef4444;font-weight:600;">Entreprise</td><td>40-100</td><td>~1200-3000</td><td>2× CX42 + 1× CX32 + LB + S3 + monitoring dédié</td><td>~150€</td><td>5200-13000€</td><td style="color:#10b981;font-weight:700;">97%</td></tr>
+    </table>
+    <p class="small-note">Le coût infrastructure représente toujours moins de 5% du revenu dès 5 clients. C'est le modèle SaaS avec les meilleures marges possibles.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 6D : CONFIG DOCKER + RÉSEAU + SÉCURITÉ             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 5D — Config Technique</div>
+    <h2>6d. Configuration Docker, Réseau & Sécurité</h2>
+    <p>Comment chaque instance est isolée, routée et sécurisée</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🐳</span> Docker Compose Template par Instance</h3>
+    <div style="background:#1e293b;color:#e2e8f0;border-radius:6px;padding:14px;font-family:'Courier New',monospace;font-size:7.5pt;line-height:1.55;">
+      <span style="color:#94a3b8;"># docker-compose.tenant-{ID}.yml</span><br>
+      <span style="color:#818cf8;">services:</span><br>
+      &nbsp;&nbsp;<span style="color:#818cf8;">postgres-{ID}:</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;image: postgres:16-alpine<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;environment:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;POSTGRES_DB: <span style="color:#10b981;">tenant_{ID}_db</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;POSTGRES_PASSWORD: <span style="color:#10b981;">${GENERATED_SECRET}</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;deploy:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;resources:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limits: { <span style="color:#f59e0b;">memory: 256M, cpus: '0.5'</span> }<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;networks: [<span style="color:#10b981;">tenant-{ID}-net</span>]<br>
+      <br>
+      &nbsp;&nbsp;<span style="color:#818cf8;">api-{ID}:</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;image: ghcr.io/vous/bipbip-api:<span style="color:#f59e0b;">latest</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;environment:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DATABASE_URL: <span style="color:#10b981;">postgresql://...@postgres-{ID}/tenant_{ID}_db</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JWT_SECRET: <span style="color:#10b981;">${UNIQUE_JWT_SECRET}</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S3_BUCKET: <span style="color:#10b981;">bipbip-photos</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;S3_PREFIX: <span style="color:#10b981;">tenant-{ID}/</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;deploy:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;resources:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limits: { <span style="color:#f59e0b;">memory: 256M, cpus: '0.5'</span> }<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;labels:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span style="color:#10b981;">traefik.http.routers.api-{ID}.rule=Host(`{subdomain}.plateforme.com`)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;networks: [<span style="color:#10b981;">tenant-{ID}-net</span>, <span style="color:#10b981;">traefik-public</span>]<br>
+      <br>
+      &nbsp;&nbsp;<span style="color:#818cf8;">frontend-{ID}:</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;image: ghcr.io/vous/bipbip-frontend:<span style="color:#f59e0b;">latest</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;deploy:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;resources:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limits: { <span style="color:#f59e0b;">memory: 64M, cpus: '0.25'</span> }<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;labels:<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- <span style="color:#10b981;">traefik.http.routers.front-{ID}.rule=Host(`{subdomain}.plateforme.com`)</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;networks: [<span style="color:#10b981;">tenant-{ID}-net</span>, <span style="color:#10b981;">traefik-public</span>]
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🌐</span> Routage Réseau (Traefik)</h3>
+      <ul>
+        <li><strong>Traefik</strong> comme reverse proxy / load balancer</li>
+        <li>Détection automatique des containers Docker (labels)</li>
+        <li>Routage par <strong>sous-domaine</strong> : <code>client1.plateforme.com</code> → container <code>frontend-client1</code></li>
+        <li>API proxy : <code>/api/*</code> → container <code>api-client1</code></li>
+        <li>WebSocket proxy : <code>/socket.io/*</code> → container <code>api-client1</code> (upgrade header)</li>
+        <li><strong>SSL automatique</strong> via Let's Encrypt (wildcard cert via Cloudflare DNS challenge)</li>
+        <li>Réseau Docker isolé par tenant : <code>tenant-{ID}-net</code></li>
+        <li>Seul Traefik est exposé publiquement (ports 80/443)</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">🔒</span> Sécurité Réseau</h3>
+      <ul>
+        <li>Chaque instance dans son propre <strong>réseau Docker isolé</strong></li>
+        <li>PostgreSQL <strong>jamais exposé</strong> sur l'Internet (réseau interne uniquement)</li>
+        <li>Firewall UFW : seuls ports 80, 443, 22 ouverts</li>
+        <li><strong>Cloudflare WAF</strong> : protection XSS, SQL injection, DDoS</li>
+        <li><strong>Rate limiting</strong> : 100 req/min par IP par instance (Traefik middleware)</li>
+        <li>JWT secret <strong>unique par instance</strong> (généré au provisionnement)</li>
+        <li>Pas de communication possible entre tenants (isolation réseau L3)</li>
+        <li><strong>SSH hardened</strong> : clé uniquement, port non-standard, fail2ban</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#f1f5f9;color:#475569;">📋</span> Optimisations PostgreSQL pour Multi-Instance</h3>
+    <table>
+      <tr><th>Paramètre</th><th>Valeur par défaut</th><th>Valeur recommandée (par instance)</th><th>Pourquoi</th></tr>
+      <tr><td><code>max_connections</code></td><td>100</td><td>30</td><td>30 users max/instance → économie RAM significative</td></tr>
+      <tr><td><code>shared_buffers</code></td><td>128 Mo</td><td>64 Mo</td><td>BDD petite (&lt;100 Mo sans photos) → 64 Mo suffit largement</td></tr>
+      <tr><td><code>work_mem</code></td><td>4 Mo</td><td>2 Mo</td><td>Requêtes simples, pas de grosses jointures</td></tr>
+      <tr><td><code>effective_cache_size</code></td><td>4 Go</td><td>128 Mo</td><td>Adapté au container limité à 256 Mo</td></tr>
+      <tr><td><code>maintenance_work_mem</code></td><td>64 Mo</td><td>32 Mo</td><td>VACUUM réduit, petites tables</td></tr>
+      <tr><td><code>wal_buffers</code></td><td>-1 (auto)</td><td>4 Mo</td><td>Écriture modérée</td></tr>
+    </table>
+    <p class="small-note">Avec cette config, chaque PostgreSQL consomme ~120-150 Mo au lieu de 300 Mo par défaut. Gain de 50% mémoire.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 6E : CI/CD + BACKUP + MONITORING                   -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Phase 5E — Opérations</div>
+    <h2>6e. CI/CD, Backups & Monitoring</h2>
+    <p>Pipeline de déploiement, sauvegardes et surveillance 24/7</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🔄</span> Pipeline CI/CD — GitHub Actions</h3>
+    <div class="arch-diagram" style="font-size:8pt;">
+  ┌──────────┐    ┌──────────────┐    ┌────────────────┐    ┌──────────────────────┐
+  │  Dev Push │───►│ GitHub Actions│───►│  Build Docker   │───►│  Push to GHCR         │
+  │  main     │    │  • Lint       │    │  • Frontend img │    │  • bipbip-api:v2.3    │
+  │           │    │  • Test       │    │  • API img      │    │  • bipbip-front:v2.3  │
+  └──────────┘    │  • Type-check │    └────────────────┘    └──────────┬───────────┘
+                   └──────────────┘                                     │
+                                                                        ▼
+                                              ┌───────────────────────────────────────┐
+                                              │  Rolling Update sur TOUTES les        │
+                                              │  instances (Docker Swarm service       │
+                                              │  update --image)                       │
+                                              │                                       │
+                                              │  • 1 instance à la fois (zero-downtime)│
+                                              │  • Health check avant de passer à la   │
+                                              │    suivante                            │
+                                              │  • Rollback auto si health check fail  │
+                                              └───────────────────────────────────────┘
+    </div>
+    <p class="small-note">Temps total : push → all instances updated ≈ 5-10 minutes pour 20 instances.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">🛡</span> Backups & Disaster Recovery</h3>
+      <ul>
+        <li><strong>Quotidien (2h AM) :</strong> <code>pg_dump</code> de chaque instance → gzip → chiffrement AES-256 → upload vers Storage Box</li>
+        <li><strong>Rétention :</strong> 7 quotidiens + 4 hebdomadaires + 3 mensuels</li>
+        <li><strong>Test de restauration :</strong> automatisé le 1er de chaque mois (restore dans un container temporaire + vérification intégrité)</li>
+        <li><strong>RTO</strong> (Recovery Time) : < 30 minutes</li>
+        <li><strong>RPO</strong> (Recovery Point) : < 24 heures (quotidien)</li>
+        <li><strong>Option WAL streaming :</strong> pour RPO < 5 min (plan Entreprise)</li>
+        <li><strong>Photos S3 :</strong> réplication automatique cross-datacenter (Hetzner)</li>
+        <li><strong>Taille backup :</strong> ~5-20 Mo/instance (sans photos en BDD)</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">📊</span> Stack de Monitoring</h3>
+      <ul>
+        <li><strong>Prometheus :</strong> collecte métriques toutes les 15s (CPU, RAM, réseau, requêtes API, connexions DB, sockets)</li>
+        <li><strong>Grafana :</strong> dashboards par instance + vue globale
+          <ul>
+            <li>Dashboard "Overview" : toutes instances en un coup d'œil</li>
+            <li>Dashboard "Instance" : détail par tenant</li>
+            <li>Dashboard "Business" : inscriptions, churn, MRR</li>
+          </ul>
+        </li>
+        <li><strong>Loki :</strong> logs centralisés de tous les containers</li>
+        <li><strong>Uptime Kuma :</strong> ping health check chaque 60s sur <code>/api/health</code> de chaque instance</li>
+        <li><strong>Alertes :</strong> Slack + Email si :
+          <ul>
+            <li>Instance down > 2 min</li>
+            <li>RAM > 80% pendant 5 min</li>
+            <li>Error rate > 1% pendant 3 min</li>
+            <li>Backup échoué</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#f1f5f9;color:#475569;">🔀</span> Flux de Provisionnement Automatisé — Détail Technique</h3>
+    <div class="arch-diagram" style="font-size:7.5pt;">
+  ① Client s'inscrit sur app.plateforme.com
+     │
+     ▼
+  ② Paiement Stripe Checkout (ou début essai gratuit)
+     │
+     ▼
+  ③ Webhook Stripe → API Portail Central
+     │
+     ├─── 3a. Crée enregistrement en BDD portail (tenant_id, plan, subdomain)
+     │
+     ├─── 3b. Génère secrets : JWT_SECRET, DB_PASSWORD (crypto.randomBytes)
+     │
+     ├─── 3c. API Cloudflare : ajoute CNAME record {subdomain}.plateforme.com → VIP serveur
+     │
+     ├─── 3d. Déploie stack Docker :
+     │         • Crée réseau isolé : docker network create tenant-{ID}-net
+     │         • Spawn PostgreSQL container (256 Mo limit)
+     │         • Attend health check PostgreSQL OK
+     │         • Run Prisma migrations (npx prisma migrate deploy)
+     │         • Run seed script (crée admin + settings par défaut)
+     │         • Spawn API container (256 Mo limit) + labels Traefik
+     │         • Spawn Frontend container (64 Mo limit) + labels Traefik
+     │
+     ├─── 3e. Traefik détecte automatiquement les labels → route active
+     │
+     ├─── 3f. Let's Encrypt génère le certificat SSL via DNS challenge
+     │
+     └─── 3g. Email envoyé au client :
+              "Votre plateforme est prête !
+               URL : https://{subdomain}.plateforme.com
+               Email admin : {email}
+               Mot de passe temporaire : {random}"
+
+  ⏱ Temps total : ~2-3 minutes (principalement le certificat SSL)
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 7 : TIMELINE & JALONS                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Planning</div>
+    <h2>7. Timeline & Jalons de Développement</h2>
+    <p>Estimation réaliste des phases de développement et de mise en marché</p>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="duration">Semaines 1-2 — Sprint 0</div>
+      <h4>Préparation & Améliorations Produit (Tickets 1-20)</h4>
+      <p>Implémenter les 20 tickets d'amélioration identifiés (Draft publication, export filtré, reset MDP, profils agents, pourcentages, heures de pause, recap client, portail client, etc.). C'est le socle du produit SaaS.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaines 3-4 — Sprint 1</div>
+      <h4>White-Labeling & Settings Dynamiques</h4>
+      <p>Table <code>Settings</code> dans Prisma, API /settings, CSS variables dynamiques, upload logo, renommage app. Rendre chaque instance personnalisable sans toucher au code.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaines 5-7 — Sprint 2</div>
+      <h4>Portail Central SaaS — Backend</h4>
+      <p>Nouveau projet Next.js. BDD portail (entreprises, abonnements, instances). API de provisionnement. Intégration Stripe Subscriptions + Webhooks. Dashboard super-admin.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaines 8-9 — Sprint 3</div>
+      <h4>Portail Central SaaS — Frontend</h4>
+      <p>Landing page, page pricing, formulaire inscription, espace client (gestion abo, factures, branding), tableau de bord super-admin.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaines 10-11 — Sprint 4</div>
+      <h4>Automatisation Infrastructure</h4>
+      <p>Scripts de provisionnement Docker automatisés. Wildcard DNS Cloudflare API. SSL automatique. Scripts de backup. Pipeline CI/CD GitHub Actions. Templates Docker Compose paramétrables.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaine 12 — Sprint 5</div>
+      <h4>Tests, Sécurité & Monitoring</h4>
+      <p>Tests E2E du flux complet (inscription → paiement → instance live). Pen testing basique. Setup monitoring (Uptime Kuma, Grafana). Documentation administrateur.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaine 13 — Sprint 6</div>
+      <h4>Soft Launch (Beta Privée)</h4>
+      <p>3-5 clients beta invités. Feedback et corrections. Optimisation performance. Ajustement pricing si nécessaire.</p>
+    </div>
+    <div class="timeline-item">
+      <div class="duration">Semaine 14+ — Go Live</div>
+      <h4>Lancement Public</h4>
+      <p>Ouverture des inscriptions. Campagne marketing. Onboarding automatisé. Support client en place.</p>
+    </div>
+  </div>
+
+  <div class="highlight no-break" style="margin-top:10px;">
+    <h4>⏱ Durée totale estimée : 3 à 4 mois</h4>
+    <p>Avec 1 développeur full-stack à temps plein. Réductible à 2 mois avec 2 développeurs (front + back en parallèle).</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 8 : BUDGET & COÛTS DEV                            -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Budget</div>
+    <h2>8. Budget de Développement & Coûts Récurrents</h2>
+    <p>Estimation des investissements nécessaires pour le passage en SaaS</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">💸</span> Coûts de Développement (One-time)</h3>
+    <table>
+      <tr><th>Poste</th><th>Description</th><th>Estimation</th></tr>
+      <tr><td>Améliorations Produit (20 tickets)</td><td>Tickets 1-20 identifiés précédemment</td><td>3 500 — 5 000€</td></tr>
+      <tr><td>White-Labeling complet</td><td>Settings dynamiques, CSS vars, logos, branding</td><td>800 — 1 200€</td></tr>
+      <tr><td>Portail Central SaaS</td><td>Landing, inscription, dashboard, espace client</td><td>3 000 — 4 500€</td></tr>
+      <tr><td>Intégration Stripe</td><td>Subscriptions, checkout, webhooks, facturation</td><td>1 500 — 2 000€</td></tr>
+      <tr><td>Automatisation Infrastructure</td><td>Provisionnement auto, CI/CD, backups, DNS</td><td>1 500 — 2 500€</td></tr>
+      <tr><td>Tests & Sécurité</td><td>E2E, pen test, monitoring</td><td>800 — 1 200€</td></tr>
+      <tr><td>Documentation</td><td>Guide admin, guide utilisateur, API docs</td><td>500 — 800€</td></tr>
+      <tr><td style="font-weight:700;">TOTAL Développement</td><td></td><td style="font-weight:700;color:var(--accent);">11 600 — 17 200€</td></tr>
+    </table>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">🔄</span> Coûts Récurrents Mensuels</h3>
+    <table>
+      <tr><th>Poste</th><th>Service</th><th>Coût/mois</th></tr>
+      <tr><td>Hébergement serveurs</td><td>Hetzner (2 VPS)</td><td>28€</td></tr>
+      <tr><td>Stockage objets</td><td>S3-compatible</td><td>5€</td></tr>
+      <tr><td>Email transactionnel</td><td>Resend / Postmark</td><td>10€</td></tr>
+      <tr><td>DNS + CDN + SSL</td><td>Cloudflare Pro</td><td>20€</td></tr>
+      <tr><td>Backup storage</td><td>Hetzner Storage Box</td><td>4€</td></tr>
+      <tr><td>Domaine</td><td>.com / .fr</td><td>~1€</td></tr>
+      <tr><td>Commission Stripe</td><td>1.4% + 0.25€ par transaction</td><td>Variable</td></tr>
+      <tr><td style="font-weight:700;">TOTAL Fixe (hors Stripe)</td><td></td><td style="font-weight:700;color:var(--accent);">~68€/mois</td></tr>
+    </table>
+    <p class="small-note">Le coût augmente linéairement avec le nombre de clients : +5-15€ par instance supplémentaire (RAM + stockage).</p>
+  </div>
+
+  <div class="highlight success no-break">
+    <h4>📊 Analyse du Point Mort (Breakeven)</h4>
+    <p><strong>Coût mensuel fixe :</strong> ~68€ | <strong>Coût variable par instance :</strong> ~10€ | <strong>Revenu moyen par client :</strong> ~120€/mois (mix plans)</p>
+    <p><strong>Breakeven = 1 client payant</strong> (couvre les coûts infra). À <strong>8-10 clients</strong>, on rembourse le développement initial en ~12 mois.</p>
+    <p><strong>ROI estimé à 20 clients :</strong> MRR ~2 400€ — Coûts ~268€ = <strong>Profit net ~2 130€/mois</strong> (marge ~89%)</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 9 : PARCOURS CLIENT                               -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Expérience</div>
+    <h2>9. Parcours Client Final (De la Découverte à l'Usage)</h2>
+    <p>Le flux complet vécu par une entreprise cliente</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">🗺</span> Customer Journey — Étape par Étape</h3>
+    <table>
+      <tr><th style="width:40px;">N°</th><th>Étape</th><th>Détail</th><th>Automatisé ?</th></tr>
+      <tr><td>1</td><td><strong>Découverte</strong></td><td>Le prospect arrive sur la landing page (SEO, pub, bouche-à-oreille)</td><td>—</td></tr>
+      <tr><td>2</td><td><strong>Inscription</strong></td><td>Formulaire : nom entreprise, email, téléphone, SIRET</td><td>✅ Oui</td></tr>
+      <tr><td>3</td><td><strong>Essai gratuit</strong></td><td>14 jours plan Pro, données démo pré-remplies, sans CB</td><td>✅ Oui</td></tr>
+      <tr><td>4</td><td><strong>Provisionnement</strong></td><td>Instance Docker créée, sous-domaine assigné, admin créé</td><td>✅ Oui</td></tr>
+      <tr><td>5</td><td><strong>Onboarding</strong></td><td>Email bienvenue + guide étape par étape + vidéo tutoriel</td><td>✅ Oui</td></tr>
+      <tr><td>6</td><td><strong>Personnalisation</strong></td><td>Upload logo, couleurs, nom app depuis l'espace admin</td><td>✅ Self-service</td></tr>
+      <tr><td>7</td><td><strong>Configuration</strong></td><td>Ajout agents, clients, sites, création missions</td><td>✅ Self-service</td></tr>
+      <tr><td>8</td><td><strong>Conversion</strong></td><td>Fin essai → Stripe Checkout → choix plan → paiement</td><td>✅ Oui</td></tr>
+      <tr><td>9</td><td><strong>Usage quotidien</strong></td><td>Gestion missions, pointages, récaps, facturation</td><td>✅ Self-service</td></tr>
+      <tr><td>10</td><td><strong>Facturation</strong></td><td>Facture mensuelle auto Stripe + accès portail billing</td><td>✅ Oui</td></tr>
+      <tr><td>11</td><td><strong>Support</strong></td><td>Tickets depuis l'espace client ou email dédié</td><td>Semi-auto</td></tr>
+      <tr><td>12</td><td><strong>Croissance</strong></td><td>Upgrade plan, ajout agents, nouveaux sites</td><td>✅ Self-service</td></tr>
+    </table>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">📩</span> Emails Automatiques</h3>
+      <ul>
+        <li><strong>J+0 :</strong> Bienvenue + identifiants + lien instance</li>
+        <li><strong>J+1 :</strong> Guide de démarrage rapide</li>
+        <li><strong>J+3 :</strong> "Avez-vous ajouté vos agents ?"</li>
+        <li><strong>J+7 :</strong> Astuce : fonctionnalités avancées</li>
+        <li><strong>J+12 :</strong> "Votre essai se termine bientôt"</li>
+        <li><strong>J+14 :</strong> Fin essai — CTA conversion</li>
+        <li><strong>J+15 :</strong> Instance suspendue (données conservées 30j)</li>
+        <li><strong>Mensuel :</strong> Facture + récap utilisation</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">🚨</span> Gestion des Impayés</h3>
+      <ul>
+        <li><strong>Échec paiement :</strong> Stripe retry automatique (3x)</li>
+        <li><strong>Après 3 échecs :</strong> Email alerte + banner dans l'app</li>
+        <li><strong>J+7 sans paiement :</strong> Instance en mode lecture seule</li>
+        <li><strong>J+14 :</strong> Instance suspendue</li>
+        <li><strong>J+45 :</strong> Données supprimées (avec avertissement J+30)</li>
+        <li>Possibilité de réactiver à tout moment en régularisant</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 10 : LEGAL & RGPD                                 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Juridique</div>
+    <h2>10. Aspects Légaux, RGPD & Conformité</h2>
+    <p>Obligations légales pour un SaaS B2B en France/Europe</p>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">📜</span> Documents Juridiques Requis</h3>
+      <ul>
+        <li><strong>CGU</strong> — Conditions Générales d'Utilisation</li>
+        <li><strong>CGV</strong> — Conditions Générales de Vente</li>
+        <li><strong>Politique de confidentialité</strong> (RGPD)</li>
+        <li><strong>DPA</strong> — Data Processing Agreement</li>
+        <li><strong>Mentions légales</strong> (obligatoire FR)</li>
+        <li><strong>SLA</strong> — Service Level Agreement (plan Entreprise)</li>
+        <li>Politique de cookies</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">🔐</span> Conformité RGPD</h3>
+      <ul>
+        <li><strong>Isolation des données</strong> : ✅ native (1 BDD/client)</li>
+        <li><strong>Droit de suppression</strong> : script de purge par instance</li>
+        <li><strong>Droit d'export</strong> : export JSON/CSV des données</li>
+        <li><strong>Consentement</strong> : opt-in explicite à l'inscription</li>
+        <li><strong>Registre des traitements</strong> : documentation interne</li>
+        <li><strong>DPO</strong> : désigner un responsable si >250 employés</li>
+        <li><strong>Hébergement EU</strong> : Hetzner (Allemagne) ✅</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="highlight warning no-break">
+    <h4>⚖ Budget Juridique Recommandé</h4>
+    <p>Rédaction CGU/CGV/RGPD par un avocat spécialisé : <strong>1 500 — 3 000€</strong> (one-time). 
+    C'est un investissement indispensable avant le lancement public. Des templates existent pour réduire le coût initial.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 11 : RISQUES & MÉTRIQUES                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Pilotage</div>
+    <h2>11. Risques, KPIs & Métriques de Succès</h2>
+    <p>Indicateurs à suivre et risques à anticiper</p>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#fee2e2;color:#ef4444;">⚠</span> Matrice des Risques</h3>
+    <table>
+      <tr><th>Risque</th><th>Impact</th><th>Probabilité</th><th>Mitigation</th></tr>
+      <tr><td>Client ne convertit pas après essai</td><td>Élevé</td><td>Moyen</td><td>Onboarding guidé, séquence email, call J+10</td></tr>
+      <tr><td>Surcharge serveur (trop d'instances)</td><td>Élevé</td><td>Faible</td><td>Auto-scaling, alertes monitoring, load balancing</td></tr>
+      <tr><td>Fuite de données entre instances</td><td>Critique</td><td>Très faible</td><td>Isolation totale BDD (1 DB/client), audit régulier</td></tr>
+      <tr><td>Indisponibilité du service</td><td>Élevé</td><td>Moyen</td><td>Health checks, backup chaud, procédure DR testée</td></tr>
+      <tr><td>Client demande feature custom</td><td>Moyen</td><td>Élevé</td><td>Feature flags, plan Entreprise avec API, roadmap publique</td></tr>
+      <tr><td>Coût serveur supérieur aux revenus</td><td>Élevé</td><td>Faible</td><td>Instances hibernées si inactives, pricing adapté</td></tr>
+      <tr><td>Retard développement</td><td>Moyen</td><td>Moyen</td><td>MVP d'abord, itérations rapides, périmètre strict</td></tr>
+    </table>
+  </div>
+
+  <div class="two-col">
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#ecfdf5;color:#10b981;">📈</span> KPIs Business à Suivre</h3>
+      <ul>
+        <li><strong>MRR</strong> — Monthly Recurring Revenue</li>
+        <li><strong>ARR</strong> — Annual Recurring Revenue</li>
+        <li><strong>Churn Rate</strong> — Taux de désabonnement (cible < 5%)</li>
+        <li><strong>LTV</strong> — Lifetime Value par client</li>
+        <li><strong>CAC</strong> — Coût d'Acquisition Client</li>
+        <li><strong>LTV/CAC Ratio</strong> — Cible > 3:1</li>
+        <li><strong>Taux de conversion trial → payant</strong> (cible > 20%)</li>
+        <li><strong>NPS</strong> — Net Promoter Score</li>
+      </ul>
+    </div>
+    <div class="block no-break">
+      <h3><span class="icon" style="background:#fef3c7;color:#f59e0b;">🔧</span> KPIs Techniques à Suivre</h3>
+      <ul>
+        <li><strong>Uptime</strong> — Disponibilité (cible 99.5%+)</li>
+        <li><strong>Response Time</strong> — API < 200ms p95</li>
+        <li><strong>Error Rate</strong> — < 0.1% des requêtes</li>
+        <li><strong>CPU / RAM</strong> par instance</li>
+        <li><strong>Stockage</strong> consommé par instance</li>
+        <li><strong>Temps de provisionnement</strong> (cible < 5 min)</li>
+        <li><strong>Taux de backup réussi</strong> (cible 100%)</li>
+        <li><strong>Nombre d'incidents/mois</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- PAGE 12 : RÉSUMÉ EXÉCUTIF                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section-page">
+  <div class="section-header">
+    <div class="phase-badge">Synthèse</div>
+    <h2>12. Résumé Exécutif & Prochaines Actions</h2>
+    <p>Vue d'ensemble et décisions à prendre</p>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="value">3-4</div>
+      <div class="label">Mois de développement</div>
+    </div>
+    <div class="kpi">
+      <div class="value">~15K€</div>
+      <div class="label">Budget dev estimé</div>
+    </div>
+    <div class="kpi">
+      <div class="value">~70€</div>
+      <div class="label">Coût infra mensuel</div>
+    </div>
+    <div class="kpi">
+      <div class="value">89%</div>
+      <div class="label">Marge brute cible</div>
+    </div>
+  </div>
+
+  <div class="block no-break">
+    <h3><span class="icon" style="background:#eef2ff;color:#6366f1;">✅</span> Checklist des Prochaines Actions</h3>
+    <table>
+      <tr><th style="width:40px;">N°</th><th>Action</th><th>Responsable</th><th>Deadline</th></tr>
+      <tr><td>1</td><td>Valider le modèle multi-instance (vs. multi-tenant BDD partagée)</td><td>Décideur</td><td>Semaine 1</td></tr>
+      <tr><td>2</td><td>Valider la grille tarifaire (3 plans proposés)</td><td>Business</td><td>Semaine 1</td></tr>
+      <tr><td>3</td><td>Développer les 20 tickets d'amélioration du produit</td><td>Dev</td><td>Semaine 2-3</td></tr>
+      <tr><td>4</td><td>Créer le portail central SaaS (Next.js + Stripe)</td><td>Dev</td><td>Semaine 4-7</td></tr>
+      <tr><td>5</td><td>Automatiser le provisionnement d'instances</td><td>DevOps</td><td>Semaine 8-9</td></tr>
+      <tr><td>6</td><td>Commander l'infrastructure serveur (Hetzner)</td><td>DevOps</td><td>Semaine 8</td></tr>
+      <tr><td>7</td><td>Rédiger CGU/CGV/RGPD (avocat)</td><td>Juridique</td><td>Semaine 6-8</td></tr>
+      <tr><td>8</td><td>Créer la landing page + contenu marketing</td><td>Marketing</td><td>Semaine 9-10</td></tr>
+      <tr><td>9</td><td>Beta test avec 3-5 clients pilotes</td><td>Product</td><td>Semaine 11-12</td></tr>
+      <tr><td>10</td><td>Lancement public 🚀</td><td>Équipe</td><td>Semaine 13-14</td></tr>
+    </table>
+  </div>
+
+  <div class="highlight success no-break">
+    <h4>🎯 Conclusion</h4>
+    <p>La plateforme actuelle est <strong>techniquement prête</strong> pour une transformation SaaS. L'architecture Docker + PostgreSQL + React se prête parfaitement au modèle multi-instance. 
+    L'investissement est modéré (~15K€) avec un <strong>breakeven rapide (8-10 clients)</strong> et une marge très élevée (~89%). 
+    Le marché de la gestion de sécurité/propreté est fragmenté avec peu de solutions SaaS modernes — c'est une <strong>opportunité forte</strong>.</p>
+    <p style="margin-top:8px;"><strong>Recommandation :</strong> Commencer par les améliorations produit (20 tickets), puis attaquer le portail central et le provisionnement automatisé. Lancer une beta privée dès que le MVP SaaS est fonctionnel.</p>
+  </div>
+
+  <div style="text-align:center;margin-top:30px;padding:20px;color:var(--muted);font-size:9pt;">
+    <p>— Fin du document —</p>
+    <p style="margin-top:4px;">Document généré le 11 Avril 2026 | Confidentiel</p>
+    <p style="margin-top:4px;">Pour imprimer en PDF : <strong>Ctrl+P → Destination: "Enregistrer en PDF"</strong></p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -148,6 +148,16 @@ function formatEvent(event: any) {
       (event.agents || []).map((ea: any) => [ea.agentId, ea.response]),
     ),
     status: event.status,
+    isDraft: event.isDraft ?? false,
+    publishedAt: event.publishedAt ? event.publishedAt.toISOString() : null,
+    draftVersions: (event.draftVersions || []).map((v: any) => ({
+      id: v.id,
+      versionNum: v.versionNum,
+      snapshot: v.snapshot,
+      label: v.label,
+      createdBy: v.createdBy,
+      createdAt: v.createdAt.toISOString(),
+    })),
     history: (event.history || []).map((h: any) => ({
       action: h.action,
       userId: h.userId,
@@ -163,15 +173,17 @@ const eventInclude = {
   shifts: { orderBy: { date: 'asc' as const } },
   agents: true,
   history: { orderBy: { timestamp: 'asc' as const } },
+  draftVersions: { orderBy: { versionNum: 'desc' as const } },
 };
 
 // GET /api/events
 router.get('/', async (req: Request, res: Response) => {
   const where: any = {};
 
-  // Agents only see their own events
+  // Agents only see their own published events (not drafts)
   if (req.auth!.role === 'agent') {
     where.agents = { some: { agentId: req.auth!.userId } };
+    where.isDraft = false;
   }
 
   const events = await prisma.event.findMany({
@@ -236,6 +248,7 @@ const createEventSchema = z.object({
   hourlyRate: z.number().optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
+  isDraft: z.boolean().optional(),
 });
 
 // POST /api/events (admin only)
@@ -246,7 +259,8 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
     return;
   }
 
-  const { shifts, assignedAgentIds, startDate, endDate, ...rest } = parsed.data;
+  const { shifts, assignedAgentIds, startDate, endDate, isDraft, ...rest } = parsed.data;
+  const savingAsDraft = isDraft === true;
 
   // Check which agents cannot refuse events (auto-accept)
   let agentRefuseMap = new Map<string, boolean>();
@@ -263,6 +277,8 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
       ...rest,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
+      isDraft: savingAsDraft,
+      publishedAt: savingAsDraft ? null : new Date(),
       shifts: shifts
         ? { create: shifts.map((s) => ({ date: new Date(s.date), startTime: s.startTime, endTime: s.endTime, agentId: s.agentId || null })) }
         : undefined,
@@ -271,7 +287,7 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
         : undefined,
       history: {
         create: {
-          action: 'Création',
+          action: savingAsDraft ? 'Brouillon créé' : 'Création',
           userId: req.auth!.userId,
         },
       },
@@ -280,11 +296,16 @@ router.post('/', adminOnly, async (req: Request, res: Response) => {
   });
 
   res.status(201).json(formatEvent(event));
-  emitEventsChanged();
-
-  // Send email to newly assigned agents
-  if (assignedAgentIds && assignedAgentIds.length > 0) {
-    notifyAgentAssigned(assignedAgentIds, event);
+  // Only notify agents if not a draft
+  if (!savingAsDraft) {
+    emitEventsChanged();
+    // Send email to newly assigned agents
+    if (assignedAgentIds && assignedAgentIds.length > 0) {
+      notifyAgentAssigned(assignedAgentIds, event);
+    }
+  } else {
+    // Notify only admins so they see the draft
+    emitToAdmins('events:changed', null);
   }
 });
 
@@ -305,6 +326,7 @@ const updateEventSchema = z.object({
   hourlyRate: z.number().nullable().optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
+  isDraft: z.boolean().optional(),
 });
 
 // PUT /api/events/:id (admin only)
@@ -315,15 +337,62 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
     return;
   }
 
-  const { shifts, assignedAgentIds, startDate, endDate, ...rest } = parsed.data;
+  const { shifts, assignedAgentIds, startDate, endDate, isDraft, ...rest } = parsed.data;
   const eventId = req.params.id;
 
   // Build update data
   const updateData: any = { ...rest };
   if (startDate) updateData.startDate = new Date(startDate);
   if (endDate) updateData.endDate = new Date(endDate);
+  if (isDraft !== undefined) updateData.isDraft = isDraft;
 
   await prisma.$transaction(async (tx) => {
+    // Snapshot current state before modification (for versioning)
+    const currentEvent = await tx.event.findUnique({
+      where: { id: eventId },
+      include: { shifts: true, agents: true },
+    });
+    if (currentEvent) {
+      const lastVersion = await tx.eventDraftVersion.findFirst({
+        where: { eventId },
+        orderBy: { versionNum: 'desc' },
+      });
+      const nextVersionNum = (lastVersion?.versionNum ?? 0) + 1;
+      const snapshot = JSON.stringify({
+        title: currentEvent.title,
+        description: currentEvent.description,
+        client: currentEvent.client,
+        clientPhone: currentEvent.clientPhone,
+        site: currentEvent.site,
+        color: currentEvent.color,
+        startDate: currentEvent.startDate.toISOString().slice(0, 10),
+        endDate: currentEvent.endDate.toISOString().slice(0, 10),
+        address: currentEvent.address,
+        latitude: currentEvent.latitude,
+        longitude: currentEvent.longitude,
+        geoRadius: currentEvent.geoRadius,
+        hourlyRate: currentEvent.hourlyRate,
+        status: currentEvent.status,
+        isDraft: currentEvent.isDraft,
+        shifts: currentEvent.shifts.map((s) => ({
+          date: s.date.toISOString().slice(0, 10),
+          startTime: s.startTime,
+          endTime: s.endTime,
+          agentId: s.agentId,
+        })),
+        assignedAgentIds: currentEvent.agents.map((a) => a.agentId),
+      });
+      await tx.eventDraftVersion.create({
+        data: {
+          eventId,
+          versionNum: nextVersionNum,
+          snapshot,
+          label: `Version ${nextVersionNum}`,
+          createdBy: req.auth!.userId,
+        },
+      });
+    }
+
     // Update shifts if provided
     if (shifts) {
       await tx.eventShift.deleteMany({ where: { eventId } });
@@ -361,11 +430,14 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
       });
     }
 
+    const currentIsDraft = currentEvent?.isDraft;
+    const newIsDraft = isDraft !== undefined ? isDraft : currentIsDraft;
+
     // Add history entry
     await tx.eventHistory.create({
       data: {
         eventId,
-        action: 'Modification',
+        action: newIsDraft ? 'Brouillon modifié' : 'Modification',
         userId: req.auth!.userId,
       },
     });
@@ -381,17 +453,21 @@ router.put('/:id', adminOnly, async (req: Request, res: Response) => {
     include: eventInclude,
   });
 
+  const resultIsDraft = event?.isDraft;
   res.json(formatEvent(event));
-  emitEventsChanged();
-
-  // Send email to newly assigned agents (only new ones)
-  if (assignedAgentIds && assignedAgentIds.length > 0) {
-    notifyAgentAssigned(assignedAgentIds, event);
-  }
-
-  // Notify agents when mission is cancelled
-  if (rest.status === 'annule') {
-    notifyMissionCancelled(eventId);
+  // Only fully broadcast if not a draft
+  if (!resultIsDraft) {
+    emitEventsChanged();
+    // Send email to newly assigned agents (only new ones)
+    if (assignedAgentIds && assignedAgentIds.length > 0) {
+      notifyAgentAssigned(assignedAgentIds, event);
+    }
+    // Notify agents when mission is cancelled
+    if (rest.status === 'annule') {
+      notifyMissionCancelled(eventId);
+    }
+  } else {
+    emitToAdmins('events:changed', null);
   }
 });
 
@@ -478,6 +554,173 @@ router.post('/:id/response', async (req: Request, res: Response) => {
     response: parsed.data.response,
     eventTitle: event!.title,
   });
+});
+
+// POST /api/events/:id/publish (admin publishes a draft)
+router.post('/:id/publish', adminOnly, async (req: Request, res: Response) => {
+  const eventId = req.params.id;
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) {
+    res.status(404).json({ error: 'Événement introuvable' });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.event.update({
+      where: { id: eventId },
+      data: { isDraft: false, publishedAt: new Date() },
+    });
+
+    await tx.eventHistory.create({
+      data: {
+        eventId,
+        action: 'Publié',
+        userId: req.auth!.userId,
+        details: 'Le brouillon a été publié — notifications envoyées aux agents',
+      },
+    });
+  });
+
+  const updated = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: eventInclude,
+  });
+
+  res.json(formatEvent(updated));
+
+  // Now broadcast to everyone including agents
+  emitEventsChanged();
+});
+
+// POST /api/events/:id/restore/:versionId (admin restores a draft version)
+router.post('/:id/restore/:versionId', adminOnly, async (req: Request, res: Response) => {
+  const { id: eventId, versionId } = req.params;
+
+  const version = await prisma.eventDraftVersion.findUnique({
+    where: { id: versionId },
+  });
+  if (!version || version.eventId !== eventId) {
+    res.status(404).json({ error: 'Version introuvable' });
+    return;
+  }
+
+  let snapshot: any;
+  try {
+    snapshot = JSON.parse(version.snapshot);
+  } catch {
+    res.status(500).json({ error: 'Snapshot corrompu' });
+    return;
+  }
+
+  const { shifts: snapshotShifts, assignedAgentIds: snapshotAgentIds, startDate, endDate, ...restSnapshot } = snapshot;
+
+  await prisma.$transaction(async (tx) => {
+    // Save current state as a new version before restoring
+    const currentEvent = await tx.event.findUnique({
+      where: { id: eventId },
+      include: { shifts: true, agents: true },
+    });
+    if (currentEvent) {
+      const lastVersion = await tx.eventDraftVersion.findFirst({
+        where: { eventId },
+        orderBy: { versionNum: 'desc' },
+      });
+      const nextVersionNum = (lastVersion?.versionNum ?? 0) + 1;
+      const currentSnapshot = JSON.stringify({
+        title: currentEvent.title,
+        description: currentEvent.description,
+        client: currentEvent.client,
+        clientPhone: currentEvent.clientPhone,
+        site: currentEvent.site,
+        color: currentEvent.color,
+        startDate: currentEvent.startDate.toISOString().slice(0, 10),
+        endDate: currentEvent.endDate.toISOString().slice(0, 10),
+        address: currentEvent.address,
+        latitude: currentEvent.latitude,
+        longitude: currentEvent.longitude,
+        geoRadius: currentEvent.geoRadius,
+        hourlyRate: currentEvent.hourlyRate,
+        status: currentEvent.status,
+        isDraft: currentEvent.isDraft,
+        shifts: currentEvent.shifts.map((s) => ({
+          date: s.date.toISOString().slice(0, 10),
+          startTime: s.startTime,
+          endTime: s.endTime,
+          agentId: s.agentId,
+        })),
+        assignedAgentIds: currentEvent.agents.map((a) => a.agentId),
+      });
+      await tx.eventDraftVersion.create({
+        data: {
+          eventId,
+          versionNum: nextVersionNum,
+          snapshot: currentSnapshot,
+          label: `Avant restauration v${version.versionNum}`,
+          createdBy: req.auth!.userId,
+        },
+      });
+    }
+
+    // Restore event fields
+    const updateData: any = { ...restSnapshot };
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate) updateData.endDate = new Date(endDate);
+    // Keep it as draft after restore
+    updateData.isDraft = true;
+
+    await tx.event.update({
+      where: { id: eventId },
+      data: updateData,
+    });
+
+    // Restore shifts
+    if (snapshotShifts) {
+      await tx.eventShift.deleteMany({ where: { eventId } });
+      if (snapshotShifts.length > 0) {
+        await tx.eventShift.createMany({
+          data: snapshotShifts.map((s: any) => ({
+            eventId,
+            date: new Date(s.date),
+            startTime: s.startTime,
+            endTime: s.endTime,
+            agentId: s.agentId || null,
+          })),
+        });
+      }
+    }
+
+    // Restore agents
+    if (snapshotAgentIds) {
+      await tx.eventAgent.deleteMany({ where: { eventId } });
+      if (snapshotAgentIds.length > 0) {
+        await tx.eventAgent.createMany({
+          data: snapshotAgentIds.map((agentId: string) => ({
+            eventId,
+            agentId,
+            response: 'pending' as const,
+          })),
+        });
+      }
+    }
+
+    await tx.eventHistory.create({
+      data: {
+        eventId,
+        action: `Restauration version ${version.versionNum}`,
+        userId: req.auth!.userId,
+        details: `Restauré depuis "${version.label}"`,
+      },
+    });
+  });
+
+  const updated = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: eventInclude,
+  });
+
+  res.json(formatEvent(updated));
+  emitToAdmins('events:changed', null);
 });
 
 // GET /api/events/conflicts?agentId=...&start=...&end=...&excludeId=...

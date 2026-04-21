@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Devis — Améliorations Application de Gestion</title>
+<style>
+  @page { size: A4; margin: 20mm 16mm 20mm 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: #1e293b;
+    background: #fff;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+
+  /* ── Cover Page ──────────────────────────────── */
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 50px 40px;
+  }
+  .cover-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .cover-logo {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #1e3a5f, #2563eb);
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 30px; font-weight: 800;
+    box-shadow: 0 6px 24px rgba(37,99,235,0.25);
+  }
+  .cover-brand-text {
+    text-align: left;
+  }
+  .cover-brand-text h2 {
+    font-size: 14pt;
+    color: #1e3a5f;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+  }
+  .cover-brand-text p {
+    font-size: 9.5pt;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .cover h1 {
+    font-size: 28pt;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .cover .subtitle {
+    font-size: 13pt;
+    color: #2563eb;
+    font-weight: 600;
+    margin-bottom: 32px;
+  }
+  .cover-divider {
+    width: 70px; height: 3px;
+    background: linear-gradient(90deg, #1e3a5f, #2563eb);
+    border-radius: 3px;
+    margin: 20px auto 28px auto;
+  }
+  .cover-info {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 36px;
+  }
+  .cover-info-block {
+    text-align: left;
+    font-size: 10pt;
+    color: #64748b;
+    line-height: 1.8;
+    min-width: 180px;
+  }
+  .cover-info-block strong { color: #1e293b; display: block; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 2px; }
+  .cover-info-block span { color: #334155; font-weight: 500; }
+
+  .cover-total-box {
+    margin-top: 10px;
+    background: linear-gradient(135deg, #1e3a5f, #1e40af);
+    border-radius: 14px;
+    padding: 28px 44px;
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(30,58,95,0.25);
+  }
+  .cover-total-box .label {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.8;
+    margin-bottom: 6px;
+  }
+  .cover-total-box .amount {
+    font-size: 32pt;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .cover-total-box .sub {
+    font-size: 9.5pt;
+    opacity: 0.75;
+    margin-top: 6px;
+  }
+  .cover-total-details {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+  }
+  .cover-total-detail {
+    text-align: center;
+  }
+  .cover-total-detail .num {
+    font-size: 16pt;
+    font-weight: 800;
+  }
+  .cover-total-detail .desc {
+    font-size: 8pt;
+    opacity: 0.7;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Table Page ──────────────────────────────── */
+  .summary-page { page-break-after: always; padding-top: 20px; }
+  .summary-page h2 {
+    font-size: 15pt; color: #1e293b; font-weight: 800;
+    border-bottom: 3px solid #1e3a5f;
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+  }
+  .summary-intro {
+    font-size: 10pt;
+    color: #475569;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  table.summary {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  table.summary th {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  table.summary td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  table.summary tr:nth-child(even) { background: #f8fafc; }
+  table.summary tr:hover { background: #f1f5f9; }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-free { background: #dcfce7; color: #15803d; }
+  .badge-paid { background: #dbeafe; color: #1e40af; }
+
+  .total-bar {
+    margin-top: 20px;
+    background: linear-gradient(135deg, #1e3a5f, #1e40af);
+    border-radius: 10px;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+  }
+  .total-bar .label { font-size: 11pt; font-weight: 600; }
+  .total-bar .amount { font-size: 18pt; font-weight: 800; }
+
+  .discount-note {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    font-size: 9.5pt;
+    color: #166534;
+    line-height: 1.6;
+  }
+  .discount-note strong { color: #15803d; }
+
+  /* ── Ticket Cards ──────────────────────────────── */
+  .ticket {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+    overflow: hidden;
+  }
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .ticket-header-free {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  }
+  .ticket-header-paid {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  }
+  .ticket-id {
+    font-size: 8.5pt;
+    font-weight: 800;
+    color: #1e3a5f;
+    background: #e0e7ff;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .ticket-title {
+    flex: 1;
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin-left: 10px;
+  }
+  .ticket-status {
+    font-size: 8.5pt;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .ticket-status.free { background: #dcfce7; color: #15803d; }
+  .ticket-status.paid { background: #dbeafe; color: #1e40af; }
+
+  .ticket-body { padding: 12px 16px; }
+  .ticket-section { margin-bottom: 8px; }
+  .ticket-section:last-child { margin-bottom: 0; }
+  .ticket-section-title {
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  .ticket-description {
+    font-size: 9.5pt;
+    color: #334155;
+    line-height: 1.6;
+  }
+  .ticket-justification {
+    font-size: 9pt;
+    color: #64748b;
+    font-style: italic;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 3px solid #1e3a5f;
+    line-height: 1.5;
+  }
+
+  /* ── Section Headers ───────────────────────── */
+  .section-header {
+    font-size: 14pt;
+    font-weight: 800;
+    color: #1e3a5f;
+    margin: 26px 0 14px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
+    page-break-after: avoid;
+  }
+
+  /* ── Footer & Legal ────────────────────────── */
+  .page-footer {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 2px solid #e2e8f0;
+    font-size: 8.5pt;
+    color: #94a3b8;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+  .legal-note {
+    page-break-before: always;
+    padding-top: 36px;
+  }
+  .legal-note h2 {
+    font-size: 15pt;
+    color: #1e293b;
+    margin-bottom: 18px;
+    border-bottom: 3px solid #1e3a5f;
+    padding-bottom: 8px;
+    font-weight: 800;
+  }
+  .legal-note p {
+    font-size: 10pt;
+    color: #475569;
+    margin-bottom: 10px;
+    line-height: 1.7;
+  }
+  .legal-note ul {
+    margin: 8px 0 14px 22px;
+    font-size: 10pt;
+    color: #475569;
+  }
+  .legal-note li { margin-bottom: 5px; line-height: 1.5; }
+  .signature-block {
+    margin-top: 50px;
+    display: flex;
+    justify-content: space-between;
+    gap: 40px;
+  }
+  .signature-box {
+    flex: 1;
+    border: 1.5px solid #d1d5db;
+    border-radius: 10px;
+    padding: 22px;
+    min-height: 130px;
+    background: #fafbfc;
+  }
+  .signature-box h4 {
+    font-size: 10pt;
+    color: #1e3a5f;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .signature-box p {
+    font-size: 9pt;
+    color: #94a3b8;
+    margin-bottom: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE DE COUVERTURE
+     ═══════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-brand">
+    <div class="cover-logo">F</div>
+    <div class="cover-brand-text">
+      <h2>Équipe de Développement</h2>
+      <p>Solutions logicielles sur mesure</p>
+    </div>
+  </div>
+
+  <h1>Devis N° DEV-2026-0412</h1>
+  <p class="subtitle">Améliorations & Nouvelles Fonctionnalités</p>
+  <div class="cover-divider"></div>
+
+  <div class="cover-info">
+    <div class="cover-info-block">
+      <strong>Document</strong>
+      <span>Devis détaillé</span><br>
+      <strong style="margin-top:8px">Date d'émission</strong>
+      <span>12 avril 2026</span><br>
+      <strong style="margin-top:8px">Validité</strong>
+      <span>30 jours</span>
+    </div>
+    <div class="cover-info-block">
+      <strong>Projet</strong>
+      <span>Application de Gestion — Nettoyage</span><br>
+      <strong style="margin-top:8px">Destinataire</strong>
+      <span>Client</span><br>
+      <strong style="margin-top:8px">Version</strong>
+      <span>1.0</span>
+    </div>
+  </div>
+
+  <div class="cover-total-box">
+    <div class="label">Montant total du devis</div>
+    <div class="amount">450 €</div>
+    <div class="sub">Tarif préférentiel après réduction — 18 fonctionnalités incluses</div>
+    <div class="cover-total-details">
+      <div class="cover-total-detail">
+        <div class="num">11</div>
+        <div class="desc">Améliorations<br>offertes</div>
+      </div>
+      <div class="cover-total-detail">
+        <div class="num">7</div>
+        <div class="desc">Nouvelles<br>fonctionnalités</div>
+      </div>
+      <div class="cover-total-detail">
+        <div class="num">18</div>
+        <div class="desc">Total<br>livrables</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     TABLEAU RÉCAPITULATIF
+     ═══════════════════════════════════════════════════ -->
+<div class="summary-page">
+  <h2>Récapitulatif des Fonctionnalités</h2>
+  <p class="summary-intro">
+    Ce devis regroupe l'ensemble des évolutions demandées pour votre application de gestion. Les améliorations portant sur des fonctionnalités existantes sont offertes. Les nouvelles fonctionnalités nécessitant des développements conséquents sont regroupées dans un forfait global.
+  </p>
+
+  <table class="summary">
+    <thead>
+      <tr>
+        <th style="width:30px">#</th>
+        <th>Fonctionnalité</th>
+        <th style="width:80px; text-align:center;">Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>Système de brouillon (draft) pour la création de missions</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Export planning avec filtres (agent, client, site)</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Mot de passe oublié — Réinitialisation sécurisée par e-mail</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Espace profil utilisateur + Gestion des photos de profil</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Champ pourcentage agent dans la fiche utilisateur</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>Heures globales facturées par site + Calcul automatique agents</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Gestion des heures de pause dans les missions</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Blocage du pointage si GPS désactivé</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>Retrait marge brute & dépense salaire du récap client</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>Récap client : heures validées, prix/h, suivi dépassement</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td>Renommage du tableau « Nbr heures × Prix agent »</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td>Réglages : Logo, nom d'application, marque blanche</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td>Récapitulatif mensuel agent + Confirmation d'heures</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td>Contrôle de visibilité des photos (pointage & travail) par client</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td>Calendrier des missions — Portail client</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td>Refonte visuelle de l'interface client — Design moderne</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+      <tr>
+        <td>17</td>
+        <td>Sous-comptes employés par client — Gestion des accès par site</td>
+        <td style="text-align:center;"><span class="badge badge-paid">Facturé</span></td>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td>Informations globales dans les détails site (espace client)</td>
+        <td style="text-align:center;"><span class="badge badge-free">Offert</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="total-bar">
+    <span class="label">Forfait global (7 nouvelles fonctionnalités + 11 améliorations offertes)</span>
+    <span class="amount">450 €</span>
+  </div>
+
+  <div class="discount-note">
+    <strong>Note :</strong> Le montant de 450 € correspond à un tarif préférentiel après réduction. Cette réduction est accordée en raison de la non-activation du module SMS sur votre instance, dans le cadre de votre projet de nettoyage. Les 11 améliorations offertes sont intégrées gracieusement à votre application.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DÉTAIL — AMÉLIORATIONS OFFERTES
+     ═══════════════════════════════════════════════════ -->
+
+<div class="section-header">A — Améliorations Offertes</div>
+
+<!-- TICKET 1 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#1</span>
+    <span class="ticket-title">Système de Brouillon (Draft) — Création de Missions</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Ajout d'un mode brouillon lors de la création et de la modification des missions. L'administrateur pourra effectuer plusieurs modifications successives sans déclencher de notifications aux agents. Un bouton <strong>« Publier »</strong> permettra d'envoyer les notifications uniquement lorsque les changements sont finalisés.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Amélioration du processus existant de création de missions — offert dans le cadre de l'optimisation de l'outil.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 2 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#2</span>
+    <span class="ticket-title">Export Planning avec Filtres (Agent, Client, Site)</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Enrichissement du menu d'export PDF du planning avec des filtres de sélection. L'administrateur pourra exporter le planning filtré par agent, par client ou par site. Le PDF généré ne contiendra que les missions correspondant au filtre choisi.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Ajout de paramètres de filtrage à une fonctionnalité d'export déjà existante — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 5 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#5</span>
+    <span class="ticket-title">Pourcentage Agent — Facturation Automatique</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Ajout d'un champ « Pourcentage agent » dans la fiche utilisateur (invisible côté agent). Ce pourcentage servira à calculer automatiquement le montant de facturation par heure pour chaque agent, par site de mission.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Ajout simple d'un champ dans la section utilisateurs existante — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 7 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#7</span>
+    <span class="ticket-title">Gestion des Heures de Pause dans les Missions</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Lors de la création d'un événement, l'administrateur pourra saisir un nombre d'heures de pause. Cette durée sera automatiquement déduite du total prévu. Exemple : un créneau 8h–14h avec 1h de pause = 5h de travail effectif.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Modification d'une fonctionnalité déjà existante — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 8 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#8</span>
+    <span class="ticket-title">Blocage Pointage si GPS Désactivé</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Si l'agent n'a pas activé sa géolocalisation (GPS désactivé ou permission refusée), il ne pourra pas effectuer de pointage. Un message l'invitera à activer sa localisation pour pouvoir pointer.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Modification d'une fonctionnalité de pointage déjà existante — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 9 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#9</span>
+    <span class="ticket-title">Retrait Marge Brute & Dépense Salaire du Recap Client</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Suppression des colonnes « Marge brute » et « Dépense salaire » de l'onglet Clients dans le Récapitulatif, afin de simplifier et clarifier l'affichage.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Modification au niveau de l'interface et de l'affichage — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 10 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#10</span>
+    <span class="ticket-title">Recap Client : Heures Validées, Prix/h, Suivi Dépassement</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Dans l'onglet « Clients » du Récapitulatif, afficher pour chaque client : le nombre d'heures validées, le prix par heure, le montant total calculé (heures × prix), et le nombre d'heures restantes par rapport au contrat.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Amélioration d'une fonctionnalité de récapitulatif déjà existante — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 11 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#11</span>
+    <span class="ticket-title">Renommage du Tableau « Nbr heures × Prix agent »</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Renommer le libellé du tableau des agents dans le Récapitulatif pour afficher « Nbr heures × Prix agent » au lieu de l'intitulé actuel.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Renommage d'un champ existant — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 14 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#14</span>
+    <span class="ticket-title">Contrôle Visibilité Photos Client</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Lors de la création ou modification d'un client, l'administrateur pourra choisir si le client a accès aux photos de pointage et aux photos de travail. Ce contrôle permet de gérer finement la confidentialité des données visuelles.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Ajout d'un contrôle de visibilité sur des données existantes — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 16 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#16</span>
+    <span class="ticket-title">Refonte Interface Client — Design Moderne</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Refonte visuelle du portail client : suppression de la mention « Portail Sécurité », titres du sidebar en gras, suppression des sections « Suivi transparent » et « Accès rapide » pour un design plus épuré et moderne.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Amélioration de l'affichage et du design de l'interface client — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 18 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-free">
+    <span class="ticket-id">#18</span>
+    <span class="ticket-title">Informations Globales dans Détails Site (Espace Client)</span>
+    <span class="ticket-status free">Offert</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Dans la vue détails d'un site côté client, afficher les informations globales : adresse, heures contractuelles, nombre de missions en cours et terminées. Cette vue assure une bonne visibilité et un bon suivi des projets sites.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <p class="ticket-justification">
+        Amélioration de la visibilité et du suivi des sites — offert.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     DÉTAIL — NOUVELLES FONCTIONNALITÉS (Facturées)
+     ═══════════════════════════════════════════════════ -->
+
+<div class="section-header">B — Nouvelles Fonctionnalités (Forfait Global : 450 €)</div>
+
+<!-- TICKET 3 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#3</span>
+    <span class="ticket-title">Mot de Passe Oublié — Réinitialisation Sécurisée par E-mail</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Sur la page de connexion, un lien <strong>« Mot de passe oublié ? »</strong> permettra à tout utilisateur — administrateur, agent, client et ses employés — de recevoir un e-mail contenant un lien sécurisé de réinitialisation. Le lien sera protégé par un jeton unique avec une durée de validité limitée. L'utilisateur pourra alors définir un nouveau mot de passe via un formulaire dédié et sécurisé.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Mise en place d'un système complet de gestion de jetons sécurisés avec expiration automatique. Intégration d'un service d'envoi d'e-mails transactionnels avec templates personnalisés. Développement d'une nouvelle page de réinitialisation avec validation et sécurisation. Le mécanisme couvre l'ensemble des profils utilisateurs (administrateur, agent, client et sous-comptes employés) avec des règles de sécurité adaptées.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 4 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#4</span>
+    <span class="ticket-title">Espace Profil Utilisateur + Gestion des Photos de Profil</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Création d'un espace profil complet pour chaque utilisateur. L'agent pourra consulter ses informations personnelles, modifier son mot de passe et gérer sa photo de profil. Le système de photo de profil sera étendu à l'ensemble des utilisateurs (agents, administrateurs, clients). Les photos seront visibles dans les différentes interfaces : liste des utilisateurs, en-tête du profil, et dans les sections de paramètres.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Développement d'un système complet de téléchargement, stockage et redimensionnement d'images. Création d'un nouvel espace profil avec formulaire de modification sécurisé. Intégration des photos de profil dans l'ensemble des interfaces existantes (listings, en-têtes, menus de navigation). Adaptation du design global pour afficher les avatars de manière cohérente dans toute l'application.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 6 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#6</span>
+    <span class="ticket-title">Heures Globales Facturées par Site + Calcul Automatique Agents</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Lors de la création d'un site client, l'administrateur renseignera le nombre d'heures globales contractuelles et le prix par heure facturé au client. Le système calculera automatiquement la répartition des heures entre les agents affectés, avec prise en compte des pourcentages définis et du suivi des heures consommées vs contractuelles.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Développement d'un moteur de calcul automatique intégrant les heures contractuelles, les taux horaires, les pourcentages agents et les heures effectivement réalisées. Création de nouvelles règles de gestion et enrichissement du modèle de données des sites. Intégration des calculs dans les différentes vues de récapitulatif pour assurer la cohérence entre les heures planifiées, réalisées et facturées.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 12 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#12</span>
+    <span class="ticket-title">Réglages : Logo, Nom d'Application, Marque Blanche</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Transformation de la section « Email » en une interface complète de <strong>« Réglages »</strong>. L'administrateur pourra personnaliser : le logo de l'application, le nom de l'application, et toute mention de l'identité de l'entreprise. Ces personnalisations seront reflétées dans l'ensemble de l'application — interface web, e-mails envoyés (réinitialisation de mot de passe, alertes, futures factures), et documents exportés.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Développement d'un système complet de personnalisation en marque blanche. Chaque élément visuel et textuel de la plateforme sera rendu dynamique : logo (avec système d'upload et de stockage), nom d'application, mentions dans les e-mails transactionnels, en-têtes et documents PDF. Mise en place d'un mécanisme de propagation en temps réel des modifications sur l'ensemble des interfaces connectées.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 13 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#13</span>
+    <span class="ticket-title">Récapitulatif Mensuel Agent + Confirmation d'Heures</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Chaque fin de mois, l'agent recevra dans son espace un récapitulatif mensuel contenant le nombre total d'heures effectuées. L'agent pourra consulter le détail de ses heures par mission et par site, avec une vue claire de ses prestations du mois écoulé.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Développement d'un nouveau module de génération de récapitulatifs mensuels avec agrégation des données d'heures par agent. Création d'une nouvelle interface dédiée dans l'espace agent. Mise en place d'un système de clôture mensuelle automatique avec historique consultable et possibilité de confirmation des heures par l'agent.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 15 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#15</span>
+    <span class="ticket-title">Calendrier des Missions — Portail Client</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Affichage des missions du client dans un calendrier visuel similaire à celui de l'administrateur, mais ne contenant que les missions propres au client. Le client pourra naviguer entre les vues mensuelles et hebdomadaires, visualiser les détails de chaque mission et suivre l'avancement de ses prestations en temps réel.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Reproduction et adaptation du calendrier administrateur pour le portail client. Développement d'un nouveau composant de calendrier dédié au client avec règles de filtrage spécifiques (seules les missions du client connecté). Gestion des droits d'accès et adaptation de l'interface aux besoins de consultation du client avec vue simplifiée et orientée suivi.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- TICKET 17 -->
+<div class="ticket">
+  <div class="ticket-header ticket-header-paid">
+    <span class="ticket-id">#17</span>
+    <span class="ticket-title">Sous-comptes Employés par Client — Gestion des Accès par Site</span>
+    <span class="ticket-status paid">Inclus dans le forfait</span>
+  </div>
+  <div class="ticket-body">
+    <div class="ticket-section">
+      <div class="ticket-section-title">Description</div>
+      <p class="ticket-description">
+        Chaque client pourra créer des sous-comptes pour ses employés. Ces utilisateurs pourront avoir accès à des sites spécifiques, avec des droits limités en fonction des sites qui leur sont affectés. L'interface de gestion des sous-comptes sera intégrée dans l'espace client, avec possibilité de créer, modifier et supprimer des accès employés.
+      </p>
+    </div>
+    <div class="ticket-section">
+      <div class="ticket-section-title">Périmètre des travaux</div>
+      <p class="ticket-justification">
+        Développement d'un nouveau module complet de gestion des utilisateurs côté client. Création d'un système de comptes avec gestion de rôles et de permissions par site, attribution granulaire des accès. Développement d'interfaces dédiées à chaque sous-compte employé avec périmètre de données restreint au(x) site(s) affecté(s). Sécurisation de l'ensemble des accès pour garantir l'isolation des données entre les différents employés.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     CONDITIONS & SIGNATURES
+     ═══════════════════════════════════════════════════ -->
+<div class="legal-note">
+  <h2>Conditions Générales</h2>
+
+  <p><strong>1. Périmètre du devis</strong></p>
+  <p>Le présent devis couvre le développement et l'intégration des 18 fonctionnalités listées ci-dessus. Toute demande complémentaire sortant de ce périmètre fera l'objet d'un devis séparé.</p>
+
+  <p><strong>2. Tarif et réduction</strong></p>
+  <p>Le montant total de <strong>450 €</strong> est un tarif préférentiel après réduction. Cette réduction est accordée en raison de la non-activation du module SMS sur votre instance, dans le cadre de votre projet de nettoyage. Les 11 améliorations offertes sont intégrées gracieusement.</p>
+
+  <p><strong>3. Modalités de paiement</strong></p>
+  <ul>
+    <li>Paiement à la livraison de l'ensemble des fonctionnalités.</li>
+    <li>Ou paiement en deux fois : 50 % à la commande, 50 % à la livraison.</li>
+  </ul>
+
+  <p><strong>4. Délai de réalisation</strong></p>
+  <p>Les développements seront réalisés dans un délai estimé après validation du devis. Un planning détaillé sera communiqué après acceptation.</p>
+
+  <p><strong>5. Validité du devis</strong></p>
+  <p>Ce devis est valable <strong>30 jours</strong> à compter de sa date d'émission (12 avril 2026).</p>
+
+  <p><strong>6. Support et garantie</strong></p>
+  <p>Les fonctionnalités livrées bénéficient d'une garantie de correction des anomalies pendant 30 jours après la livraison. Le support technique reste disponible pour toute question liée aux nouvelles fonctionnalités.</p>
+
+  <div class="signature-block">
+    <div class="signature-box">
+      <h4>Le Prestataire</h4>
+      <p>Date : ______________________</p>
+      <p style="margin-top: 10px;">Signature :</p>
+      <br><br><br>
+    </div>
+    <div class="signature-box">
+      <h4>Le Client</h4>
+      <p>Date : ______________________</p>
+      <p style="margin-top: 10px;">Signature :</p>
+      <p style="margin-top: 6px; font-size: 8pt; color: #94a3b8;">Mention « Bon pour accord »</p>
+      <br><br>
+    </div>
+  </div>
+
+  <div class="page-footer" style="margin-top: 40px;">
+    Devis DEV-2026-0412 — Émis le 12 avril 2026 — Document confidentiel
+  </div>
+</div>
+
+</body>
+</html>

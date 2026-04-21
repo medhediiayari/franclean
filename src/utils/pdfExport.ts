@@ -6,6 +6,12 @@ import type { PlanningEvent, User } from '../types';
 
 type PeriodType = 'day' | 'week' | 'month';
 
+export interface PDFExportFilters {
+  agentId?: string;
+  client?: string;
+  site?: string;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   planifie: 'Planifie',
   en_cours: 'En cours',
@@ -62,9 +68,21 @@ export function generatePlanningPDF(
   users: User[],
   refDate: Date,
   period: PeriodType,
+  filters?: PDFExportFilters,
 ) {
   const { start, end, label } = getPeriodRange(refDate, period);
-  const filtered = getEventsInRange(events, start, end);
+  let filtered = getEventsInRange(events, start, end);
+
+  // Apply filters
+  if (filters?.agentId) {
+    filtered = filtered.filter(e => e.assignedAgentIds.includes(filters.agentId!));
+  }
+  if (filters?.client) {
+    filtered = filtered.filter(e => e.client === filters.client);
+  }
+  if (filters?.site) {
+    filtered = filtered.filter(e => e.site === filters.site);
+  }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -78,7 +96,21 @@ export function generatePlanningPDF(
   doc.text('Bipbip - Planning', 14, 13);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(label.charAt(0).toUpperCase() + label.slice(1), 14, 22);
+  
+  // Build filter label
+  let filterLabel = '';
+  if (filters?.agentId) {
+    const agent = users.find(u => u.id === filters.agentId);
+    if (agent) filterLabel += ` - Agent: ${agent.firstName} ${agent.lastName}`;
+  }
+  if (filters?.client) {
+    filterLabel += ` - Client: ${filters.client}`;
+  }
+  if (filters?.site) {
+    filterLabel += ` - Site: ${filters.site}`;
+  }
+  
+  doc.text((label.charAt(0).toUpperCase() + label.slice(1)) + filterLabel, 14, 22);
 
   // Generation date
   doc.setFontSize(9);

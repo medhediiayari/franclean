@@ -8,7 +8,7 @@ Bonjour,
 
 Nous sommes ravis de vous présenter **FranClean RH**, l'application de gestion des ressources humaines développée sur mesure pour FranClean.
 
-Avant de commencer la démonstration, je tiens à préciser que **toutes les fonctionnalités demandées par Belhassen dans le cahier de charge ont été intégralement développées et livrées**. L'équipe a travaillé dessus avec sérieux pour répondre à chaque besoin exprimé.
+Avant de commencer la démonstration, je tiens à préciser que **toutes les fonctionnalités demandées par vous dans le cahier de charge ont été intégralement développées et livrées**. L'équipe a travaillé dessus avec sérieux pour répondre à chaque besoin exprimé.
 
 De plus, nous avons ajouté **plusieurs fonctionnalités supplémentaires** qui ne figuraient pas dans le cahier de charge initial — c'est un **geste de notre part** et elles **ne seront pas facturées**. Nous les détaillerons au fil de la présentation.
 
