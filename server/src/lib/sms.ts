@@ -64,6 +64,25 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
   }
 }
 
+/** Like sendSms but throws with the actual Twilio error for diagnostics */
+export async function sendSmsWithError(to: string, body: string): Promise<void> {
+  const config = await getConfig();
+  if (!config) {
+    throw new Error('Twilio non configuré. Vérifiez Account SID, Auth Token et numéro.');
+  }
+
+  const phone = to.startsWith('+') ? to : `+33${to.replace(/^0/, '').replace(/\s/g, '')}`;
+
+  const twilio = await import('twilio');
+  const client = twilio.default(config.accountSid, config.authToken);
+
+  await client.messages.create({
+    body,
+    from: config.phoneNumber,
+    to: phone,
+  });
+}
+
 // ── SMS Templates ───────────────────────────────────────
 
 export function smsAgentAssigned(agentName: string, eventTitle: string, dates: string): string {

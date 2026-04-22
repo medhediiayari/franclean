@@ -8,6 +8,7 @@ async function main() {
 
   // Clear existing data
   await prisma.attendancePhoto.deleteMany();
+  await prisma.clientUserSite.deleteMany();
   await prisma.clientSite.deleteMany();
   await prisma.client.deleteMany();
   await prisma.attendance.deleteMany();
@@ -753,14 +754,56 @@ async function main() {
         password: hash('client123'),
         role: 'client',
         isActive: true,
+        isMainAccount: true,
         clientId: demoClient.id,
       },
     });
     // Add some sites to this client
-    await prisma.clientSite.createMany({
+    const [sitePrincipal, siteEntrepot] = await Promise.all([
+      prisma.clientSite.create({
+        data: { clientId: demoClient.id, name: 'Site Principal', address: '15 Rue de Noisy, 93160 Noisy-le-Grand' },
+      }),
+      prisma.clientSite.create({
+        data: { clientId: demoClient.id, name: 'Entrepôt Nord', address: '42 Avenue du Nord, 93160 Noisy-le-Grand' },
+      }),
+    ]);
+
+    // Create sub-account with access to 'Site Principal' only
+    const subUser = await prisma.user.create({
+      data: {
+        firstName: 'Jean',
+        lastName: 'Dupont',
+        email: 'jean.dupont@coredif.fr',
+        password: hash('employe123'),
+        phone: '+33 6 99 88 77 66',
+        role: 'client',
+        isActive: true,
+        isMainAccount: false,
+        clientId: demoClient.id,
+      },
+    });
+    await prisma.clientUserSite.create({
+      data: { userId: subUser.id, clientSiteId: sitePrincipal.id },
+    });
+
+    // Create second sub-account with access to both sites
+    const subUser2 = await prisma.user.create({
+      data: {
+        firstName: 'Marie',
+        lastName: 'Martin',
+        email: 'marie.martin@coredif.fr',
+        password: hash('employe123'),
+        phone: '+33 6 77 66 55 44',
+        role: 'client',
+        isActive: true,
+        isMainAccount: false,
+        clientId: demoClient.id,
+      },
+    });
+    await prisma.clientUserSite.createMany({
       data: [
-        { clientId: demoClient.id, name: 'Site Principal', address: '15 Rue de Noisy, 93160 Noisy-le-Grand' },
-        { clientId: demoClient.id, name: 'Entrepôt Nord', address: '42 Avenue du Nord, 93160 Noisy-le-Grand' },
+        { userId: subUser2.id, clientSiteId: sitePrincipal.id },
+        { userId: subUser2.id, clientSiteId: siteEntrepot.id },
       ],
     });
     // Create events linked to this client name for demo
@@ -809,7 +852,7 @@ async function main() {
         history: { create: [{ action: 'Création', userId: admin1.id }] },
       },
     });
-    console.log('👤 Demo client account created for COREDIF NOISY');
+    console.log('👤 Demo client account + 2 sous-comptes created for COREDIF NOISY');
   }
 
   console.log('');
@@ -820,6 +863,8 @@ async function main() {
   console.log('  Agent3 → karim@bipbip.fr / agent123');
   console.log('  Agent4 → fatima@bipbip.fr / agent123');
   console.log('  Client → coredif@client.bipbip.fr / client123');
+  console.log('  Sous-compte 1 → jean.dupont@coredif.fr / employe123 (Site Principal)');
+  console.log('  Sous-compte 2 → marie.martin@coredif.fr / employe123 (Tous les sites)');
 }
 
 main()

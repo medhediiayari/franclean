@@ -26,6 +26,7 @@ import ClientDashboard from './pages/client/ClientDashboard';
 import ClientSites from './pages/client/ClientSites';
 import ClientMissions from './pages/client/ClientMissions';
 import ClientPhotos from './pages/client/ClientPhotos';
+import ClientSubAccounts from './pages/client/ClientSubAccounts';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="sites" element={<ClientSites />} />
         <Route path="missions" element={<ClientMissions />} />
         <Route path="photos" element={<ClientPhotos />} />
+        <Route path="equipe" element={<ClientSubAccounts />} />
       </Route>
 
       {/* Default redirect */}

@@ -43,6 +43,7 @@ export default function CheckIn() {
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [autoSelected, setAutoSelected] = useState(false);
+  const [gpsBlocked, setGpsBlocked] = useState(false);
 
   // Work photos state
   const [workPhotoUploading, setWorkPhotoUploading] = useState(false);
@@ -101,6 +102,18 @@ export default function CheckIn() {
     }
   }, [todayRecords, selectedEventId, autoSelected]);
 
+  // Check GPS availability on mount
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsBlocked(true);
+      return;
+    }
+    navigator.permissions?.query({ name: 'geolocation' }).then((result) => {
+      setGpsBlocked(result.state === 'denied');
+      result.onchange = () => setGpsBlocked(result.state === 'denied');
+    }).catch(() => {});
+  }, []);
+
   const selectedEvent = events.find((e) => e.id === selectedEventId);
   const existingRecord = todayRecords.find((r) => r.eventId === selectedEventId);
 
@@ -110,21 +123,25 @@ export default function CheckIn() {
   const startCamera = async () => {
     try {
       setError('');
-      // Request camera AND GPS permissions simultaneously
-      const [stream, position] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-        }),
-        getCurrentPosition().catch(() => null), // GPS starts warming up, don't block if slow
-      ]);
-      streamRef.current = stream;
-      if (position) {
-        setGeoData({ lat: position.coords.latitude, lon: position.coords.longitude });
+      // GPS is mandatory — check first
+      let position: GeolocationPosition;
+      try {
+        position = await getCurrentPosition();
+      } catch {
+        setGpsBlocked(true);
+        setError('Veuillez activer votre localisation (GPS) pour pouvoir pointer.');
+        return;
       }
-      // Set active first so the <video> element renders, then useEffect attaches the stream
+      setGpsBlocked(false);
+      setGeoData({ lat: position.coords.latitude, lon: position.coords.longitude });
+      // Then request camera
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+      });
+      streamRef.current = stream;
       setCameraActive(true);
     } catch {
-      setError('Impossible d\'accéder à la caméra et/ou au GPS. Veuillez autoriser les deux accès.');
+      setError('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès.');
     }
   };
 
@@ -316,6 +333,19 @@ export default function CheckIn() {
         <p className="text-sm text-slate-300 mt-0.5">Photo + GPS en temps réel</p>
       </div>
 
+      {/* GPS blocked warning */}
+      {gpsBlocked && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-sm text-amber-800 flex items-start gap-3 animate-fadeIn">
+          <div className="p-1.5 rounded-lg bg-amber-100 flex-shrink-0 mt-0.5">
+            <MapPin size={16} />
+          </div>
+          <div>
+            <p className="font-semibold">Localisation désactivée</p>
+            <p className="text-amber-700 mt-0.5">Veuillez activer votre GPS et autoriser la géolocalisation dans les paramètres de votre navigateur pour pouvoir effectuer un pointage.</p>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       {error && (
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm text-rose-600 flex items-start gap-3 animate-fadeIn">
@@ -411,6 +441,7 @@ export default function CheckIn() {
 
               {!isActive ? (
                 <button
+                  disabled={gpsBlocked}
                   onClick={() => {
                     stopCamera();
                     setSelectedEventId(rec.eventId);
@@ -420,7 +451,7 @@ export default function CheckIn() {
                     setError('');
                     setSuccess('');
                   }}
-                  className="w-full py-3.5 text-sm font-bold text-white bg-gradient-to-r from-rose-500 to-rose-600 rounded-2xl shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 hover:from-rose-600 hover:to-rose-700 transition-all active:scale-[0.98]"
+                  className={`w-full py-3.5 text-sm font-bold text-white rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${gpsBlocked ? 'bg-slate-300 shadow-none cursor-not-allowed' : 'bg-gradient-to-r from-rose-500 to-rose-600 shadow-rose-600/25 hover:from-rose-600 hover:to-rose-700'}`}
                 >
                   <Camera size={16} />
                   Pointer la sortie
@@ -659,6 +690,7 @@ export default function CheckIn() {
 
                   {!isActive ? (
                     <button
+                      disabled={gpsBlocked}
                       onClick={() => {
                         stopCamera();
                         setSelectedEventId(evt.id);
@@ -668,7 +700,7 @@ export default function CheckIn() {
                         setError('');
                         setSuccess('');
                       }}
-                      className="w-full py-3.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 hover:from-emerald-600 hover:to-emerald-700 transition-all active:scale-[0.98]"
+                      className={`w-full py-3.5 text-sm font-bold text-white rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${gpsBlocked ? 'bg-slate-300 shadow-none cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-emerald-600/25 hover:from-emerald-600 hover:to-emerald-700'}`}
                     >
                       <Camera size={16} />
                       Pointer l'entrée

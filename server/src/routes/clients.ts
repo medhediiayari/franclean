@@ -182,9 +182,10 @@ function generateClientEmail(clientName: string): string {
 
 // POST /api/clients/:id/create-account — auto-generate user account for client
 router.post('/:id/create-account', adminOnly, async (req: Request, res: Response) => {
-  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { users: true } });
   if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
-  if (client.user) { res.status(409).json({ error: 'Ce client a déjà un compte', email: client.user.email }); return; }
+  const mainUser = client.users.find((u) => u.isMainAccount);
+  if (mainUser) { res.status(409).json({ error: 'Ce client a déjà un compte', email: mainUser.email }); return; }
 
   const plainPassword = generatePassword();
   const email = client.email || generateClientEmail(client.name);
@@ -205,6 +206,7 @@ router.post('/:id/create-account', adminOnly, async (req: Request, res: Response
       password: hashedPassword,
       role: 'client',
       isActive: true,
+      isMainAccount: true,
       clientId: client.id,
     },
   });
@@ -219,29 +221,31 @@ router.post('/:id/create-account', adminOnly, async (req: Request, res: Response
 
 // DELETE /api/clients/:id/account — remove client account
 router.delete('/:id/account', adminOnly, async (req: Request, res: Response) => {
-  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { users: true } });
   if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
-  if (!client.user) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
+  const mainUser = client.users.find((u) => u.isMainAccount);
+  if (!mainUser) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
 
-  await prisma.user.delete({ where: { id: client.user.id } });
+  await prisma.user.delete({ where: { id: mainUser.id } });
   res.json({ success: true });
 });
 
 // POST /api/clients/:id/reset-password — generate new password for client
 router.post('/:id/reset-password', adminOnly, async (req: Request, res: Response) => {
-  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { user: true } });
+  const client = await prisma.client.findUnique({ where: { id: req.params.id }, include: { users: true } });
   if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
-  if (!client.user) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
+  const mainUser = client.users.find((u) => u.isMainAccount);
+  if (!mainUser) { res.status(404).json({ error: 'Ce client n\'a pas de compte' }); return; }
 
   const plainPassword = generatePassword();
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
   await prisma.user.update({
-    where: { id: client.user.id },
+    where: { id: mainUser.id },
     data: { password: hashedPassword },
   });
 
-  res.json({ email: client.user.email, password: plainPassword });
+  res.json({ email: mainUser.email, password: plainPassword });
 });
 
 export default router;

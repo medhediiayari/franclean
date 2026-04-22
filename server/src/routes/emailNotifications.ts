@@ -3,7 +3,7 @@ import prisma from '../lib/prisma.js';
 import { authMiddleware, adminOnly } from '../lib/auth.js';
 import { RULE_TYPES } from '../lib/notificationEngine.js';
 import { sendEmail } from '../lib/email.js';
-import { sendSms, clearSmsConfigCache } from '../lib/sms.js';
+import { sendSmsWithError, clearSmsConfigCache } from '../lib/sms.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -149,11 +149,12 @@ router.post('/test-sms', async (req: Request, res: Response) => {
     return;
   }
 
-  const sent = await sendSms(phone, '🐦 Bipbip — Test SMS\n\nSi vous recevez ce message, la configuration Twilio fonctionne !');
-  if (sent) {
+  try {
+    await sendSmsWithError(phone, '🐦 Bipbip — Test SMS\n\nSi vous recevez ce message, la configuration Twilio fonctionne !');
     res.json({ success: true, message: 'SMS de test envoyé' });
-  } else {
-    res.status(500).json({ error: 'Échec de l\'envoi. Vérifiez la configuration Twilio.' });
+  } catch (err: any) {
+    const msg = err.message || 'Erreur inconnue';
+    res.status(500).json({ error: `Échec Twilio : ${msg}` });
   }
 });
 

@@ -12,6 +12,7 @@ export interface User {
   avatar?: string;
   isActive: boolean;
   canRefuseEvents: boolean;
+  agentPercentage?: number | null;
   clientId?: string | null;
   createdAt: string;
 }
@@ -52,6 +53,7 @@ export interface PlanningEvent {
   longitude?: number;
   geoRadius?: number;
   hourlyRate?: number;
+  breakHours?: number;
   assignedAgentIds: string[];
   status: EventStatus;
   isDraft: boolean;

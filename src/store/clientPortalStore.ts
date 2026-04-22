@@ -66,7 +66,19 @@ interface ClientPortalInfo {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  isMainAccount?: boolean;
   sites: ClientPortalSite[];
+}
+
+interface ClientSubAccount {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  isActive: boolean;
+  createdAt: string;
+  sites: Array<{ id: string; name: string }>;
 }
 
 interface ClientPortalState {
@@ -74,11 +86,23 @@ interface ClientPortalState {
   missions: ClientPortalMission[];
   photos: ClientPortalPhoto[];
   clientInfo: ClientPortalInfo | null;
+  subAccounts: ClientSubAccount[];
   loading: boolean;
   fetchDashboard: () => Promise<void>;
   fetchMissions: () => Promise<void>;
   fetchPhotos: (site?: string) => Promise<void>;
   fetchClientInfo: () => Promise<void>;
+  fetchSubAccounts: () => Promise<void>;
+  createSubAccount: (data: { firstName: string; lastName: string; email: string; password: string; phone?: string; siteIds?: string[] }) => Promise<void>;
+  updateSubAccount: (id: string, data: { firstName?: string; lastName?: string; email?: string; password?: string; phone?: string; isActive?: boolean; siteIds?: string[] }) => Promise<void>;
+  deleteSubAccount: (id: string) => Promise<void>;
+  fetchSiteDetail: (siteId: string) => Promise<ClientSiteDetail>;
+}
+
+export interface ClientSiteDetail {
+  site: { id: string; name: string; address: string; geoRadius: number; hourlyRate: number | null; notes: string | null };
+  stats: { totalMissions: number; missionsEnCours: number; missionsTerminees: number; missionsPlanifiees: number; totalHours: number; contractualHours: number; totalPhotos: number };
+  missions: Array<{ id: string; title: string; status: string; startDate: string; endDate: string; agents: Array<{ id: string; name: string }>; shifts: Array<{ date: string; startTime: string; endTime: string }>; hoursWorked: number }>;
 }
 
 export const useClientPortalStore = create<ClientPortalState>()((set) => ({
@@ -86,6 +110,7 @@ export const useClientPortalStore = create<ClientPortalState>()((set) => ({
   missions: [],
   photos: [],
   clientInfo: null,
+  subAccounts: [],
   loading: false,
 
   fetchDashboard: async () => {
@@ -127,5 +152,32 @@ export const useClientPortalStore = create<ClientPortalState>()((set) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  fetchSubAccounts: async () => {
+    set({ loading: true });
+    try {
+      const data = await api.get<ClientSubAccount[]>('/client-portal/sub-accounts');
+      set({ subAccounts: data });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createSubAccount: async (data) => {
+    await api.post('/client-portal/sub-accounts', data);
+  },
+
+  updateSubAccount: async (id, data) => {
+    await api.put(`/client-portal/sub-accounts/${id}`, data);
+  },
+
+  deleteSubAccount: async (id) => {
+    await api.delete(`/client-portal/sub-accounts/${id}`);
+  },
+
+  fetchSiteDetail: async (siteId) => {
+    const data = await api.get<ClientSiteDetail>(`/client-portal/sites/${siteId}`);
+    return data;
   },
 }));

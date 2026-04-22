@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "events" ADD COLUMN     "breakHours" DOUBLE PRECISION NOT NULL DEFAULT 0;

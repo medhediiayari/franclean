@@ -3,7 +3,7 @@ import { useClientPortalStore } from '../../store/clientPortalStore';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList, MapPin, Image, Clock, CheckCircle2, PlayCircle,
-  CalendarClock, ArrowRight, Shield, Sparkles, Eye, Zap, Activity,
+  CalendarClock, ArrowRight, Sparkles, Eye, Activity,
 } from 'lucide-react';
 
 function useAnimatedNumber(target: number, duration = 1200) {
@@ -172,9 +172,9 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {/* Bottom */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+      {/* Activité récente */}
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
@@ -214,38 +214,7 @@ export default function ClientDashboard() {
           )}
         </div>
 
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-xl shadow-emerald-500/20 flex-1 group card-shine">
-            <div className="orb w-24 h-24 bg-white/10 -top-6 -right-6" />
-            <div className="relative">
-              <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 group-hover:rotate-12 transition-transform duration-500">
-                <Shield size={22} className="text-white" />
-              </div>
-              <h3 className="text-lg font-extrabold">Suivi transparent</h3>
-              <p className="text-emerald-100/80 text-sm mt-2 leading-relaxed">Photos, heures et statuts de chaque mission en temps reel.</p>
-            </div>
-            <button onClick={() => navigate('/client/photos')}
-              className="relative mt-5 w-full bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white text-sm font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 group/btn">
-              <Eye size={16} /> Voir les photos <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="relative overflow-hidden bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 rounded-2xl p-6 text-white shadow-xl shadow-indigo-500/20 group card-shine">
-            <div className="orb w-20 h-20 bg-white/10 -bottom-4 -left-4" />
-            <div className="relative flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:rotate-12 transition-transform duration-500 flex-shrink-0">
-                <Zap size={22} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-extrabold">Acces rapide</h3>
-                <p className="text-indigo-200/70 text-xs mt-0.5">Consultez vos missions en un clic</p>
-              </div>
-              <button onClick={() => navigate('/client/missions')}
-                className="ml-auto w-10 h-10 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all flex-shrink-0">
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   );

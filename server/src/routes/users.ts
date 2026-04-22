@@ -39,6 +39,7 @@ const createUserSchema = z.object({
   role: z.enum(['admin', 'agent']).optional(),
   isActive: z.boolean().optional(),
   canRefuseEvents: z.boolean().optional(),
+  agentPercentage: z.number().min(0).max(100).nullable().optional(),
 });
 
 // POST /api/users (admin only)
@@ -77,6 +78,7 @@ const updateUserSchema = z.object({
   role: z.enum(['admin', 'agent']).optional(),
   isActive: z.boolean().optional(),
   canRefuseEvents: z.boolean().optional(),
+  agentPercentage: z.number().min(0).max(100).nullable().optional(),
   avatar: z.string().nullable().optional(),
 });
 

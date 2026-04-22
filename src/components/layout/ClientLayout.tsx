@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useClientPortalStore } from '../../store/clientPortalStore';
 import { getInitials } from '../../utils/helpers';
 import { useState, useEffect } from 'react';
 import {
@@ -9,27 +10,35 @@ import {
   Image,
   LogOut,
   Sparkles,
-  Shield,
   ChevronRight,
+  Users,
 } from 'lucide-react';
 
-const navItems = [
+const baseNavItems: Array<{ to: string; icon: typeof LayoutDashboard; label: string; end?: boolean }> = [
   { to: '/client', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
   { to: '/client/sites', icon: MapPin, label: 'Sites' },
   { to: '/client/missions', icon: ClipboardList, label: 'Missions' },
   { to: '/client/photos', icon: Image, label: 'Photos' },
 ];
 
+const teamNavItem: typeof baseNavItems[0] = { to: '/client/equipe', icon: Users, label: 'Équipe' };
+
 export default function ClientLayout() {
   const { user, logout } = useAuthStore();
+  const { clientInfo, fetchClientInfo } = useClientPortalStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    fetchClientInfo();
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
-  }, []);
+  }, [fetchClientInfo]);
+
+  const navItems = clientInfo?.isMainAccount
+    ? [...baseNavItems, teamNavItem]
+    : baseNavItems;
 
   const handleLogout = () => {
     logout();
@@ -95,7 +104,7 @@ export default function ClientLayout() {
                   }`}>
                     <Icon size={17} className={isActive ? 'text-white' : ''} />
                   </div>
-                  <span className="flex-1">{label}</span>
+                  <span className="flex-1 font-bold">{label}</span>
                   {isActive && (
                     <ChevronRight size={14} className="text-emerald-400/60" />
                   )}
@@ -107,19 +116,6 @@ export default function ClientLayout() {
 
         {/* Bottom section */}
         <div className="px-3 pb-5 relative space-y-3">
-          {/* Trust badge */}
-          <div className="mx-1 p-3.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 flex items-center justify-center flex-shrink-0">
-                <Shield size={14} className="text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Portail sécurisé</p>
-                <p className="text-[9px] text-white/30 mt-0.5">Données en temps réel</p>
-              </div>
-            </div>
-          </div>
-
           <div className="border-t border-white/[0.06] pt-3" />
           <button
             onClick={handleLogout}

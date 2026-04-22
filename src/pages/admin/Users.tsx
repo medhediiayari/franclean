@@ -53,6 +53,7 @@ export default function Users() {
     role: 'agent' as Role,
     isActive: true,
     canRefuseEvents: true,
+    agentPercentage: '' as string | number,
   });
 
   const filteredUsers = users.filter((u) => {
@@ -78,6 +79,7 @@ export default function Users() {
       role: 'agent',
       isActive: true,
       canRefuseEvents: true,
+      agentPercentage: '',
     });
 
   const handleEdit = (user: User) => {
@@ -90,6 +92,7 @@ export default function Users() {
       role: user.role,
       isActive: user.isActive,
       canRefuseEvents: user.canRefuseEvents,
+      agentPercentage: user.agentPercentage ?? '',
     });
     setSelectedUserId(user.id);
     setFormMode('edit');
@@ -109,9 +112,13 @@ export default function Users() {
           role: form.role,
           isActive: form.isActive,
           canRefuseEvents: form.canRefuseEvents,
+          agentPercentage: form.agentPercentage === '' ? null : Number(form.agentPercentage),
         });
       } else if (selectedUserId) {
-        const data: Record<string, unknown> = { ...form };
+        const data: Record<string, unknown> = {
+          ...form,
+          agentPercentage: form.agentPercentage === '' ? null : Number(form.agentPercentage),
+        };
         if (!form.password) delete data.password;
         await updateUser(selectedUserId, data as Partial<User> & { password?: string });
       }
@@ -272,6 +279,12 @@ export default function Users() {
                 <Phone size={14} />
                 <span>{user.phone}</span>
               </div>
+              {user.role === 'agent' && (
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <span className="text-xs font-medium text-slate-400 w-[14px] text-center">%</span>
+                  <span>{user.agentPercentage != null ? `${user.agentPercentage}%` : <span className="italic text-slate-400">Non défini</span>}</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2">
@@ -424,6 +437,23 @@ export default function Users() {
                   }`}
                 />
               </button>
+            </div>
+          )}
+
+          {form.role === 'agent' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Pourcentage agent (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={form.agentPercentage}
+                onChange={(e) => setForm((f) => ({ ...f, agentPercentage: e.target.value === '' ? '' : Number(e.target.value) }))}
+                placeholder="Ex: 70"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+              />
+              <p className="text-xs text-slate-500 mt-1">Pourcentage utilisé pour calculer la facturation par heure de l'agent</p>
             </div>
           )}
 

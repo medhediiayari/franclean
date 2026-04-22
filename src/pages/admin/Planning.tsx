@@ -103,6 +103,7 @@ export default function Planning() {
     longitude: '',
     geoRadius: '500',
     hourlyRate: '',
+    breakHours: '0',
     assignedAgentIds: [] as string[],
     status: 'planifie' as EventStatus,
   });
@@ -343,6 +344,7 @@ export default function Planning() {
       longitude: '',
       geoRadius: '500',
       hourlyRate: '',
+      breakHours: '0',
       assignedAgentIds: [] as string[],
       status: 'planifie',
     });
@@ -399,6 +401,7 @@ export default function Planning() {
       longitude: selectedEvent.longitude?.toString() || '',
       geoRadius: selectedEvent.geoRadius?.toString() || '500',
       hourlyRate: selectedEvent.hourlyRate?.toString() || '',
+      breakHours: selectedEvent.breakHours?.toString() || '0',
       assignedAgentIds: selectedEvent.assignedAgentIds,
       status: selectedEvent.status,
     });
@@ -521,6 +524,7 @@ export default function Planning() {
       longitude: form.longitude ? parseFloat(form.longitude) : undefined,
       geoRadius: form.geoRadius ? parseInt(form.geoRadius) : 500,
       hourlyRate: parseFloat(form.hourlyRate),
+      breakHours: form.breakHours ? parseFloat(form.breakHours) : 0,
       assignedAgentIds: allAgentIds,
       status: form.status,
       isDraft: saveAsDraft,
@@ -600,6 +604,7 @@ export default function Planning() {
     longitude: 'Longitude',
     geoRadius: 'Rayon géo.',
     hourlyRate: 'Taux horaire',
+    breakHours: 'Heures de pause',
     status: 'Statut',
     isDraft: 'Brouillon',
   };
@@ -610,6 +615,7 @@ export default function Planning() {
     if (val === null || val === undefined || val === '') return '—';
     if (key === 'isDraft') return val ? 'Oui' : 'Non';
     if (key === 'hourlyRate') return `${val} €/h`;
+    if (key === 'breakHours') return `${val}h`;
     if (key === 'geoRadius') return `${val} m`;
     if (key === 'status') {
       const statusLabels: Record<string, string> = { planifie: 'Planifié', en_cours: 'En cours', termine: 'Terminé', a_reattribuer: 'À réattribuer', annule: 'Annulé' };
@@ -681,6 +687,7 @@ export default function Planning() {
     longitude: ev.longitude,
     geoRadius: ev.geoRadius,
     hourlyRate: ev.hourlyRate,
+    breakHours: ev.breakHours,
     status: ev.status,
     isDraft: ev.isDraft,
     shifts: ev.shifts.map(s => ({ date: s.date, startTime: s.startTime, endTime: s.endTime, agentId: s.agentId })),
@@ -1424,6 +1431,16 @@ export default function Planning() {
                   </div>
                 </div>
               )}
+
+              {(selectedEvent.breakHours ?? 0) > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
+                  <span className="text-lg">⏱</span>
+                  <div>
+                    <p className="text-xs text-slate-400">Heures de pause</p>
+                    <p className="text-sm font-bold text-amber-700">{selectedEvent.breakHours}h de pause (déduites du total)</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Shifts display */}
@@ -2039,6 +2056,25 @@ export default function Planning() {
                       <span className="font-semibold">Plage :</span> {formatDate(form.startDate)} →  {formatDate(form.endDate)}
                       <span className="ml-3 text-blue-500">({getEventDatesInRange([]).length} jours)</span>
                     </div>
+                  </div>
+
+                  {/* Break hours */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-slate-700 mb-1.5">Heures de pause (appliquées à tous les créneaux)</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          value={form.breakHours}
+                          onChange={(e) => setForm((f) => ({ ...f, breakHours: e.target.value }))}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1.5">Durée déduite du total prévu par jour (ex : 1h de pause sur un créneau 8h–14h = 5h effectives)</p>
                   </div>
 
                   {/* Add agent selector */}

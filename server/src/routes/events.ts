@@ -143,6 +143,7 @@ function formatEvent(event: any) {
     longitude: event.longitude,
     geoRadius: event.geoRadius,
     hourlyRate: event.hourlyRate,
+    breakHours: event.breakHours ?? 0,
     assignedAgentIds: (event.agents || []).map((ea: any) => ea.agentId),
     agentResponses: Object.fromEntries(
       (event.agents || []).map((ea: any) => [ea.agentId, ea.response]),
@@ -246,6 +247,7 @@ const createEventSchema = z.object({
   longitude: z.number().optional(),
   geoRadius: z.number().int().optional(),
   hourlyRate: z.number().optional(),
+  breakHours: z.number().min(0).optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
   isDraft: z.boolean().optional(),
@@ -324,6 +326,7 @@ const updateEventSchema = z.object({
   longitude: z.number().nullable().optional(),
   geoRadius: z.number().int().optional(),
   hourlyRate: z.number().nullable().optional(),
+  breakHours: z.number().min(0).optional(),
   assignedAgentIds: z.array(z.string()).optional(),
   status: z.enum(['planifie', 'en_cours', 'termine', 'a_reattribuer', 'annule']).optional(),
   isDraft: z.boolean().optional(),
