@@ -96,7 +96,7 @@ const RULE_COLORS: Record<string, string> = {
   monthly_client_report: 'bg-indigo-500',
 };
 
-export default function EmailNotifications() {
+export default function EmailNotifications({ embedded = false }: { embedded?: boolean }) {
   const [rules, setRules] = useState<EmailRule[]>([]);
   const [logs, setLogs] = useState<EmailLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,10 +247,12 @@ export default function EmailNotifications() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Notifications"
-        subtitle="Configuration des alertes email et SMS automatiques"
-      />
+      {!embedded && (
+        <PageHeader
+          title="Notifications"
+          subtitle="Configuration des alertes email et SMS automatiques"
+        />
+      )}
 
       {/* ── Email Test ─────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 p-6">

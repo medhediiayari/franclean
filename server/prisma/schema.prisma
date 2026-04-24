@@ -333,6 +333,21 @@ model SmsConfig {
   @@map("sms_config")
 }
 
+// ── App Settings (white-label / identité) ───────────────
+model AppSettings {
+  id             String   @id @default("singleton")
+  appName        String   @default("Bipbip")
+  appSubtitle    String   @default("Gestion RH")
+  appLogoBase64  String?  // base64 data URL (data:image/…;base64,…)
+  companyName    String?
+  companyEmail   String?
+  companyPhone   String?
+  companyAddress String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
 // ── Push Subscriptions (Web Push API) ───────────────────
 model PushSubscription {
   id        String   @id @default(cuid())

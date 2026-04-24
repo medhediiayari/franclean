@@ -12,6 +12,7 @@ import paymentRoutes from './routes/payments.js';
 import clientPortalRoutes from './routes/clientPortal.js';
 import emailNotificationRoutes from './routes/emailNotifications.js';
 import pushRoutes from './routes/push.js';
+import settingsRoutes from './routes/settings.js';
 import { startNotificationCron } from './lib/notificationEngine.js';
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/client-portal', clientPortalRoutes);
 app.use('/api/email-notifications', emailNotificationRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

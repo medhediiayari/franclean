@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { useAppSettingsStore } from './store/appSettingsStore';
 
 import Login from './pages/Login';
 import AdminLayout from './components/layout/AdminLayout';
@@ -16,6 +17,7 @@ import Gestion from './pages/admin/Gestion';
 import Recap from './pages/admin/Recap';
 import Clients from './pages/admin/Clients';
 import EmailNotifications from './pages/admin/EmailNotifications';
+import Reglages from './pages/admin/Reglages';
 
 import AgentDashboard from './pages/agent/AgentDashboard';
 import MyPlanning from './pages/agent/MyPlanning';
@@ -27,6 +29,7 @@ import ClientSites from './pages/client/ClientSites';
 import ClientMissions from './pages/client/ClientMissions';
 import ClientPhotos from './pages/client/ClientPhotos';
 import ClientSubAccounts from './pages/client/ClientSubAccounts';
+import ClientCalendar from './pages/client/ClientCalendar';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -37,11 +40,13 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
 export default function App() {
   const { user, isAuthenticated, initAuth } = useAuthStore();
+  const { fetchSettings } = useAppSettingsStore();
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     initAuth().finally(() => setAuthLoading(false));
-  }, [initAuth]);
+    fetchSettings();
+  }, [initAuth, fetchSettings]);
 
   if (authLoading) {
     return (
@@ -72,7 +77,8 @@ export default function App() {
         <Route path="heures" element={<HoursTracking />} />
         <Route path="gestion" element={<Gestion />} />
         <Route path="recap" element={<Recap />} />
-        <Route path="emails" element={<EmailNotifications />} />
+        <Route path="reglages" element={<Reglages />} />
+        <Route path="emails" element={<Navigate to="/admin/reglages" replace />} />
       </Route>
 
       {/* Agent Routes */}
@@ -102,6 +108,7 @@ export default function App() {
         <Route index element={<ClientDashboard />} />
         <Route path="sites" element={<ClientSites />} />
         <Route path="missions" element={<ClientMissions />} />
+        <Route path="calendrier" element={<ClientCalendar />} />
         <Route path="photos" element={<ClientPhotos />} />
         <Route path="equipe" element={<ClientSubAccounts />} />
       </Route>

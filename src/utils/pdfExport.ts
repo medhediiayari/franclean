@@ -69,6 +69,7 @@ export function generatePlanningPDF(
   refDate: Date,
   period: PeriodType,
   filters?: PDFExportFilters,
+  appName = 'Bipbip',
 ) {
   const { start, end, label } = getPeriodRange(refDate, period);
   let filtered = getEventsInRange(events, start, end);
@@ -93,7 +94,7 @@ export function generatePlanningPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Bipbip - Planning', 14, 13);
+  doc.text(`${appName} - Planning`, 14, 13);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   
@@ -344,6 +345,7 @@ export interface PointageExportOptions {
   agentFilter?: string;
   totalHours: number;
   totalValidated: number;
+  appName?: string;
 }
 
 export function generatePointagesPDF(opts: PointageExportOptions) {
@@ -351,6 +353,7 @@ export function generatePointagesPDF(opts: PointageExportOptions) {
     rows, periodLabel, startDate, endDate,
     siteFilter, agentFilter,
     totalHours, totalValidated,
+    appName = 'Bipbip',
   } = opts;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -363,7 +366,7 @@ export function generatePointagesPDF(opts: PointageExportOptions) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('Bipbip - Recapitulatif Pointages', 14, 13);
+  doc.text(`${appName} - Recapitulatif Pointages`, 14, 13);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 

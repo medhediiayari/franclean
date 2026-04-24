@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MapPin,
   ClipboardList,
+  Calendar,
   Image,
   LogOut,
   Sparkles,
@@ -18,6 +19,7 @@ const baseNavItems: Array<{ to: string; icon: typeof LayoutDashboard; label: str
   { to: '/client', icon: LayoutDashboard, label: 'Tableau de bord', end: true },
   { to: '/client/sites', icon: MapPin, label: 'Sites' },
   { to: '/client/missions', icon: ClipboardList, label: 'Missions' },
+  { to: '/client/calendrier', icon: Calendar, label: 'Calendrier' },
   { to: '/client/photos', icon: Image, label: 'Photos' },
 ];
 

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import path from 'path';
+import prisma from './prisma.js';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -32,16 +33,38 @@ const LOGO_PATH = LOGO_CANDIDATES.find(p => fs.existsSync(p)) || LOGO_CANDIDATES
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
+    // Load app settings to get dynamic branding
+    let appName = 'Bipbip';
+    let logoAttachment: { filename: string; path?: string; content?: Buffer; cid: string } = {
+      filename: 'logo.png',
+      path: LOGO_PATH,
+      cid: 'bipbip-logo',
+    };
+    try {
+      const appSettings = await prisma.appSettings.findUnique({ where: { id: 'singleton' } });
+      if (appSettings) {
+        appName = appSettings.appName;
+        if (appSettings.appLogoBase64) {
+          const matches = appSettings.appLogoBase64.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            const buf = Buffer.from(matches[2], 'base64');
+            logoAttachment = { filename: 'logo.png', content: buf, cid: 'bipbip-logo' };
+          }
+        }
+      }
+    } catch {
+      // silently fall back to defaults
+    }
+
+    // Inject app name into template placeholders
+    const finalHtml = html.replace(/%%APP_NAME%%/g, appName);
+
     await transporter.sendMail({
       from: FROM,
       to,
       subject,
-      html,
-      attachments: [{
-        filename: 'logo.png',
-        path: LOGO_PATH,
-        cid: 'bipbip-logo',
-      }],
+      html: finalHtml,
+      attachments: [logoAttachment],
     });
     console.log(`📧 Email sent to ${to}: ${subject}`);
     return true;
@@ -63,7 +86,7 @@ function baseTemplate(title: string, body: string): string {
   <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
     <!-- Header -->
     <tr><td style="background:#ffffff;padding:20px 32px;border-bottom:2px solid #e2e8f0;" align="center">
-      <img src="cid:bipbip-logo" alt="Bipbip" width="180" style="display:block;max-width:180px;height:auto;" />
+      <img src="cid:bipbip-logo" alt="%%APP_NAME%%" width="180" style="display:block;max-width:180px;height:auto;" />
     </td></tr>
     <!-- Title -->
     <tr><td style="padding:24px 32px 8px;">
@@ -76,7 +99,7 @@ function baseTemplate(title: string, body: string): string {
     <!-- Footer -->
     <tr><td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0;">
       <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
-        Cet email a été envoyé automatiquement par Bipbip • Ne pas répondre
+        Cet email a été envoyé automatiquement par %%APP_NAME%% • Ne pas répondre
       </p>
     </td></tr>
   </table>

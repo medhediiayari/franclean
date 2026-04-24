@@ -8,6 +8,7 @@ import { usePaymentStore, type AgentPaymentEntry } from '../../store/paymentStor
 import PageHeader from '../../components/common/PageHeader';
 import { formatDuration } from '../../utils/helpers';
 import { generatePointagesPDF, type PointageRow } from '../../utils/pdfExport';
+import { useAppSettingsStore } from '../../store/appSettingsStore';
 import Modal from '../../components/common/Modal';
 import {
   Users,
@@ -566,6 +567,7 @@ export default function Recap() {
       agentFilter: agentLabel,
       totalHours: rows.reduce((s, r) => s + r.hoursWorked, 0),
       totalValidated: rows.reduce((s, r) => s + r.validatedHours, 0),
+      appName: useAppSettingsStore.getState().settings?.appName ?? 'Bipbip',
     });
   }, [pdfFilteredRows, periodLabel, startDate, endDate, filterSite, filterAgent, users]);
 

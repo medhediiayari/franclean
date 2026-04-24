@@ -15,6 +15,7 @@ import ClientCombobox from '../../components/common/ClientCombobox';
 import TimeInput24 from '../../components/common/TimeInput24';
 import { useClientStore } from '../../store/clientStore';
 import { generatePlanningPDF, type PDFExportFilters } from '../../utils/pdfExport';
+import { useAppSettingsStore } from '../../store/appSettingsStore';
 import {
   Plus,
   MapPin,
@@ -880,7 +881,7 @@ export default function Planning() {
     if (pdfFilterAgent) filters.agentId = pdfFilterAgent;
     if (pdfFilterClient) filters.client = pdfFilterClient;
     if (pdfFilterSite) filters.site = pdfFilterSite;
-    generatePlanningPDF(events, users, new Date(), pdfPeriod, Object.keys(filters).length > 0 ? filters : undefined);
+    generatePlanningPDF(events, users, new Date(), pdfPeriod, Object.keys(filters).length > 0 ? filters : undefined, useAppSettingsStore.getState().settings?.appName ?? 'Bipbip');
     setShowPdfDialog(false);
     // Reset filters
     setPdfFilterAgent('');

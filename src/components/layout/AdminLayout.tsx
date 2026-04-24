@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useAppSettingsStore, getLogoSrc } from '../../store/appSettingsStore';
 import { useSocket } from '../../lib/socket';
 import NotificationPanel from '../common/NotificationPanel';
 import {
@@ -19,7 +20,7 @@ import {
   PanelLeftOpen,
   BarChart3,
   Building2,
-  Mail,
+  Settings,
 } from 'lucide-react';
 
 const navItems = [
@@ -30,7 +31,7 @@ const navItems = [
   { to: '/admin/heures', icon: FileSpreadsheet, label: 'Suivi Heures' },
   { to: '/admin/recap', icon: BarChart3, label: 'Récap' },
   { to: '/admin/gestion', icon: ListChecks, label: 'Gestion' },
-  { to: '/admin/emails', icon: Mail, label: 'Emails' },
+  { to: '/admin/reglages', icon: Settings, label: 'Réglages' },
 ];
 
 export default function AdminLayout() {
@@ -39,6 +40,7 @@ export default function AdminLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { settings } = useAppSettingsStore();
   const navigate = useNavigate();
 
   // Socket.IO — handles all real-time data fetching & notification regeneration
@@ -70,11 +72,11 @@ export default function AdminLayout() {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center px-4 py-5 border-b border-[#1B3A5C]/50">
-            <img src="/newfavicon.png" alt="Bipbip" className={`rounded-lg object-contain ${collapsed ? 'w-9 h-9' : 'h-12 w-auto max-w-[140px]'}`} />
+            <img src={getLogoSrc(settings)} alt={settings?.appName ?? 'Bipbip'} className={`rounded-lg object-contain ${collapsed ? 'w-9 h-9' : 'h-12 w-auto max-w-[140px]'}`} />
             {!collapsed && (
               <div className="ml-3">
-                <h1 className="text-white font-extrabold text-[22px] leading-tight tracking-tight">Bipbip</h1>
-                <p className="text-slate-400 text-[13px] mt-0.5">Gestion RH</p>
+                <h1 className="text-white font-extrabold text-[22px] leading-tight tracking-tight">{settings?.appName ?? 'Bipbip'}</h1>
+                <p className="text-slate-400 text-[13px] mt-0.5">{settings?.appSubtitle ?? 'Gestion RH'}</p>
               </div>
             )}
             {!collapsed && (

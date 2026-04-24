@@ -8,7 +8,7 @@ import { z } from 'zod';
 const router = Router();
 router.use(authMiddleware);
 
-const clientInclude = { sites: { orderBy: { name: 'asc' as const } }, user: { select: { id: true, email: true, isActive: true } } };
+const clientInclude = { sites: { orderBy: { name: 'asc' as const } }, users: { select: { id: true, email: true, isActive: true, isMainAccount: true } } };
 
 // ── Clients ─────────────────────────────────────────────
 
