@@ -153,7 +153,8 @@ export default function Clients() {
       longitude: site.longitude?.toString() || '',
       geoRadius: site.geoRadius?.toString() || '500',
       hourlyRate: site.hourlyRate?.toString() || '',
-    contractualHours: site.contractualHours?.toString() || '',
+      contractualHours: site.contractualHours?.toString() || '',
+      notes: site.notes || '',
     });
     setSiteError(null);
     setShowSiteForm(true);

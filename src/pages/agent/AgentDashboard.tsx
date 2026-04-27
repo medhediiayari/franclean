@@ -255,8 +255,8 @@ export default function AgentDashboard() {
                         </p>
                         <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
                           <Clock size={11} className="text-slate-400" />
-                          {event.shifts?.filter(s => s.date === today).length > 0
-                            ? event.shifts.filter(s => s.date === today).map(s => `${s.startTime} → ${s.endTime}`).join(' | ')
+                          {event.shifts?.filter(s => s.date === todayStr).length > 0
+                            ? event.shifts.filter(s => s.date === todayStr).map(s => `${s.startTime} → ${s.endTime}`).join(' | ')
                             : `${event.shifts?.length || 0} créneau${(event.shifts?.length || 0) > 1 ? 'x' : ''}`}
                         </div>
                         {event.address && (
