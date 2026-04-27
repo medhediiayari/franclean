@@ -358,12 +358,23 @@ export default function ClientCalendar() {
                 <div>
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">Intervenants</h3>
                   <div className="flex flex-wrap gap-2">
-                    {selectedMission.agents.map((agent) => (
-                      <div key={agent.id} className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200/50 rounded-xl">
-                        <User size={13} className="text-emerald-600" />
-                        <span className="text-xs font-semibold text-emerald-700">{agent.name}</span>
-                      </div>
-                    ))}
+                    {selectedMission.agents.map((agent) => {
+                      const hasCheckedIn = selectedMission.attendances.some((att) => att.agentMatricule === agent.matricule && att.checkInTime);
+                      return (
+                        <div key={agent.id} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl ${
+                          hasCheckedIn
+                            ? 'bg-emerald-50 border border-emerald-200/50'
+                            : 'bg-slate-50 border border-slate-200/50'
+                        }`}>
+                          <User size={13} className={hasCheckedIn ? 'text-emerald-600' : 'text-slate-400'} />
+                          <span className={`text-xs font-semibold ${hasCheckedIn ? 'text-emerald-700' : 'text-slate-600'}`}>{agent.matricule}</span>
+                          {hasCheckedIn
+                            ? <CheckCircle2 size={14} className="text-emerald-600" />
+                            : <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200/60"><Clock size={10} />Pas encore</span>
+                          }
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -376,7 +387,7 @@ export default function ClientCalendar() {
                     {selectedMission.attendances.map((att) => (
                       <div key={att.id} className="p-3 bg-slate-50 rounded-xl">
                         <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-bold text-slate-700">{att.agentName}</span>
+                          <span className="text-xs font-bold text-slate-700">{att.agentMatricule}</span>
                           <span className="text-[10px] font-bold text-slate-400">
                             {new Date(att.date).toLocaleDateString('fr-FR')}
                           </span>

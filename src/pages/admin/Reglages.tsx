@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Settings, Image, Building2, Mail, Save, Upload, X, RotateCcw } from 'lucide-react';
+import { Settings, Image, Building2, Mail, Save, Upload, X, RotateCcw, Eye } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import EmailNotificationsContent from './EmailNotifications';
 import { useAppSettingsStore, getLogoSrc } from '../../store/appSettingsStore';
 
-type Tab = 'identite' | 'emails';
+type Tab = 'identite' | 'emails' | 'client';
 
 export default function Reglages() {
   const [activeTab, setActiveTab] = useState<Tab>('identite');
@@ -23,6 +23,10 @@ export default function Reglages() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Client portal photo settings
+  const [clientPhotosCheckin, setClientPhotosCheckin] = useState(true);
+  const [clientPhotosWork, setClientPhotosWork] = useState(true);
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
@@ -37,6 +41,8 @@ export default function Reglages() {
       setCompanyEmail(settings.companyEmail ?? '');
       setCompanyPhone(settings.companyPhone ?? '');
       setCompanyAddress(settings.companyAddress ?? '');
+      setClientPhotosCheckin(settings.clientPhotosCheckin ?? true);
+      setClientPhotosWork(settings.clientPhotosWork ?? true);
     }
   }, [settings]);
 
@@ -69,6 +75,8 @@ export default function Reglages() {
         companyEmail: companyEmail.trim() || null,
         companyPhone: companyPhone.trim() || null,
         companyAddress: companyAddress.trim() || null,
+        clientPhotosCheckin,
+        clientPhotosWork,
       });
       setLogoBase64(undefined); // reset dirty flag
       setSaved(true);
@@ -79,8 +87,7 @@ export default function Reglages() {
   };
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'identite', label: 'Identité de l\'application', icon: Image },
-    { key: 'emails', label: 'Notifications & E-mails', icon: Mail },
+    { key: 'identite', label: 'Identité de l\'application', icon: Image },    { key: 'client', label: 'Espace client', icon: Eye },    { key: 'emails', label: 'Notifications & E-mails', icon: Mail },
   ];
 
   return (
@@ -164,7 +171,7 @@ export default function Reglages() {
                         Réinitialiser
                       </button>
                     )}
-                    <p className="text-xs text-slate-400">PNG, JPG, SVG ou WEBP · max 2 Mo</p>
+                    <p className="text-xs text-slate-400">PNG, JPG, SVG ou WEBP</p>
                   </div>
                 </div>
               </div>
@@ -273,6 +280,87 @@ export default function Reglages() {
 
       {/* ── Tab: Emails ── */}
       {activeTab === 'emails' && <EmailNotificationsContent embedded />}
+
+      {/* ── Tab: Client Portal ── */}
+      {activeTab === 'client' && (
+        <div className="space-y-6 max-w-2xl">
+          {loading ? (
+            <div className="flex items-center gap-2 text-slate-500 text-sm py-8">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+              Chargement…
+            </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <Eye size={18} className="text-indigo-500" />
+                  Visibilit\u00e9 des photos (par d\u00e9faut pour tous les clients)
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Ces r\u00e9glages s'appliquent \u00e0 tous les clients par d\u00e9faut. Vous pouvez ensuite personnaliser par client dans la fiche client.
+                </p>
+
+                <div className="space-y-4">
+                  {/* Checkin photos toggle */}
+                  <div className="flex items-center justify-between bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Photos de pointage</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Photos d'arriv\u00e9e et de d\u00e9part des agents</p>
+                    </div>
+                    <button
+                      onClick={() => setClientPhotosCheckin(!clientPhotosCheckin)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        clientPhotosCheckin ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                        clientPhotosCheckin ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Work photos toggle */}
+                  <div className="flex items-center justify-between bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Photos de travail</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Photos prises pendant l'intervention</p>
+                    </div>
+                    <button
+                      onClick={() => setClientPhotosWork(!clientPhotosWork)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        clientPhotosWork ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                        clientPhotosWork ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save button */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition disabled:opacity-60"
+                >
+                  {saving ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  {saving ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                {saved && (
+                  <span className="text-sm text-emerald-600 font-medium">✓ Param\u00e8tres sauvegard\u00e9s</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

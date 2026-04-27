@@ -153,7 +153,7 @@ export default function ClientSites() {
                       </p>
                       {m.agents.length > 0 && (
                         <p className="text-xs text-slate-400 mt-1">
-                          {m.agents.map(a => a.name).join(', ')}
+                          {m.agents.map(a => a.matricule).join(', ')}
                         </p>
                       )}
                     </div>

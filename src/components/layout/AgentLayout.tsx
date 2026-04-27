@@ -8,6 +8,7 @@ import {
   Camera,
   Clock,
   LogOut,
+  UserCircle,
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/agent/planning', icon: CalendarDays, label: 'Planning' },
   { to: '/agent/pointage', icon: Camera, label: 'Pointage' },
   { to: '/agent/heures', icon: Clock, label: 'Heures' },
+  { to: '/agent/profil', icon: UserCircle, label: 'Profil' },
 ];
 
 export default function AgentLayout() {
@@ -36,21 +38,21 @@ export default function AgentLayout() {
       {/* Header — glassmorphism */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-4 py-3 flex items-center sticky top-0 z-30 shadow-sm">
         <div className="flex items-center gap-3">
-          {/* Avatar with initials */}
-          <div className="relative">
+          {/* Avatar — click to go to profile */}
+          <button onClick={() => navigate('/agent/profil')} className="relative group focus:outline-none">
             {user?.avatar ? (
               <img
                 src={user.avatar}
                 alt={`${user.firstName} ${user.lastName}`}
-                className="w-10 h-10 rounded-2xl object-cover ring-2 ring-primary-100"
+                className="w-10 h-10 rounded-2xl object-cover ring-2 ring-primary-100 group-hover:ring-primary-300 transition"
               />
             ) : (
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-primary-500/20">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-primary-500/20 group-hover:shadow-primary-500/40 transition">
                 {initials}
               </div>
             )}
             <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white" />
-          </div>
+          </button>
           <div>
             <h1 className="text-sm font-bold text-slate-900 tracking-tight">
               {user?.firstName} {user?.lastName}

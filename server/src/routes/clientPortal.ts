@@ -2,10 +2,25 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma.js';
 import { authMiddleware } from '../lib/auth.js';
+import { agentMatricule } from './auth.js';
 import { z } from 'zod';
 
 const router = Router();
 router.use(authMiddleware);
+
+// Helper: resolve photo visibility for a client (per-client overrides > global settings)
+async function getPhotoVisibility(clientId: string): Promise<{ checkin: boolean; work: boolean }> {
+  const [client, settings] = await Promise.all([
+    prisma.client.findUnique({ where: { id: clientId }, select: { canSeeCheckinPhotos: true, canSeeWorkPhotos: true } }),
+    prisma.appSettings.findUnique({ where: { id: 'singleton' } }),
+  ]);
+  const globalCheckin = settings?.clientPhotosCheckin ?? true;
+  const globalWork = settings?.clientPhotosWork ?? true;
+  return {
+    checkin: client?.canSeeCheckinPhotos ?? globalCheckin,
+    work: client?.canSeeWorkPhotos ?? globalWork,
+  };
+}
 
 interface ClientAccess {
   clientId: string;
@@ -63,7 +78,10 @@ router.get('/me', async (req: Request, res: Response) => {
   if (access.allowedSiteNames !== null) {
     sites = sites.filter((s) => access.allowedSiteNames!.includes(s.name));
   }
-  res.json({ ...client, sites, isMainAccount: access.isMainAccount });
+
+  const photoVis = await getPhotoVisibility(access.clientId);
+
+  res.json({ ...client, sites, isMainAccount: access.isMainAccount, photoVisibility: photoVis });
 });
 
 // GET /api/client-portal/missions — all events for this client
@@ -84,16 +102,18 @@ router.get('/missions', async (req: Request, res: Response) => {
     where,
     include: {
       shifts: { orderBy: { date: 'asc' } },
-      agents: { include: { agent: { select: { id: true, firstName: true, lastName: true } } } },
+      agents: { include: { agent: { select: { id: true } } } },
       attendances: {
         include: {
           photos: { orderBy: { createdAt: 'asc' } },
-          agent: { select: { id: true, firstName: true, lastName: true } },
+          agent: { select: { id: true } },
         },
       },
     },
     orderBy: { startDate: 'desc' },
   });
+
+  const photoVis = await getPhotoVisibility(access.clientId);
 
   const formatted = events.map((evt) => ({
     id: evt.id,
@@ -113,24 +133,24 @@ router.get('/missions', async (req: Request, res: Response) => {
     })),
     agents: evt.agents.map((a) => ({
       id: a.agent.id,
-      name: `${a.agent.firstName} ${a.agent.lastName}`,
+      matricule: agentMatricule(a.agent.id),
     })),
     attendances: evt.attendances.map((att) => ({
       id: att.id,
-      agentName: `${att.agent.firstName} ${att.agent.lastName}`,
+      agentMatricule: agentMatricule(att.agent.id),
       date: att.date.toISOString().slice(0, 10),
       checkInTime: att.checkInTime?.toISOString() ?? null,
       checkOutTime: att.checkOutTime?.toISOString() ?? null,
-      hoursWorked: att.hoursWorked,
-      checkInPhotoUrl: att.checkInPhotoUrl,
-      checkOutPhotoUrl: att.checkOutPhotoUrl,
+      hoursWorked: att.billedHours ?? att.hoursWorked,
+      checkInPhotoUrl: photoVis.checkin ? att.checkInPhotoUrl : null,
+      checkOutPhotoUrl: photoVis.checkin ? att.checkOutPhotoUrl : null,
       status: att.status,
-      photos: att.photos.map((p) => ({
+      photos: photoVis.work ? att.photos.map((p) => ({
         id: p.id,
         photoUrl: p.photoUrl,
         caption: p.caption,
         createdAt: p.createdAt.toISOString(),
-      })),
+      })) : [],
     })),
   }));
 
@@ -162,12 +182,14 @@ router.get('/photos', async (req: Request, res: Response) => {
       attendances: {
         include: {
           photos: { orderBy: { createdAt: 'asc' } },
-          agent: { select: { firstName: true, lastName: true } },
+          agent: { select: { id: true } },
         },
       },
     },
     orderBy: { startDate: 'desc' },
   });
+
+  const photoVis = await getPhotoVisibility(access.clientId);
 
   const photos: Array<{
     id: string;
@@ -176,18 +198,18 @@ router.get('/photos', async (req: Request, res: Response) => {
     createdAt: string;
     eventTitle: string;
     site: string | null;
-    agentName: string;
+    agentMatricule: string;
     date: string;
     type: 'work' | 'checkin' | 'checkout';
   }> = [];
 
   for (const evt of events) {
     for (const att of evt.attendances) {
-      const agentName = `${att.agent.firstName} ${att.agent.lastName}`;
+      const agentMat = agentMatricule(att.agent.id);
       const date = att.date.toISOString().slice(0, 10);
 
       // Check-in photo
-      if (att.checkInPhotoUrl) {
+      if (photoVis.checkin && att.checkInPhotoUrl) {
         photos.push({
           id: `${att.id}-checkin`,
           photoUrl: att.checkInPhotoUrl,
@@ -195,13 +217,13 @@ router.get('/photos', async (req: Request, res: Response) => {
           createdAt: att.checkInTime?.toISOString() ?? att.createdAt.toISOString(),
           eventTitle: evt.title,
           site: evt.site,
-          agentName,
+          agentMatricule: agentMat,
           date,
           type: 'checkin',
         });
       }
       // Check-out photo
-      if (att.checkOutPhotoUrl) {
+      if (photoVis.checkin && att.checkOutPhotoUrl) {
         photos.push({
           id: `${att.id}-checkout`,
           photoUrl: att.checkOutPhotoUrl,
@@ -209,24 +231,26 @@ router.get('/photos', async (req: Request, res: Response) => {
           createdAt: att.checkOutTime?.toISOString() ?? att.updatedAt.toISOString(),
           eventTitle: evt.title,
           site: evt.site,
-          agentName,
+          agentMatricule: agentMat,
           date,
           type: 'checkout',
         });
       }
       // Work photos
-      for (const p of att.photos) {
-        photos.push({
-          id: p.id,
-          photoUrl: p.photoUrl,
-          caption: p.caption,
-          createdAt: p.createdAt.toISOString(),
-          eventTitle: evt.title,
-          site: evt.site,
-          agentName,
-          date,
-          type: 'work',
-        });
+      if (photoVis.work) {
+        for (const p of att.photos) {
+          photos.push({
+            id: p.id,
+            photoUrl: p.photoUrl,
+            caption: p.caption,
+            createdAt: p.createdAt.toISOString(),
+            eventTitle: evt.title,
+            site: evt.site,
+            agentMatricule: agentMat,
+            date,
+            type: 'work',
+          });
+        }
       }
     }
   }
@@ -274,7 +298,7 @@ router.get('/dashboard', async (req: Request, res: Response) => {
   let totalPhotos = 0;
   for (const evt of events) {
     for (const att of evt.attendances) {
-      if (att.hoursWorked) totalHours += att.hoursWorked;
+      totalHours += att.billedHours ?? att.hoursWorked ?? 0;
       totalPhotos += att.photos.length;
       if (att.checkInPhotoUrl) totalPhotos++;
       if (att.checkOutPhotoUrl) totalPhotos++;
@@ -291,6 +315,65 @@ router.get('/dashboard', async (req: Request, res: Response) => {
     totalHours: Math.round(totalHours * 100) / 100,
     totalPhotos,
   });
+});
+
+// GET /api/client-portal/recap — per-site summary with agent breakdown
+router.get('/recap', async (req: Request, res: Response) => {
+  const access = await getClientAccess(req, res);
+  if (!access) return;
+
+  const client = await prisma.client.findUnique({
+    where: { id: access.clientId },
+    include: { sites: true },
+  });
+  if (!client) { res.status(404).json({ error: 'Client introuvable' }); return; }
+
+  let sites = client.sites;
+  if (access.allowedSiteNames !== null) {
+    sites = sites.filter((s) => access.allowedSiteNames!.includes(s.name));
+  }
+
+  const result = [];
+
+  for (const site of sites) {
+    const events = await prisma.event.findMany({
+      where: { client: client.name, site: site.name },
+      include: {
+        attendances: {
+          include: { agent: { select: { id: true } } },
+        },
+      },
+    });
+
+    // Aggregate hours per agent
+    const agentHoursMap = new Map<string, number>();
+    let totalHours = 0;
+
+    for (const evt of events) {
+      for (const att of evt.attendances) {
+        const hrs = att.billedHours ?? att.hoursWorked ?? 0;
+        totalHours += hrs;
+        const agentId = att.agent.id;
+        agentHoursMap.set(agentId, (agentHoursMap.get(agentId) || 0) + hrs);
+      }
+    }
+
+    const agents = Array.from(agentHoursMap.entries()).map(([agentId, hours]) => ({
+      matricule: agentMatricule(agentId),
+      hours: Math.round(hours * 100) / 100,
+    }));
+
+    result.push({
+      siteId: site.id,
+      siteName: site.name,
+      totalHours: Math.round(totalHours * 100) / 100,
+      contractualHours: site.contractualHours ?? 0,
+      remainingHours: Math.round(((site.contractualHours ?? 0) - totalHours) * 100) / 100,
+      agents,
+    });
+  }
+
+  res.json(result);
 });
 
 // GET /api/client-portal/sites/:siteId — site detail with mission stats
@@ -338,22 +421,15 @@ router.get('/sites/:siteId', async (req: Request, res: Response) => {
   let totalPhotos = 0;
   for (const evt of events) {
     for (const att of evt.attendances) {
-      if (att.hoursWorked) totalHours += att.hoursWorked;
+      totalHours += att.billedHours ?? att.hoursWorked ?? 0;
       totalPhotos += att.photos.length;
       if (att.checkInPhotoUrl) totalPhotos++;
       if (att.checkOutPhotoUrl) totalPhotos++;
     }
   }
 
-  // Calculate contractual hours from shifts
-  let contractualHours = 0;
-  for (const evt of events) {
-    for (const shift of evt.shifts) {
-      const [sh, sm] = shift.startTime.split(':').map(Number);
-      const [eh, em] = shift.endTime.split(':').map(Number);
-      contractualHours += (eh + em / 60) - (sh + sm / 60);
-    }
-  }
+  // Use contractual hours defined on the site, not computed from shifts
+  const contractualHours = site.contractualHours ?? 0;
 
   const missions = events.map((evt) => ({
     id: evt.id,
@@ -367,7 +443,7 @@ router.get('/sites/:siteId', async (req: Request, res: Response) => {
       startTime: s.startTime,
       endTime: s.endTime,
     })),
-    hoursWorked: evt.attendances.reduce((sum, a) => sum + (a.hoursWorked ?? 0), 0),
+    hoursWorked: evt.attendances.reduce((sum, a) => sum + (a.billedHours ?? a.hoursWorked ?? 0), 0),
   }));
 
   res.json({
@@ -377,6 +453,7 @@ router.get('/sites/:siteId', async (req: Request, res: Response) => {
       address: site.address,
       geoRadius: site.geoRadius,
       hourlyRate: site.hourlyRate,
+      contractualHours: site.contractualHours,
       notes: site.notes,
     },
     stats: {

@@ -107,6 +107,25 @@ function baseTemplate(title: string, body: string): string {
 </body></html>`;
 }
 
+// ── Password Reset Email ─────────────────────────────────
+export async function sendPasswordResetEmail(to: string, firstName: string, resetUrl: string): Promise<boolean> {
+  const body = `
+    <p>Bonjour <strong>${firstName}</strong>,</p>
+    <p>Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :</p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${resetUrl}"
+         style="display:inline-block;background:linear-gradient(135deg,#1B3A5C,#122A44);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;letter-spacing:0.3px;">
+        Réinitialiser mon mot de passe
+      </a>
+    </div>
+    <p style="color:#64748b;font-size:13px;">Ce lien est valable <strong>1 heure</strong>. Passé ce délai, vous devrez faire une nouvelle demande.</p>
+    <p style="color:#64748b;font-size:13px;">Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email — votre mot de passe reste inchangé.</p>
+    <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;" />
+    <p style="color:#94a3b8;font-size:12px;">Pour des raisons de sécurité, ne partagez jamais ce lien avec quelqu'un d'autre.</p>
+  `;
+  return sendEmail(to, 'Réinitialisation de votre mot de passe', baseTemplate('Réinitialisation du mot de passe 🔒', body));
+}
+
 export interface ShiftInfo {
   date: string;       // YYYY-MM-DD
   startTime: string;  // HH:mm

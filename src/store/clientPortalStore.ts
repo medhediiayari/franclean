@@ -22,10 +22,10 @@ interface ClientPortalMission {
   endDate: string;
   address: string;
   shifts: Array<{ id: string; date: string; startTime: string; endTime: string; agentId: string | null }>;
-  agents: Array<{ id: string; name: string }>;
+  agents: Array<{ id: string; matricule: string }>;
   attendances: Array<{
     id: string;
-    agentName: string;
+    agentMatricule: string;
     date: string;
     checkInTime: string | null;
     checkOutTime: string | null;
@@ -44,7 +44,7 @@ interface ClientPortalPhoto {
   createdAt: string;
   eventTitle: string;
   site: string | null;
-  agentName: string;
+  agentMatricule: string;
   date: string;
   type: 'work' | 'checkin' | 'checkout';
 }
@@ -67,6 +67,7 @@ interface ClientPortalInfo {
   phone?: string | null;
   address?: string | null;
   isMainAccount?: boolean;
+  photoVisibility?: { checkin: boolean; work: boolean };
   sites: ClientPortalSite[];
 }
 
@@ -102,7 +103,7 @@ interface ClientPortalState {
 export interface ClientSiteDetail {
   site: { id: string; name: string; address: string; geoRadius: number; hourlyRate: number | null; notes: string | null };
   stats: { totalMissions: number; missionsEnCours: number; missionsTerminees: number; missionsPlanifiees: number; totalHours: number; contractualHours: number; totalPhotos: number };
-  missions: Array<{ id: string; title: string; status: string; startDate: string; endDate: string; agents: Array<{ id: string; name: string }>; shifts: Array<{ date: string; startTime: string; endTime: string }>; hoursWorked: number }>;
+  missions: Array<{ id: string; title: string; status: string; startDate: string; endDate: string; agents: Array<{ id: string; matricule: string }>; shifts: Array<{ date: string; startTime: string; endTime: string }>; hoursWorked: number }>;
 }
 
 export const useClientPortalStore = create<ClientPortalState>()((set) => ({

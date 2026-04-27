@@ -20,6 +20,11 @@ import {
   Key,
   Copy,
   Check,
+  RefreshCw,
+  ShieldOff,
+  Eye,
+  Camera,
+  Image,
 } from 'lucide-react';
 
 export default function Clients() {
@@ -29,6 +34,7 @@ export default function Clients() {
 
   const [search, setSearch] = useState('');
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ type: 'deleteAccount' | 'resetPassword'; clientId: string } | null>(null);
 
   // Client form
   const [showClientForm, setShowClientForm] = useState(false);
@@ -41,13 +47,14 @@ export default function Clients() {
   const [showSiteForm, setShowSiteForm] = useState(false);
   const [siteParentId, setSiteParentId] = useState<string | null>(null);
   const [editingSite, setEditingSite] = useState<ClientSite | null>(null);
-  const [siteForm, setSiteForm] = useState({ name: '', address: '', latitude: '', longitude: '', geoRadius: '500', hourlyRate: '', notes: '' });
+  const [siteForm, setSiteForm] = useState({ name: '', address: '', latitude: '', longitude: '', geoRadius: '500', hourlyRate: '', contractualHours: '', notes: '' });
   const [siteError, setSiteError] = useState<string | null>(null);
   const [siteSaving, setSiteSaving] = useState(false);
 
   // Client account
   const [accountCreating, setAccountCreating] = useState(false);
   const [accountCredentials, setAccountCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [resettingPassword, setResettingPassword] = useState(false);
 
@@ -131,7 +138,7 @@ export default function Clients() {
   const openCreateSite = (clientId: string) => {
     setEditingSite(null);
     setSiteParentId(clientId);
-    setSiteForm({ name: '', address: '', latitude: '', longitude: '', geoRadius: '500', hourlyRate: '', notes: '' });
+    setSiteForm({ name: '', address: '', latitude: '', longitude: '', geoRadius: '500', hourlyRate: '', contractualHours: '', notes: '' });
     setSiteError(null);
     setShowSiteForm(true);
   };
@@ -146,7 +153,7 @@ export default function Clients() {
       longitude: site.longitude?.toString() || '',
       geoRadius: site.geoRadius?.toString() || '500',
       hourlyRate: site.hourlyRate?.toString() || '',
-      notes: site.notes || '',
+    contractualHours: site.contractualHours?.toString() || '',
     });
     setSiteError(null);
     setShowSiteForm(true);
@@ -165,8 +172,7 @@ export default function Clients() {
       latitude: siteForm.latitude ? parseFloat(siteForm.latitude) : null,
       longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null,
       geoRadius: siteForm.geoRadius ? parseInt(siteForm.geoRadius) : 500,
-      hourlyRate: siteForm.hourlyRate ? parseFloat(siteForm.hourlyRate) : null,
-      notes: siteForm.notes || undefined,
+      hourlyRate: siteForm.hourlyRate ? parseFloat(siteForm.hourlyRate) : null,    contractualHours: siteForm.contractualHours ? parseFloat(siteForm.contractualHours) : null,      notes: siteForm.notes || undefined,
     };
     try {
       if (editingSite) {
@@ -194,18 +200,19 @@ export default function Clients() {
   const handleCreateAccount = async (clientId: string) => {
     setAccountCreating(true);
     setAccountCredentials(null);
+    setAccountError(null);
     try {
       const result = await createClientAccount(clientId);
       setAccountCredentials(result);
     } catch (err: any) {
-      alert(err.message || 'Erreur lors de la création du compte.');
+      setAccountError(err.message || 'Erreur lors de la création du compte.');
     } finally {
       setAccountCreating(false);
     }
   };
 
   const handleDeleteAccount = async (clientId: string) => {
-    if (!confirm('Supprimer le compte client ? Le client ne pourra plus se connecter.')) return;
+    setConfirmModal(null);
     try {
       await deleteClientAccount(clientId);
       setAccountCredentials(null);
@@ -215,7 +222,7 @@ export default function Clients() {
   };
 
   const handleResetPassword = async (clientId: string) => {
-    if (!confirm('Générer un nouveau mot de passe pour ce client ?')) return;
+    setConfirmModal(null);
     setResettingPassword(true);
     try {
       const result = await resetClientPassword(clientId);
@@ -440,22 +447,24 @@ export default function Clients() {
                             <Key size={15} className="text-slate-500" />
                             <span className="text-sm font-semibold text-slate-700">Accès espace client</span>
                           </div>
-                          {selectedClient.user ? (
+                          {selectedClient.users?.find(u => u.isMainAccount) ? (
                             <div className="flex items-center gap-2">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200">
                                 <Check size={12} /> Compte actif
                               </span>
                               <button
-                                onClick={() => handleResetPassword(selectedClient.id)}
+                                onClick={() => setConfirmModal({ type: 'resetPassword', clientId: selectedClient.id })}
                                 disabled={resettingPassword}
-                                className="px-2.5 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors"
                               >
-                                {resettingPassword ? 'Réinitialisation...' : 'Réinitialiser MDP'}
+                                <RefreshCw size={13} />
+                                {resettingPassword ? 'Réinitialisation...' : 'Réinit. MDP'}
                               </button>
                               <button
-                                onClick={() => handleDeleteAccount(selectedClient.id)}
-                                className="px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                onClick={() => setConfirmModal({ type: 'deleteAccount', clientId: selectedClient.id })}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
                               >
+                                <ShieldOff size={13} />
                                 Supprimer le compte
                               </button>
                             </div>
@@ -470,10 +479,19 @@ export default function Clients() {
                             </button>
                           )}
                         </div>
-                        {selectedClient.user && (
+                        {selectedClient.users?.find(u => u.isMainAccount) && (
                           <p className="mt-2 text-xs text-slate-500">
-                            Email de connexion : <span className="font-mono font-semibold text-slate-700">{selectedClient.user.email}</span>
+                            Email de connexion : <span className="font-mono font-semibold text-slate-700">{selectedClient.users?.find(u => u.isMainAccount)?.email}</span>
                           </p>
+                        )}
+                        {accountError && (
+                          <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg">
+                            <AlertTriangle size={13} className="text-rose-500 flex-shrink-0" />
+                            <p className="text-xs text-rose-700 font-medium">{accountError}</p>
+                            <button onClick={() => setAccountError(null)} className="ml-auto text-rose-400 hover:text-rose-600">
+                              <X size={13} />
+                            </button>
+                          </div>
                         )}
                         {accountCredentials && (
                           <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg relative">
@@ -563,6 +581,56 @@ export default function Clients() {
                         </div>
                       )}
 
+                      {/* Photo visibility per-client */}
+                      <div className="mb-5 bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                          <Eye size={13} /> Visibilité des photos (espace client)
+                        </h4>
+                        <p className="text-[10px] text-slate-400">Laissez sur "Global" pour utiliser le réglage par défaut, ou personnalisez pour ce client.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Checkin photos */}
+                          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2.5 border border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <Camera size={14} className="text-blue-500" />
+                              <span className="text-xs font-medium text-slate-700">Photos pointage</span>
+                            </div>
+                            <select
+                              value={selectedClient.canSeeCheckinPhotos === null || selectedClient.canSeeCheckinPhotos === undefined ? 'global' : selectedClient.canSeeCheckinPhotos ? 'on' : 'off'}
+                              onChange={async (e) => {
+                                const val = e.target.value === 'global' ? null : e.target.value === 'on';
+                                await updateClient(selectedClient.id, { canSeeCheckinPhotos: val });
+                                fetchClients();
+                              }}
+                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                              <option value="global">Global</option>
+                              <option value="on">Activé</option>
+                              <option value="off">Désactivé</option>
+                            </select>
+                          </div>
+                          {/* Work photos */}
+                          <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2.5 border border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <Image size={14} className="text-emerald-500" />
+                              <span className="text-xs font-medium text-slate-700">Photos travail</span>
+                            </div>
+                            <select
+                              value={selectedClient.canSeeWorkPhotos === null || selectedClient.canSeeWorkPhotos === undefined ? 'global' : selectedClient.canSeeWorkPhotos ? 'on' : 'off'}
+                              onChange={async (e) => {
+                                const val = e.target.value === 'global' ? null : e.target.value === 'on';
+                                await updateClient(selectedClient.id, { canSeeWorkPhotos: val });
+                                fetchClients();
+                              }}
+                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                              <option value="global">Global</option>
+                              <option value="on">Activé</option>
+                              <option value="off">Désactivé</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Sites header */}
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -624,6 +692,11 @@ export default function Clients() {
                                 {site.hourlyRate && (
                                   <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded font-medium">
                                     {site.hourlyRate}€/h
+                                  </span>
+                                )}
+                                {site.contractualHours && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium">
+                                    {site.contractualHours}h contract.
                                   </span>
                                 )}
                               </div>
@@ -799,7 +872,7 @@ export default function Clients() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix/heure (€) <span className="font-normal text-slate-400">— facturé au client</span></label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix/heure (€) <span className="font-normal text-slate-400">— facturé client</span></label>
               <input
                 type="number"
                 step="0.01"
@@ -811,15 +884,28 @@ export default function Clients() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Heures contractuelles <span className="font-normal text-slate-400">— globales</span></label>
               <input
-                type="text"
-                value={siteForm.notes}
-                onChange={(e) => setSiteForm((f) => ({ ...f, notes: e.target.value }))}
+                type="number"
+                step="0.5"
+                min="0"
+                value={siteForm.contractualHours}
+                onChange={(e) => setSiteForm((f) => ({ ...f, contractualHours: e.target.value }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                placeholder="Notes sur le site..."
+                placeholder="Ex: 160"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+            <input
+              type="text"
+              value={siteForm.notes}
+              onChange={(e) => setSiteForm((f) => ({ ...f, notes: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+              placeholder="Notes sur le site..."
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
@@ -841,6 +927,67 @@ export default function Clients() {
           </div>
         </form>
       </Modal>
+
+      {/* ── Confirmation Modal (Reset / Delete account) ── */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-fadeIn">
+            {confirmModal.type === 'deleteAccount' ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-rose-100">
+                    <ShieldOff size={20} className="text-rose-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Supprimer le compte client</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">Le client ne pourra plus se connecter à son espace.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAccount(confirmModal.clientId)}
+                    className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm transition"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-100">
+                    <RefreshCw size={20} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Réinitialiser le mot de passe</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">Un nouveau mot de passe sera généré pour ce client.</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => handleResetPassword(confirmModal.clientId)}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition"
+                  >
+                    Générer le MDP
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

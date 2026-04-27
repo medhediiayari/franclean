@@ -39,6 +39,8 @@ model User {
   pushSubscriptions PushSubscription[]
   linkedClient      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   assignedSites     ClientUserSite[]
+  resetTokens       PasswordResetToken[]
+  monthlySummaries  MonthlyHoursSummary[]
 
   @@map("users")
 }
@@ -237,6 +239,10 @@ model Client {
   capitalSocial     String?  // Capital social
   rcs               String?  // RCS (numéro + ville)
 
+  // Photo visibility overrides (null = use global setting)
+  canSeeCheckinPhotos Boolean?  // null → global, true/false → override
+  canSeeWorkPhotos    Boolean?  // null → global, true/false → override
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -254,9 +260,10 @@ model ClientSite {
   latitude  Float?
   longitude Float?
   geoRadius   Int      @default(200)
-  hourlyRate  Float?
-  notes       String?
-  createdAt   DateTime @default(now())
+  hourlyRate       Float?
+  contractualHours Float?
+  notes            String?
+  createdAt        DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -343,9 +350,48 @@ model AppSettings {
   companyEmail   String?
   companyPhone   String?
   companyAddress String?
+
+  // Client portal — photo visibility defaults
+  clientPhotosCheckin Boolean @default(true)  // Photos de pointage (arrivée/départ)
+  clientPhotosWork    Boolean @default(true)  // Photos de travail
+
   updatedAt      DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// ── Monthly Hours Summary (récapitulatif mensuel) ───────
+model MonthlyHoursSummary {
+  id             String    @id @default(cuid())
+  agentId        String
+  year           Int
+  month          Int       // 1–12
+  totalHours     Float     @default(0)
+  validatedHours Float     @default(0)
+  confirmedByAgent Boolean @default(false)
+  confirmedAt    DateTime?
+  agentNote      String?   // commentaire facultatif de l'agent
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, year, month])
+  @@map("monthly_hours_summaries")
+}
+
+// ── Password Reset Tokens ────────────────────────────────
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 // ── Push Subscriptions (Web Push API) ───────────────────

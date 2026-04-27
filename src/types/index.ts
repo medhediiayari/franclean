@@ -159,6 +159,7 @@ export interface ClientSite {
   longitude?: number | null;
   geoRadius: number;
   hourlyRate?: number | null;
+  contractualHours?: number | null;
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -180,8 +181,11 @@ export interface ClientData {
   codeApe?: string | null;
   capitalSocial?: string | null;
   rcs?: string | null;
+  canSeeCheckinPhotos?: boolean | null;
+  canSeeWorkPhotos?: boolean | null;
   sites: ClientSite[];
   user?: { id: string; email: string; isActive: boolean } | null;
+  users?: { id: string; email: string; isActive: boolean; isMainAccount: boolean }[];
   createdAt: string;
   updatedAt: string;
 }

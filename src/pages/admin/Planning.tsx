@@ -119,7 +119,7 @@ export default function Planning() {
   });
   const [showNewSiteForm, setShowNewSiteForm] = useState(false);
   const [newSiteForm, setNewSiteForm] = useState({
-    name: '', hourlyRate: '', notes: '',
+    name: '', hourlyRate: '', contractualHours: '', notes: '',
   });
 
   // Per-agent shift assignments: agentId -> array of shifts
@@ -358,7 +358,7 @@ export default function Planning() {
     setShowNewClientForm(false);
     setNewClientForm({ name: '', email: '', phone: '', address: '', siret: '', notes: '' });
     setShowNewSiteForm(false);
-    setNewSiteForm({ name: '', hourlyRate: '', notes: '' });
+    setNewSiteForm({ name: '', hourlyRate: '', contractualHours: '', notes: '' });
   };
 
   const handleDateSelect = (info: { startStr: string; endStr: string }) => {
@@ -446,8 +446,7 @@ export default function Planning() {
     }
 
     if (!form.hourlyRate || parseFloat(form.hourlyRate) <= 0) {
-      setFormError('Le prix HT / heure est obligatoire.');
-      return;
+      // hourlyRate is derived from the site, not mandatory in form validation
     }
 
     // ── Inline client creation ────────────────────────
@@ -492,6 +491,7 @@ export default function Planning() {
           name: newSiteForm.name.trim(),
           address: form.address || undefined,
           hourlyRate: newSiteForm.hourlyRate ? parseFloat(newSiteForm.hourlyRate) : undefined,
+          contractualHours: newSiteForm.contractualHours ? parseFloat(newSiteForm.contractualHours) : undefined,
           notes: newSiteForm.notes || undefined,
         });
         siteName = created.name;
@@ -1779,7 +1779,7 @@ export default function Planning() {
                         const matchedClient = dbClients.find((c) => c.name === v);
                         setShowNewClientForm(false);
                         setShowNewSiteForm(false);
-                        setNewSiteForm({ name: '', hourlyRate: '', notes: '' });
+                        setNewSiteForm({ name: '', hourlyRate: '', contractualHours: '', notes: '' });
                         setForm((f) => ({
                           ...f,
                           client: v,
@@ -1822,7 +1822,7 @@ export default function Planning() {
                         <span className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
                           <Plus size={12} /> Nouveau site
                         </span>
-                        <button type="button" onClick={() => { setShowNewSiteForm(false); setNewSiteForm({ name: '', hourlyRate: '', notes: '' }); }}
+                        <button type="button" onClick={() => { setShowNewSiteForm(false); setNewSiteForm({ name: '', hourlyRate: '', contractualHours: '', notes: '' }); }}
                           className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white transition-all">
                           <X size={14} />
                         </button>
@@ -1843,11 +1843,18 @@ export default function Planning() {
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Tarif HT/h (€)</label>
                           <input type="number" step="0.01" min="0" value={newSiteForm.hourlyRate}
-                            onChange={(e) => setNewSiteForm((f) => ({ ...f, hourlyRate: e.target.value }))}
+                            onChange={(e) => { setNewSiteForm((f) => ({ ...f, hourlyRate: e.target.value })); setForm((f) => ({ ...f, hourlyRate: e.target.value })); }}
                             className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                             placeholder="0.00" />
                         </div>
                         <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">Heures contractuelles</label>
+                          <input type="number" step="0.5" min="0" value={newSiteForm.contractualHours}
+                            onChange={(e) => setNewSiteForm((f) => ({ ...f, contractualHours: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            placeholder="Ex: 160" />
+                        </div>
+                        <div className="col-span-2">
                           <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
                           <input type="text" value={newSiteForm.notes}
                             onChange={(e) => setNewSiteForm((f) => ({ ...f, notes: e.target.value }))}
@@ -1881,6 +1888,7 @@ export default function Planning() {
                                   latitude: site.latitude != null ? String(site.latitude) : f.latitude,
                                   longitude: site.longitude != null ? String(site.longitude) : f.longitude,
                                   geoRadius: site.geoRadius ? String(site.geoRadius) : f.geoRadius,
+                                  hourlyRate: site.hourlyRate != null ? String(site.hourlyRate) : f.hourlyRate,
                                 }));
                               }
                             }}
@@ -1970,17 +1978,24 @@ export default function Planning() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix HT / heure (€) <span className="text-rose-500">*</span></label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      value={form.hourlyRate}
-                      onChange={(e) => setForm((f) => ({ ...f, hourlyRate: e.target.value }))}
-                      className={`w-full px-3 py-2.5 rounded-xl border text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none ${!form.hourlyRate ? 'border-rose-300 bg-rose-50/50' : 'border-slate-300'}`}
-                      placeholder="0.00"
-                    />
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Prix HT / heure (€) <span className="font-normal text-slate-400">— facturé client</span></label>
+                    {form.hourlyRate && parseFloat(form.hourlyRate) > 0 ? (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50">
+                        <span className="text-base font-extrabold text-emerald-700">{parseFloat(form.hourlyRate).toFixed(2)} €/h</span>
+                        <span className="text-xs text-emerald-500 ml-auto">déduit du site</span>
+                        <button type="button" onClick={() => setForm((f) => ({ ...f, hourlyRate: '' }))} className="text-slate-400 hover:text-slate-600 text-xs">&#x2715;</button>
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.hourlyRate}
+                        onChange={(e) => setForm((f) => ({ ...f, hourlyRate: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                        placeholder="Auto depuis le site"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -2084,19 +2099,28 @@ export default function Planning() {
                       <Plus size={15} className="text-emerald-500" /> Ajouter un agent
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {agents.filter((a) => !agentShiftAssignments[a.id]).map((agent) => (
-                        <button
-                          key={agent.id}
-                          type="button"
-                          onClick={() => {
-                            addAgentToEvent(agent.id);
-                          }}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-primary-300 hover:bg-primary-50 transition-colors"
-                        >
-                          <User size={14} className="text-slate-400" />
-                          {agent.firstName} {agent.lastName}
-                        </button>
-                      ))}
+                      {agents.filter((a) => !agentShiftAssignments[a.id]).map((agent) => {
+                        const clientRate = form.hourlyRate ? parseFloat(form.hourlyRate) : 0;
+                        const agentRate = clientRate > 0 && agent.agentPercentage
+                          ? (clientRate * agent.agentPercentage) / 100
+                          : null;
+                        return (
+                          <button
+                            key={agent.id}
+                            type="button"
+                            onClick={() => { addAgentToEvent(agent.id); }}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                          >
+                            <User size={14} className="text-slate-400" />
+                            {agent.firstName} {agent.lastName}
+                            {agentRate !== null && (
+                              <span className="ml-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                {agentRate.toFixed(2)}€/h
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                       {agents.filter((a) => !agentShiftAssignments[a.id]).length === 0 && (
                         <p className="text-xs text-slate-400 italic py-1">Tous les agents actifs sont assignés</p>
                       )}

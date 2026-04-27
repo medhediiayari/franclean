@@ -10,6 +10,8 @@ export interface AppSettings {
   companyEmail: string | null;
   companyPhone: string | null;
   companyAddress: string | null;
+  clientPhotosCheckin: boolean;
+  clientPhotosWork: boolean;
   updatedAt: string;
 }
 
@@ -28,6 +30,8 @@ const DEFAULTS: Omit<AppSettings, 'id' | 'updatedAt'> = {
   companyEmail: null,
   companyPhone: null,
   companyAddress: null,
+  clientPhotosCheckin: true,
+  clientPhotosWork: true,
 };
 
 export const useAppSettingsStore = create<AppSettingsState>((set) => ({

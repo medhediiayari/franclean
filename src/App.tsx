@@ -4,6 +4,8 @@ import { useAuthStore } from './store/authStore';
 import { useAppSettingsStore } from './store/appSettingsStore';
 
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import AdminLayout from './components/layout/AdminLayout';
 import AgentLayout from './components/layout/AgentLayout';
 import ClientLayout from './components/layout/ClientLayout';
@@ -23,6 +25,7 @@ import AgentDashboard from './pages/agent/AgentDashboard';
 import MyPlanning from './pages/agent/MyPlanning';
 import CheckIn from './pages/agent/CheckIn';
 import MyHours from './pages/agent/MyHours';
+import ProfilePage from './pages/shared/ProfilePage';
 
 import ClientDashboard from './pages/client/ClientDashboard';
 import ClientSites from './pages/client/ClientSites';
@@ -30,6 +33,7 @@ import ClientMissions from './pages/client/ClientMissions';
 import ClientPhotos from './pages/client/ClientPhotos';
 import ClientSubAccounts from './pages/client/ClientSubAccounts';
 import ClientCalendar from './pages/client/ClientCalendar';
+import ClientRecap from './pages/client/ClientRecap';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) {
   const { user, isAuthenticated } = useAuthStore();
@@ -59,6 +63,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Admin Routes */}
       <Route
@@ -79,6 +85,7 @@ export default function App() {
         <Route path="recap" element={<Recap />} />
         <Route path="reglages" element={<Reglages />} />
         <Route path="emails" element={<Navigate to="/admin/reglages" replace />} />
+        <Route path="profil" element={<ProfilePage />} />
       </Route>
 
       {/* Agent Routes */}
@@ -94,6 +101,7 @@ export default function App() {
         <Route path="planning" element={<MyPlanning />} />
         <Route path="pointage" element={<CheckIn />} />
         <Route path="heures" element={<MyHours />} />
+        <Route path="profil" element={<ProfilePage />} />
       </Route>
 
       {/* Client Routes */}
@@ -110,6 +118,7 @@ export default function App() {
         <Route path="missions" element={<ClientMissions />} />
         <Route path="calendrier" element={<ClientCalendar />} />
         <Route path="photos" element={<ClientPhotos />} />
+        <Route path="recap" element={<ClientRecap />} />
         <Route path="equipe" element={<ClientSubAccounts />} />
       </Route>
 

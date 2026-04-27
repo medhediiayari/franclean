@@ -28,12 +28,16 @@ import {
   ExternalLink,
   Navigation,
   ImagePlus,
+  CalendarDays,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import PageHeader from '../../components/common/PageHeader';
 import StatCard from '../../components/common/StatCard';
+import { useMonthlySummaryStore } from '../../store/monthlySummaryStore';
+
+const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -99,10 +103,19 @@ export default function HoursTracking() {
   const { records, fetchRecords, validateRecord } = useAttendanceStore();
   const { events, fetchEvents } = useEventStore();
   const { users, user: currentUser, fetchUsers } = useAuthStore();
+  const { adminSummaries, fetchAdminSummaries } = useMonthlySummaryStore();
+
+  const [adminTab, setAdminTab] = useState<'pointages' | 'confirmations'>('pointages');
+  const now = new Date();
+  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
+  const [summaryMonth, setSummaryMonth] = useState(now.getMonth() + 1);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  useEffect(() => {
+    if (adminTab === 'confirmations') fetchAdminSummaries(summaryYear, summaryMonth);
+  }, [adminTab, summaryYear, summaryMonth, fetchAdminSummaries]);
 
   const [searchText, setSearchText] = useState('');
   const [sortField, setSortField] = useState<string>('date');
@@ -184,6 +197,7 @@ export default function HoursTracking() {
           plannedStart: shift?.startTime || null,
           plannedEnd: shift?.endTime || null,
           eventAddress: event?.address || '',
+          breakHours: event?.breakHours || 0,
         };
       });
   }, [records, events, agents, dateFrom, dateTo]);
@@ -245,7 +259,7 @@ export default function HoursTracking() {
   };
 
   const totalPointed = filteredRows.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
-  const totalValidated = filteredRows.filter((r) => r.status === 'valide').reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
+  const totalValidated = filteredRows.filter((r) => r.status === 'valide').reduce((sum, r) => sum + (r.billedHours || r.hoursWorked || 0), 0);
   const totalBilled = filteredRows.filter((r) => r.status === 'valide').reduce((sum, r) => sum + (r.billedHours || 0), 0);
   const totalGap = totalPointed - totalBilled;
 
@@ -254,7 +268,7 @@ export default function HoursTracking() {
     if (r.plannedStart && r.plannedEnd) {
       const [sh, sm] = r.plannedStart.split(':').map(Number);
       const [eh, em] = r.plannedEnd.split(':').map(Number);
-      return sum + (eh * 60 + em - (sh * 60 + sm)) / 60;
+      return sum + ((eh * 60 + em - (sh * 60 + sm)) / 60) - (r.breakHours || 0);
     }
     return sum;
   }, 0);
@@ -444,7 +458,7 @@ export default function HoursTracking() {
       if (r.plannedStart && r.plannedEnd) {
         const [sh, sm] = r.plannedStart.split(':').map(Number);
         const [eh, em] = r.plannedEnd.split(':').map(Number);
-        plannedH = formatDuration((eh * 60 + em - (sh * 60 + sm)) / 60);
+        plannedH = formatDuration(((eh * 60 + em - (sh * 60 + sm)) / 60) - (r.breakHours || 0));
       }
       let realH = '';
       if (r.checkInTime && r.checkOutTime) {
@@ -567,6 +581,142 @@ export default function HoursTracking() {
           </div>
         }
       />
+
+      {/* Main tab toggle */}
+      <div className="flex bg-slate-100 rounded-2xl p-1 gap-1 max-w-sm">
+        {(['pointages', 'confirmations'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setAdminTab(tab)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              adminTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {tab === 'pointages' ? <Clock size={15} /> : <CalendarDays size={15} />}
+            {tab === 'pointages' ? 'Pointages' : 'Récap mensuel'}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ CONFIRMATIONS TAB ═══ */}
+      {adminTab === 'confirmations' && (
+        <div className="space-y-5">
+          {/* Month/year picker */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={summaryMonth}
+              onChange={(e) => setSummaryMonth(Number(e.target.value))}
+              className="px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              {MONTHS_FR.map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+            <select
+              value={summaryYear}
+              onChange={(e) => setSummaryYear(Number(e.target.value))}
+              className="px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              {Array.from({ length: 4 }, (_, i) => now.getFullYear() - i).map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            {/* Summary counters */}
+            {adminSummaries.length > 0 && (
+              <div className="flex items-center gap-3 ml-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-full">
+                  <CheckCircle2 size={13} className="text-emerald-600" />
+                  <span className="text-xs font-bold text-emerald-700">
+                    {adminSummaries.filter((s) => s.confirmedByAgent).length} confirmé{adminSummaries.filter((s) => s.confirmedByAgent).length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full">
+                  <Clock size={13} className="text-amber-500" />
+                  <span className="text-xs font-bold text-amber-600">
+                    {adminSummaries.filter((s) => !s.confirmedByAgent).length} en attente
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Agents table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
+            {adminSummaries.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="inline-flex p-4 rounded-2xl bg-slate-50 mb-3">
+                  <CalendarDays size={28} className="text-slate-300" />
+                </div>
+                <p className="text-sm text-slate-400 font-medium">Aucun agent actif trouvé</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="px-5 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Agent</th>
+                    <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">H. Effectuées</th>
+                    <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">H. Validées</th>
+                    <th className="px-4 py-3.5 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Confirmation</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date / Commentaire</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {adminSummaries.map((s) => (
+                    <tr key={s.id} className={`hover:bg-slate-50/50 transition-colors ${
+                      s.confirmedByAgent ? 'bg-emerald-50/20' : ''
+                    }`}>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-black">
+                            {s.agent?.firstName?.[0]}{s.agent?.lastName?.[0]}
+                          </div>
+                          <span className="font-semibold text-slate-800">{s.agent?.firstName} {s.agent?.lastName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="font-bold text-slate-700">{formatDuration(s.totalHours)}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="font-bold text-emerald-700">{formatDuration(s.validatedHours)}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        {s.confirmedByAgent ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full">
+                            <CheckCircle2 size={13} className="text-emerald-600" />
+                            <span className="text-xs font-bold text-emerald-700">Confirmé</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full">
+                            <Clock size={13} className="text-amber-500" />
+                            <span className="text-xs font-bold text-amber-600">En attente</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {s.confirmedByAgent && s.confirmedAt ? (
+                          <div>
+                            <p className="text-xs text-slate-600 font-semibold">
+                              {new Date(s.confirmedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                            {s.agentNote && (
+                              <p className="text-xs text-slate-400 italic mt-0.5">"{s.agentNote}"</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ POINTAGES TAB ═══ */}
+      {adminTab === 'pointages' && (<>
 
       {/* Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -876,7 +1026,7 @@ export default function HoursTracking() {
           if (sh?.startTime && sh?.endTime) {
             const [sH, sM] = sh.startTime.split(':').map(Number);
             const [eH, eM] = sh.endTime.split(':').map(Number);
-            qPlanned = (eH * 60 + eM - (sH * 60 + sM)) / 60;
+            qPlanned = ((eH * 60 + eM - (sH * 60 + sM)) / 60) - (ev?.breakHours || 0);
           }
           let qReal = 0;
           if (quickRecord.checkInTime && quickRecord.checkOutTime) {
@@ -1174,7 +1324,7 @@ export default function HoursTracking() {
                     {shift?.startTime && shift?.endTime ? (() => {
                       const [sh, sm] = shift.startTime.split(':').map(Number);
                       const [eh, em] = shift.endTime.split(':').map(Number);
-                      return formatDuration((eh * 60 + em - (sh * 60 + sm)) / 60);
+                      return formatDuration(((eh * 60 + em - (sh * 60 + sm)) / 60) - (event?.breakHours || 0));
                     })() : '—'}
                   </p>
                 </div>
@@ -1311,7 +1461,7 @@ export default function HoursTracking() {
                 if (shift?.startTime && shift?.endTime) {
                   const [sh, sm] = shift.startTime.split(':').map(Number);
                   const [eh, em] = shift.endTime.split(':').map(Number);
-                  plannedHrs = (eh * 60 + em - (sh * 60 + sm)) / 60;
+                  plannedHrs = ((eh * 60 + em - (sh * 60 + sm)) / 60) - (event?.breakHours || 0);
                 }
                 let realHrs = 0;
                 if (selectedRecord.checkInTime && selectedRecord.checkOutTime) {
@@ -1458,6 +1608,7 @@ export default function HoursTracking() {
           />
         </div>
       )}
+      </>)}
     </div>
   );
 }

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useEventStore } from '../../store/eventStore';
 import { useAttendanceStore } from '../../store/attendanceStore';
+import { useMonthlySummaryStore } from '../../store/monthlySummaryStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import { formatDate, formatDuration } from '../../utils/helpers';
 import {
@@ -16,16 +17,52 @@ import {
   Briefcase,
   Sparkles,
   Bell,
+  ThumbsUp,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
+const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
 export default function AgentDashboard() {
   const { user } = useAuthStore();
   const { events, fetchEvents } = useEventStore();
   const { records, fetchRecords } = useAttendanceStore();
+  const { summaries, fetchMySummaries, confirmMonth } = useMonthlySummaryStore();
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { fetchMySummaries(); }, [fetchMySummaries]);
+
+  // Helper: last calendar date of a month (1-based month)
+  const lastDayOfMonth = (y: number, m: number) => new Date(y, m, 0);
+
+  // Find a summary that should show the confirmation button:
+  // Display window = from last day of that month until last day of next month
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const pendingConfirmation = summaries.find((s) => {
+    if (s.confirmedByAgent) return false;
+    if (s.validatedHours <= 0) return false;
+    const windowStart = lastDayOfMonth(s.year, s.month);
+    windowStart.setHours(0, 0, 0, 0);
+    const nextM = s.month === 12 ? 1 : s.month + 1;
+    const nextY = s.month === 12 ? s.year + 1 : s.year;
+    const windowEnd = lastDayOfMonth(nextY, nextM);
+    windowEnd.setHours(23, 59, 59, 999);
+    return today >= windowStart && today <= windowEnd;
+  });
+
+  const handleConfirmMonth = async () => {
+    if (!pendingConfirmation || confirming) return;
+    setConfirming(true);
+    try {
+      await confirmMonth(pendingConfirmation.year, pendingConfirmation.month);
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   if (!user) return null;
 
@@ -49,11 +86,11 @@ export default function AgentDashboard() {
     .reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
 
   const todayD = new Date();
-  const today = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
+  const todayStr = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
   const todayEvents = myEvents.filter(
-    (e) => e.startDate.slice(0, 10) <= today && e.endDate.slice(0, 10) >= today,
+    (e) => e.startDate.slice(0, 10) <= todayStr && e.endDate.slice(0, 10) >= todayStr,
   );
-  const todayRecords = myRecords.filter((r) => r.date === today);
+  const todayRecords = myRecords.filter((r) => r.date === todayStr);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -98,6 +135,36 @@ export default function AgentDashboard() {
           </Link>
         )}
       </div>
+
+      {/* Monthly confirmation banner */}
+      {pendingConfirmation && (
+        <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-200/60 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-100 flex-shrink-0">
+              <ThumbsUp size={18} className="text-indigo-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-indigo-900">
+                Confirmez vos heures — {MONTHS_FR[pendingConfirmation.month - 1]} {pendingConfirmation.year}
+              </p>
+              <div className="flex items-center gap-3 mt-1.5">
+                <span className="text-xs font-semibold text-emerald-700">
+                  <span className="text-base font-extrabold text-emerald-600">{formatDuration(pendingConfirmation.validatedHours)}</span> heures validées
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleConfirmMonth}
+            disabled={confirming}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-60"
+          >
+            {confirming
+              ? <><Loader2 size={15} className="animate-spin" /> Confirmation…</>
+              : <><CheckCircle2 size={15} /> Je confirme mes heures</>}
+          </button>
+        </div>
+      )}
 
       {/* Stats grid — cards with icons and subtle gradients */}
       <div className="grid grid-cols-2 gap-3">

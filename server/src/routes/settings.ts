@@ -23,6 +23,8 @@ const updateSettingsSchema = z.object({
   companyEmail: z.string().email().max(200).nullable().optional(),
   companyPhone: z.string().max(50).nullable().optional(),
   companyAddress: z.string().max(500).nullable().optional(),
+  clientPhotosCheckin: z.boolean().optional(),
+  clientPhotosWork: z.boolean().optional(),
 });
 
 router.put('/', authMiddleware, adminOnly, async (req: Request, res: Response) => {

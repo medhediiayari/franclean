@@ -203,14 +203,29 @@ export default function ClientMissions() {
                       <div className="mb-4">
                         <p className="text-[10px] font-bold text-slate-400 mb-2.5 uppercase tracking-widest px-1">Agents intervenants</p>
                         <div className="flex flex-wrap gap-2">
-                          {mission.agents.map((a) => (
-                            <span key={a.id} className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 hover-lift shadow-sm">
-                              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-sm">
-                                <User size={11} className="text-white" />
-                              </div>
-                              {a.name}
-                            </span>
-                          ))}
+                          {mission.agents.map((a) => {
+                            const hasCheckedIn = mission.attendances.some((att) => att.agentMatricule === a.matricule && att.checkInTime);
+                            return (
+                              <span key={a.id} className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold hover-lift shadow-sm ${
+                                hasCheckedIn
+                                  ? 'bg-emerald-50 border border-emerald-200/80 text-emerald-700'
+                                  : 'bg-white border border-slate-200/80 text-slate-700'
+                              }`}>
+                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${
+                                  hasCheckedIn
+                                    ? 'bg-gradient-to-br from-emerald-400 to-emerald-600'
+                                    : 'bg-gradient-to-br from-indigo-400 to-indigo-600'
+                                }`}>
+                                  <User size={11} className="text-white" />
+                                </div>
+                                {a.matricule}
+                                {hasCheckedIn
+                                  ? <CheckCircle2 size={14} className="text-emerald-500" />
+                                  : <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200/60"><Clock size={10} />Pas encore</span>
+                                }
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -227,7 +242,7 @@ export default function ClientMissions() {
                                     <User size={13} className="text-white" />
                                   </div>
                                   <div>
-                                    <span className="text-xs font-bold text-slate-800">{att.agentName}</span>
+                                    <span className="text-xs font-bold text-slate-800">{att.agentMatricule}</span>
                                     <span className="text-[10px] text-slate-400 ml-2">{formatDate(att.date)}</span>
                                   </div>
                                 </div>

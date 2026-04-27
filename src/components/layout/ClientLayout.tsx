@@ -13,6 +13,7 @@ import {
   Sparkles,
   ChevronRight,
   Users,
+  BarChart3,
 } from 'lucide-react';
 
 const baseNavItems: Array<{ to: string; icon: typeof LayoutDashboard; label: string; end?: boolean }> = [
@@ -21,6 +22,7 @@ const baseNavItems: Array<{ to: string; icon: typeof LayoutDashboard; label: str
   { to: '/client/missions', icon: ClipboardList, label: 'Missions' },
   { to: '/client/calendrier', icon: Calendar, label: 'Calendrier' },
   { to: '/client/photos', icon: Image, label: 'Photos' },
+  { to: '/client/recap', icon: BarChart3, label: 'Recap' },
 ];
 
 const teamNavItem: typeof baseNavItems[0] = { to: '/client/equipe', icon: Users, label: 'Équipe' };
@@ -38,9 +40,13 @@ export default function ClientLayout() {
     return () => clearTimeout(t);
   }, [fetchClientInfo]);
 
-  const navItems = clientInfo?.isMainAccount
-    ? [...baseNavItems, teamNavItem]
-    : baseNavItems;
+  const photoVis = clientInfo?.photoVisibility;
+  const canSeeAnyPhotos = photoVis ? (photoVis.checkin || photoVis.work) : true;
+
+  let navItems = canSeeAnyPhotos ? baseNavItems : baseNavItems.filter((item) => item.to !== '/client/photos');
+  if (clientInfo?.isMainAccount) {
+    navItems = [...navItems, teamNavItem];
+  }
 
   const handleLogout = () => {
     logout();

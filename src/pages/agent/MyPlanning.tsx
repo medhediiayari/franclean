@@ -11,6 +11,7 @@ import {
   ChevronUp,
   Calendar,
   Navigation,
+  Zap,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -424,6 +425,63 @@ export default function MyPlanning() {
                         <p className="text-xs text-slate-400">
                           Adresse : {event.address}
                         </p>
+                        {event.hourlyRate != null && event.hourlyRate > 0 && user?.agentPercentage != null && (
+                          <div className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+                            <Zap size={13} className="text-emerald-500" />
+                            <span className="text-xs text-emerald-700">
+                              Votre taux horaire :
+                              <span className="font-extrabold text-sm ml-1">
+                                {((event.hourlyRate * user.agentPercentage) / 100).toFixed(2)} €/h
+                              </span>
+                            </span>
+                          </div>
+                        )}
+                        {event.breakHours != null && event.breakHours > 0 && (
+                          <div className="inline-flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-xl">
+                            <Clock size={13} className="text-amber-500" />
+                            <span className="text-xs text-amber-700">
+                              Pause déduite :
+                              <span className="font-extrabold text-sm ml-1">
+                                {event.breakHours}h
+                              </span>
+                              <span className="ml-1 text-amber-400">par jour</span>
+                            </span>
+                          </div>
+                        )}
+                        {(() => {
+                          // Compute daily effective hours from agent's shifts
+                          const agentShifts = (event.shifts || []).filter(
+                            (s) => !s.agentId || s.agentId === user?.id
+                          );
+                          if (agentShifts.length === 0) return null;
+                          // Get unique days and compute average daily raw minutes
+                          const byDay = new Map<string, number>();
+                          for (const s of agentShifts) {
+                            const [sh, sm] = s.startTime.split(':').map(Number);
+                            const [eh, em] = s.endTime.split(':').map(Number);
+                            const mins = (eh * 60 + em) - (sh * 60 + sm);
+                            byDay.set(s.date, (byDay.get(s.date) || 0) + (mins > 0 ? mins : 0));
+                          }
+                          const dailyMins = Array.from(byDay.values());
+                          if (dailyMins.length === 0) return null;
+                          const avgMins = dailyMins.reduce((a, b) => a + b, 0) / dailyMins.length;
+                          const breakMins = (event.breakHours || 0) * 60;
+                          const effectiveMins = avgMins - breakMins;
+                          if (effectiveMins <= 0) return null;
+                          const h = Math.floor(effectiveMins / 60);
+                          const m = Math.round(effectiveMins % 60);
+                          const label = m > 0 ? `${h}h${String(m).padStart(2,'0')}` : `${h}h`;
+                          return (
+                            <div className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl">
+                              <Clock size={13} className="text-indigo-500" />
+                              <span className="text-xs text-indigo-700">
+                                Heures effectives :
+                                <span className="font-extrabold text-sm ml-1">{label}</span>
+                                <span className="ml-1 text-indigo-400">/ jour</span>
+                              </span>
+                            </div>
+                          );
+                        })()}
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
                           target="_blank"

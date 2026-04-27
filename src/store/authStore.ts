@@ -14,6 +14,8 @@ interface AuthState {
   addUser: (data: Omit<User, 'id' | 'createdAt'> & { password: string }) => Promise<User>;
   updateUser: (id: string, data: Partial<User> & { password?: string }) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+  updateProfile: (data: { firstName?: string; lastName?: string; phone?: string; avatar?: string | null }) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const TOKEN_KEY = 'bipbip-token';
@@ -89,5 +91,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   deleteUser: async (id) => {
     await api.delete(`/users/${id}`);
     set((state) => ({ users: state.users.filter((u) => u.id !== id) }));
+  },
+
+  updateProfile: async (data) => {
+    const updated = await api.put<User>('/auth/profile', data);
+    set({ user: updated });
+  },
+
+  updatePassword: async (currentPassword, newPassword) => {
+    await api.put('/auth/password', { currentPassword, newPassword });
   },
 }));

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Eye, EyeOff, LogIn, CalendarDays, MapPin, Clock, ShieldCheck, Sparkles, Droplets } from 'lucide-react';
 
@@ -167,8 +167,7 @@ export default function Login() {
                 />
               </div>
 
-              {/* Password */}
-              <div>
+                <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Mot de passe
                 </label>
@@ -188,6 +187,14 @@ export default function Login() {
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
+                </div>
+                <div className="flex justify-end mt-1.5">
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-semibold text-[#1B3A5C] hover:text-[#122A44] hover:underline transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </Link>
                 </div>
               </div>
 

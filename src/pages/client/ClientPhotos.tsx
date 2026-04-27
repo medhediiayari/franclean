@@ -142,7 +142,7 @@ export default function ClientPhotos() {
                     <p className="text-xs font-bold text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{photo.eventTitle}</p>
                     <div className="flex items-center gap-2.5 mt-2 text-[10px] text-slate-400">
                       <span className="flex items-center gap-1">
-                        <User size={10} /> {photo.agentName}
+                        <User size={10} /> {photo.agentMatricule}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar size={10} /> {formatDate(photo.date)}
@@ -207,7 +207,7 @@ export default function ClientPhotos() {
               <div>
                 <p className="text-sm font-bold text-slate-900">{photos[lightboxIdx].eventTitle}</p>
                 <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                  <span className="flex items-center gap-1"><User size={10} /> {photos[lightboxIdx].agentName}</span>
+                  <span className="flex items-center gap-1"><User size={10} /> {photos[lightboxIdx].agentMatricule}</span>
                   <span className="flex items-center gap-1"><Calendar size={10} /> {formatDate(photos[lightboxIdx].date)}</span>
                   {photos[lightboxIdx].site && <span className="flex items-center gap-1"><MapPin size={10} /> {photos[lightboxIdx].site}</span>}
                 </div>

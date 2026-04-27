@@ -5,6 +5,7 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useAppSettingsStore, getLogoSrc } from '../../store/appSettingsStore';
 import { useSocket } from '../../lib/socket';
 import NotificationPanel from '../common/NotificationPanel';
+import { getInitials } from '../../utils/helpers';
 import {
   LayoutDashboard,
   CalendarDays,
@@ -21,6 +22,7 @@ import {
   BarChart3,
   Building2,
   Settings,
+  UserCircle,
 } from 'lucide-react';
 
 const navItems = [
@@ -42,6 +44,7 @@ export default function AdminLayout() {
   const { unreadCount } = useNotificationStore();
   const { settings } = useAppSettingsStore();
   const navigate = useNavigate();
+  const initials = user ? getInitials(user.firstName, user.lastName) : '';
 
   // Socket.IO — handles all real-time data fetching & notification regeneration
   useSocket();
@@ -128,6 +131,21 @@ export default function AdminLayout() {
 
           {/* User section */}
           <div className={`px-2 py-5 border-t border-[#1B3A5C]/50 space-y-1.5`}>
+            {/* Profil */}
+            <NavLink
+              to="/admin/profil"
+              title={collapsed ? 'Mon profil' : undefined}
+              className={({ isActive }) =>
+                `flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center' : ''} ${
+                  isActive ? 'bg-[#1B3A5C] text-white' : 'text-slate-300 hover:bg-[#122A44] hover:text-white'
+                }`
+              }
+              onClick={() => setSidebarOpen(false)}
+            >
+              <UserCircle size={20} />
+              {!collapsed && 'Mon profil'}
+            </NavLink>
+
             {/* Notifications */}
             <div className="relative">
               <button
@@ -162,21 +180,27 @@ export default function AdminLayout() {
               {!collapsed && 'Déconnexion'}
             </button>
 
-            {/* User info */}
-            <div className={`flex items-center gap-3 px-3 py-2 mt-2 ${collapsed ? 'justify-center' : ''}`}>
-              <div className="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                {user?.firstName?.[0]}
-                {user?.lastName?.[0]}
-              </div>
+            {/* User info — clickable to go to profile */}
+            <button
+              onClick={() => { setSidebarOpen(false); navigate('/admin/profil'); }}
+              className={`flex items-center gap-3 w-full px-3 py-2 mt-2 rounded-lg hover:bg-[#122A44] transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
+            >
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user.firstName} className="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-2 ring-indigo-400/40" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                  {initials}
+                </div>
+              )}
               {!collapsed && (
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-medium text-white truncate">
                     {user?.firstName} {user?.lastName}
                   </p>
                   <p className="text-xs text-slate-400">Administrateur</p>
                 </div>
               )}
-            </div>
+            </button>
           </div>
         </div>
       </aside>

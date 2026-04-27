@@ -46,6 +46,8 @@ const createClientSchema = z.object({
   codeApe: z.string().optional().nullable(),
   capitalSocial: z.string().optional().nullable(),
   rcs: z.string().optional().nullable(),
+  canSeeCheckinPhotos: z.boolean().nullable().optional(),
+  canSeeWorkPhotos: z.boolean().nullable().optional(),
 });
 
 // POST /api/clients (admin)
@@ -84,6 +86,8 @@ const updateClientSchema = z.object({
   codeApe: z.string().nullable().optional(),
   capitalSocial: z.string().nullable().optional(),
   rcs: z.string().nullable().optional(),
+  canSeeCheckinPhotos: z.boolean().nullable().optional(),
+  canSeeWorkPhotos: z.boolean().nullable().optional(),
 });
 
 // PUT /api/clients/:id (admin)
@@ -117,6 +121,7 @@ const createSiteSchema = z.object({
   longitude: z.number().optional().nullable(),
   geoRadius: z.number().int().optional(),
   hourlyRate: z.number().optional().nullable(),
+  contractualHours: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -141,6 +146,7 @@ const updateSiteSchema = z.object({
   longitude: z.number().nullable().optional(),
   geoRadius: z.number().int().optional(),
   hourlyRate: z.number().nullable().optional(),
+  contractualHours: z.number().nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 

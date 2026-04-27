@@ -190,8 +190,8 @@ export default function Recap() {
       const totalM = Math.round((hw - totalH) * 60);
       const totalStr = hw > 0 ? `${totalH}:${String(totalM).padStart(2, '0')}` : '';
 
-      // Heures validées
-      const validatedHours = rec.status === 'valide' ? hw : 0;
+      // Heures validées (billedHours = heures facturées choisies par l'admin)
+      const validatedHours = rec.status === 'valide' ? (rec.billedHours || hw) : 0;
       const valH = Math.floor(validatedHours);
       const valM = Math.round((validatedHours - valH) * 60);
       const validatedStr = rec.status === 'valide' && validatedHours > 0
@@ -359,7 +359,7 @@ export default function Recap() {
       entry.totalHours += hw;
       if (rec.status === 'valide') {
         entry.validatedRecords++;
-        entry.validatedHours += hw;
+        entry.validatedHours += rec.billedHours || hw;
       }
       if (rec.status === 'en_attente') entry.pendingRecords++;
       if (rec.isSuspect) entry.suspectRecords++;
@@ -405,6 +405,7 @@ export default function Recap() {
     validatedHours: number;
     hourlyRate: number;
     totalHT: number;
+    contractualHours: number;
     totalRecords: number;
     agents: AgentDetail[];
   };
@@ -439,7 +440,7 @@ export default function Recap() {
       const entry = agentMap.get(agentId)!;
       entry.hours += hw;
       entry.count++;
-      if (rec.status === 'valide') entry.validated += hw;
+      if (rec.status === 'valide') entry.validated += rec.billedHours || hw;
       if (rate > entry.rate) entry.rate = rate;
     }
 
@@ -462,7 +463,11 @@ export default function Recap() {
 
         agents.sort((a, b) => b.totalHours - a.totalHours);
         const siteHT = siteValidated * maxRate;
-        sites.push({ site: siteName, totalHours: siteTotal, validatedHours: siteValidated, hourlyRate: maxRate, totalHT: siteHT, totalRecords: siteRecords, agents });
+        // Look up contractual hours from the clients store
+        const dbClient = clients.find((c) => c.name === clientName);
+        const dbSite = dbClient?.sites.find((s) => s.name === siteName);
+        const contractualHours = dbSite?.contractualHours ?? 0;
+        sites.push({ site: siteName, totalHours: siteTotal, validatedHours: siteValidated, hourlyRate: maxRate, totalHT: siteHT, contractualHours, totalRecords: siteRecords, agents });
 
         clientTotal += siteTotal;
         clientValidated += siteValidated;
@@ -492,7 +497,7 @@ export default function Recap() {
     });
 
     return result;
-  }, [filteredRecords, events, sortField, sortDir]);
+  }, [filteredRecords, events, clients, sortField, sortDir]);
 
   // ─── Summary stats ─────────────────────────────────
   const totalAgentHours = agentRecap.reduce((s, a) => s + a.totalHours, 0);
@@ -1131,15 +1136,11 @@ export default function Recap() {
                       </div>
                       <div className="flex items-center gap-6 flex-shrink-0">
                         <div className="text-right">
-                          <p className="text-xs text-slate-400">Heures</p>
-                          <p className="text-sm font-bold text-slate-900">{formatDuration(c.totalHours)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-slate-400">Validées</p>
+                          <p className="text-xs text-slate-400">Heures validées</p>
                           <p className="text-sm font-bold text-emerald-600">{formatDuration(c.validatedHours)}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-slate-400">Total HT</p>
+                          <p className="text-xs text-slate-400">Montant HT</p>
                           <p className="text-sm font-bold text-blue-600">{c.totalHT > 0 ? `${c.totalHT.toFixed(2)} €` : '—'}</p>
                         </div>
                         {isExpanded ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -1172,22 +1173,31 @@ export default function Recap() {
                                 </div>
                                 <div className="flex items-center gap-5 flex-shrink-0">
                                   <div className="text-right">
-                                    <p className="text-[10px] text-slate-400">Heures</p>
-                                    <p className="text-xs font-bold text-slate-800">{formatDuration(site.totalHours)}</p>
-                                  </div>
-                                  <div className="text-right">
                                     <p className="text-[10px] text-slate-400">Validées</p>
                                     <p className="text-xs font-bold text-emerald-600">{formatDuration(site.validatedHours)}</p>
                                   </div>
+                                  {site.hourlyRate > 0 && (
+                                    <div className="text-right">
+                                      <p className="text-[10px] text-slate-400">Prix/h</p>
+                                      <p className="text-xs font-bold text-slate-700">{site.hourlyRate.toFixed(2)} €</p>
+                                    </div>
+                                  )}
                                   <div className="text-right min-w-[70px]">
-                                    <p className="text-[10px] text-slate-400">HT</p>
+                                    <p className="text-[10px] text-slate-400">Montant HT</p>
                                     <p className="text-xs font-bold text-blue-600">{site.totalHT > 0 ? `${site.totalHT.toFixed(2)} €` : '—'}</p>
                                   </div>
-                                  {site.hourlyRate > 0 && (
-                                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                                      {site.hourlyRate.toFixed(2)} €/h
-                                    </span>
-                                  )}
+                                  {site.contractualHours > 0 && (() => {
+                                    const remaining = site.contractualHours - site.validatedHours;
+                                    const over = remaining < 0;
+                                    return (
+                                      <div className="text-right">
+                                        <p className="text-[10px] text-slate-400">Restantes</p>
+                                        <p className={`text-xs font-bold ${over ? 'text-rose-600' : 'text-amber-600'}`}>
+                                          {over ? '+' : ''}{Math.abs(remaining).toFixed(1)}h {over ? '(dépassé)' : `/ ${site.contractualHours}h`}
+                                        </p>
+                                      </div>
+                                    );
+                                  })()}
                                   {siteExpanded ? <ChevronUp size={14} className="text-slate-300" /> : <ChevronDown size={14} className="text-slate-300" />}
                                 </div>
                               </button>
@@ -1195,6 +1205,32 @@ export default function Recap() {
                               {/* Agents */}
                               {siteExpanded && (
                                 <div className="pl-20 pr-5 pb-3 pt-1 space-y-1">
+                                  {site.contractualHours > 0 && (() => {
+                                    const pct = Math.min(100, (site.validatedHours / site.contractualHours) * 100);
+                                    const over = site.validatedHours > site.contractualHours;
+                                    return (
+                                      <div className="mb-2 px-3 py-2.5 bg-slate-50 rounded-lg">
+                                        <div className="flex justify-between text-[10px] font-semibold text-slate-500 mb-1.5">
+                                          <span>Consommation contrat</span>
+                                          <span className={over ? 'text-rose-600' : 'text-slate-600'}>
+                                            {site.validatedHours.toFixed(1)}h / {site.contractualHours}h ({pct.toFixed(0)}%)
+                                          </span>
+                                        </div>
+                                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full transition-all ${over ? 'bg-rose-500' : pct > 80 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+                                            style={{ width: `${pct}%` }}
+                                          />
+                                        </div>
+                                        {site.hourlyRate > 0 && (
+                                          <p className="text-[10px] text-slate-400 mt-1.5">
+                                            Montant facturable : <span className="font-bold text-blue-600">{(site.validatedHours * site.hourlyRate).toFixed(2)} €</span>
+                                            {' '}· Contrat max : <span className="font-semibold">{(site.contractualHours * site.hourlyRate).toFixed(2)} €</span>
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                   {site.agents.map((ag) => (
                                     <div key={ag.agentId} className="flex items-center gap-3 py-1.5 px-3 rounded-lg bg-slate-50/80">
                                       <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
