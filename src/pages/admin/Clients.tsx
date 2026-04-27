@@ -173,7 +173,9 @@ export default function Clients() {
       latitude: siteForm.latitude ? parseFloat(siteForm.latitude) : null,
       longitude: siteForm.longitude ? parseFloat(siteForm.longitude) : null,
       geoRadius: siteForm.geoRadius ? parseInt(siteForm.geoRadius) : 500,
-      hourlyRate: siteForm.hourlyRate ? parseFloat(siteForm.hourlyRate) : null,    contractualHours: siteForm.contractualHours ? parseFloat(siteForm.contractualHours) : null,      notes: siteForm.notes || undefined,
+      hourlyRate: siteForm.hourlyRate ? parseFloat(siteForm.hourlyRate) : null,
+      contractualHours: siteForm.contractualHours ? parseFloat(siteForm.contractualHours) : undefined,
+      notes: siteForm.notes || undefined,
     };
     try {
       if (editingSite) {
