@@ -7,3 +7,16 @@ dist
 *.md
 server/node_modules
 server/dist
+
+# Fichiers inutiles pour le frontend
+server
+*.xlsx
+*.pdf
+*.sql
+*.tar
+*.tar.gz
+*.log
+docker-compose.yml
+deploy-*.sh
+DEVIS_*.html
+ROADMAP_*.html
